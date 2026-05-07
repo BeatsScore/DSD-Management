@@ -15,6 +15,7 @@ create table if not exists public.product_categories (
   id uuid default gen_random_uuid() primary key,
   name text not null,
   description text,
+  parent_id uuid references public.product_categories(id) on delete set null,
   created_at timestamptz default now()
 );
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, Package, Search } from "lucide-react";
+import { Plus, Package, Search, Tag } from "lucide-react";
 import { getStatusColor, getStatusLabel } from "@/lib/utils";
 
 export default function InventoryPage() {
@@ -57,9 +57,14 @@ export default function InventoryPage() {
             {products.length} Artikel im Bestand
           </p>
         </div>
-        <Link href="/inventar/neu/" className="btn-primary">
-          <Plus className="w-4 h-4 mr-2" /> Artikel erstellen
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/inventar/kategorien/" className="btn-secondary">
+            <Tag className="w-4 h-4 mr-2" /> Kategorien
+          </Link>
+          <Link href="/inventar/neu/" className="btn-primary">
+            <Plus className="w-4 h-4 mr-2" /> Artikel erstellen
+          </Link>
+        </div>
       </div>
 
       <div className="card">
