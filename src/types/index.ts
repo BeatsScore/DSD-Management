@@ -43,6 +43,8 @@ export interface Product {
   purchase_price: number | null;
   weight: number | null;
   condition: ProductCondition | null;
+  owner_id: string | null;
+  owner?: Profile;
   created_at: string;
   updated_at: string;
 }

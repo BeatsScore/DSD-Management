@@ -10,6 +10,7 @@ import { generateBarcode, generateProductId } from "@/lib/utils";
 
 export default function NewProductPage() {
   const [categories, setCategories] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -33,17 +34,19 @@ export default function NewProductPage() {
     purchasePrice: "",
     weight: "",
     condition: "",
+    ownerId: "",
   });
 
   useEffect(() => {
-    async function loadCategories() {
-      const { data } = await supabase
-        .from("product_categories")
-        .select("*")
-        .order("name");
-      setCategories(data || []);
+    async function load() {
+      const [{ data: cats }, { data: staffList }] = await Promise.all([
+        supabase.from("product_categories").select("*").order("name"),
+        supabase.from("profiles").select("*").in("role", ["admin", "staff"]).order("full_name"),
+      ]);
+      setCategories(cats || []);
+      setStaff(staffList || []);
     }
-    loadCategories();
+    load();
   }, [supabase]);
 
   const handleCategoryChange = (value: string) => {
@@ -168,6 +171,7 @@ export default function NewProductPage() {
           : null,
         weight: form.weight ? parseFloat(form.weight) : null,
         condition: form.condition || null,
+        owner_id: form.ownerId || null,
       })
       .select()
       .single();
@@ -362,6 +366,26 @@ export default function NewProductPage() {
               <option value="gut">Gut</option>
               <option value="gebraucht">Gebraucht</option>
               <option value="defekt">Defekt</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">Besitzer</label>
+            <select
+              className="input-field"
+              value={form.ownerId}
+              onChange={(e) =>
+                setForm({ ...form, ownerId: e.target.value })
+              }
+            >
+              <option value="">Bitte wählen</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.full_name || s.email}
+                </option>
+              ))}
             </select>
           </div>
         </div>

@@ -17,7 +17,7 @@ export default function InventoryPage() {
     async function load() {
       const { data } = await supabase
         .from("products")
-        .select("*, category:category_id(*)")
+        .select("*, category:category_id(*), owner:owner_id(full_name, email)")
         .order("created_at", { ascending: false })
         .limit(50);
       setProducts(data || []);
@@ -88,6 +88,7 @@ export default function InventoryPage() {
                 <th className="pb-3 font-medium">Kategorie</th>
                 <th className="pb-3 font-medium">Anzahl</th>
                 <th className="pb-3 font-medium">Mietpreis/Tag</th>
+                <th className="pb-3 font-medium">Besitzer</th>
                 <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 font-medium text-right">Aktionen</th>
               </tr>
@@ -113,6 +114,9 @@ export default function InventoryPage() {
                       {product.rental_price_per_day
                         ? formatCurrency(product.rental_price_per_day)
                         : "-"}
+                    </td>
+                    <td className="py-3 text-gray-600">
+                      {product.owner?.full_name || product.owner?.email || "-"}
                     </td>
                     <td className="py-3">
                       <span

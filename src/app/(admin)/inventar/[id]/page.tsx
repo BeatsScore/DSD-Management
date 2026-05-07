@@ -26,6 +26,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -35,13 +36,14 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: cats }] = await Promise.all([
+      const [{ data: p }, { data: cats }, { data: staffList }] = await Promise.all([
         supabase
           .from("products")
           .select("*, category:category_id(*)")
           .eq("id", id)
           .single(),
         supabase.from("product_categories").select("*").order("name"),
+        supabase.from("profiles").select("*").in("role", ["admin", "staff"]).order("full_name"),
       ]);
       if (p) {
         setProduct(p);
@@ -61,12 +63,14 @@ export default function ProductDetailPage() {
           purchasePrice: p.purchase_price ?? "",
           weight: p.weight ?? "",
           condition: p.condition || "",
+          ownerId: p.owner_id || "",
         });
         if (p.image_url) {
           setImagePreview(p.image_url);
         }
       }
       setCategories(cats || []);
+      setStaff(staffList || []);
       setLoading(false);
     }
     load();
@@ -144,6 +148,7 @@ export default function ProductDetailPage() {
           : null,
         weight: form.weight ? parseFloat(form.weight) : null,
         condition: form.condition || null,
+        owner_id: form.ownerId || null,
       })
       .eq("id", id);
     setSaving(false);
@@ -445,7 +450,24 @@ export default function ProductDetailPage() {
             </select>
           </div>
           <div>
-            <label className="label">Bedienungsanleitung (URL)</label>
+            <label className="label">Besitzer</label>
+            <select
+              className="input-field"
+              value={form.ownerId}
+              onChange={(e) => updateForm("ownerId", e.target.value)}
+            >
+              <option value="">Bitte wählen</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.full_name || s.email}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="label">Bedienungsanleitung (URL)</label>
             <div className="relative">
               <input
                 type="url"
@@ -460,7 +482,6 @@ export default function ProductDetailPage() {
                 </span>
               )}
             </div>
-          </div>
         </div>
 
         <div>

@@ -41,6 +41,7 @@ create table if not exists public.products (
   purchase_price numeric(10,2),
   weight numeric(10,2),
   condition text check (condition in ('neu', 'gut', 'gebraucht', 'defekt')),
+  owner_id uuid references public.profiles(id),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
