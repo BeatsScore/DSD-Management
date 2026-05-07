@@ -425,48 +425,6 @@ export default function CustomerDetailPage() {
               <TrustStatusBadge status={customer.trust_status || "gruen"} />
             </div>
 
-            {/* ID Documents */}
-            {(customer.id_document_front_url || customer.id_document_back_url) && (
-              <div className="mb-6">
-                <div className="text-xs text-gray-400 mb-2 flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5" />
-                  ID-Dokumente
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {customer.id_document_front_url && (
-                    <a
-                      href={customer.id_document_front_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
-                      <img
-                        src={customer.id_document_front_url}
-                        alt="ID Vorderseite"
-                        className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-                      />
-                      <div className="text-xs text-gray-400 mt-1 text-center">Vorderseite</div>
-                    </a>
-                  )}
-                  {customer.id_document_back_url && (
-                    <a
-                      href={customer.id_document_back_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
-                      <img
-                        src={customer.id_document_back_url}
-                        alt="ID Rückseite"
-                        className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-                      />
-                      <div className="text-xs text-gray-400 mt-1 text-center">Rückseite</div>
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
               <div>
                 <div className="text-xs text-gray-400 mb-0.5">E-Mail</div>
