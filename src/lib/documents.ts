@@ -272,8 +272,9 @@ export function generateDocument(
                 <div class="party-label">Vermieter</div>
                 <div class="party-name">DSD Management GmbH</div>
                 <div class="party-detail">
-                  Industriestrasse 12<br>
-                  8005 Zürich<br>
+                  Post EG<br>
+                  Gartenstrasse 143<br>
+                  4052 Basel<br>
                   Schweiz<br>
                   E-Mail: info@dsdmanagement.ch<br>
                   Tel: +41 44 123 45 67
@@ -375,7 +376,7 @@ export function generateDocument(
             </div>
 
             <div class="footer">
-              DSD Management GmbH | Industriestrasse 12 | 8005 Zürich | info@dsdmanagement.ch | +41 44 123 45 67<br>
+              DSD Management GmbH | Post EG, Gartenstrasse 143 | 4052 Basel | info@dsdmanagement.ch | +41 44 123 45 67<br>
               UBS AG Zürich | IBAN: CH12 3456 7890 1234 5678 9 | UID: CHE-123.456.789
             </div>
           </div>
@@ -652,8 +653,9 @@ export function generateDocument(
             <div class="footer">
               <div>
                 <strong>DSD Management GmbH</strong><br>
-                Industriestrasse 12<br>
-                8005 Zürich, Schweiz<br>
+                Post EG<br>
+                Gartenstrasse 143<br>
+                4052 Basel, Schweiz<br>
                 info@dsdmanagement.ch
               </div>
               <div style="text-align:center;">
