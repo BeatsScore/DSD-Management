@@ -51,6 +51,8 @@ export interface Product {
 
 export type OrderStatus = "offen" | "verhandlungsphase" | "vertragsphase" | "bestaetigt" | "abgeholt" | "zurueckgebracht" | "abgeschlossen" | "storniert";
 
+export type TrustStatus = "gruen" | "gelb" | "rot";
+
 export interface Customer {
   id: string;
   name: string;
@@ -59,6 +61,10 @@ export interface Customer {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  rating_payment: number | null;
+  rating_behavior: number | null;
+  rating_equipment_care: number | null;
+  trust_status: TrustStatus;
   created_at: string;
   updated_at: string;
 }
