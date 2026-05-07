@@ -171,12 +171,18 @@ export default function KategorienPage() {
     const cat = categories.find((c) => c.id === id);
     if (!cat) return;
 
-    // Safety check: must have no subcategories and no products
-    if (cat.subcategoryCount > 0 || cat.productCount > 0) {
-      toast.error("Kategorie enthält noch Unterkategorien oder Produkte");
-      setDeletingId(null);
-      setDeleteConfirm(null);
-      return;
+    // First, remove category assignment from all products in this category
+    if (cat.productCount > 0) {
+      const { error: prodError } = await supabase
+        .from("products")
+        .update({ category_id: null })
+        .eq("category_id", id);
+      if (prodError) {
+        toast.error("Fehler beim Entfernen der Produktzuordnungen");
+        setDeletingId(null);
+        setDeleteConfirm(null);
+        return;
+      }
     }
 
     const { error } = await supabase
@@ -363,18 +369,7 @@ export default function KategorienPage() {
                           <Plus className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (
-                              main.subcategoryCount > 0 ||
-                              main.productCount > 0
-                            ) {
-                              toast.error(
-                                "Kategorie enthält noch Unterkategorien oder Produkte"
-                              );
-                              return;
-                            }
-                            setDeleteConfirm(main.id);
-                          }}
+                          onClick={() => setDeleteConfirm(main.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50"
                           title="Löschen"
                         >
@@ -487,15 +482,7 @@ export default function KategorienPage() {
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => {
-                                  if (sub.productCount > 0) {
-                                    toast.error(
-                                      "Kategorie enthält noch Produkte"
-                                    );
-                                    return;
-                                  }
-                                  setDeleteConfirm(sub.id);
-                                }}
+                                onClick={() => setDeleteConfirm(sub.id)}
                                 className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50"
                                 title="Löschen"
                               >
@@ -515,35 +502,57 @@ export default function KategorienPage() {
       </div>
 
       {/* Delete confirmation modal */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6">
-            <div className="flex items-center gap-3 text-red-600 mb-4">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="font-semibold text-lg">Kategorie löschen?</h3>
-            </div>
-            <p className="text-gray-600 mb-6">
-              Diese Aktion kann nicht rückgängig gemacht werden. Produkte in
-              dieser Kategorie verlieren ihre Kategoriezuordnung.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={() => deleteCategory(deleteConfirm)}
-                disabled={deletingId === deleteConfirm}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
-              >
-                {deletingId === deleteConfirm ? "Löschen..." : "Löschen"}
-              </button>
+      {deleteConfirm && (() => {
+        const cat = categories.find((c) => c.id === deleteConfirm);
+        if (!cat) return null;
+        const hasProducts = cat.productCount > 0;
+        const hasSubs = cat.subcategoryCount > 0;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6">
+              <div className="flex items-center gap-3 text-red-600 mb-4">
+                <AlertTriangle className="w-6 h-6" />
+                <h3 className="font-semibold text-lg">Kategorie löschen?</h3>
+              </div>
+              <p className="text-gray-600 mb-2">
+                <strong>{cat.name}</strong> wird gelöscht. Diese Aktion kann
+                nicht rückgängig gemacht werden.
+              </p>
+              <ul className="text-sm text-gray-500 list-disc list-inside mb-6 space-y-1">
+                {hasProducts && (
+                  <li>
+                    {cat.productCount} Produkt
+                    {cat.productCount !== 1 ? "e" : ""} verlieren die
+                    Kategoriezuordnung.
+                  </li>
+                )}
+                {hasSubs && (
+                  <li>
+                    {cat.subcategoryCount} Unterkategorie
+                    {cat.subcategoryCount !== 1 ? "n" : ""} werden zu
+                    Hauptkategorien.
+                  </li>
+                )}
+              </ul>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={() => deleteCategory(deleteConfirm)}
+                  disabled={deletingId === deleteConfirm}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingId === deleteConfirm ? "Löschen..." : "Löschen"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
