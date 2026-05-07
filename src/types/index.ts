@@ -19,6 +19,8 @@ export interface ProductCategory {
 
 export type ProductStatus = "verfuegbar" | "vermietet" | "reserviert" | "defekt";
 
+export type ProductCondition = "neu" | "gut" | "gebraucht" | "defekt";
+
 export interface Product {
   id: string;
   product_id: string;
@@ -27,11 +29,20 @@ export interface Product {
   manufacture_date: string | null;
   dimensions: string | null;
   description: string | null;
-  category_id: string;
+  category_id: string | null;
   category?: ProductCategory;
   status: ProductStatus;
   barcode: string;
   barcode_data_url: string | null;
+  image_url: string | null;
+  technical_specs: string | null;
+  rental_price_per_day: number | null;
+  quantity: number;
+  manual_url: string | null;
+  purchase_date: string | null;
+  purchase_price: number | null;
+  weight: number | null;
+  condition: ProductCondition | null;
   created_at: string;
   updated_at: string;
 }

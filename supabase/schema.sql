@@ -32,6 +32,15 @@ create table if not exists public.products (
   status text not null default 'verfuegbar' check (status in ('verfuegbar', 'vermietet', 'reserviert', 'defekt')),
   barcode text not null unique,
   barcode_data_url text,
+  image_url text,
+  technical_specs text,
+  rental_price_per_day numeric(10,2),
+  quantity integer not null default 1,
+  manual_url text,
+  purchase_date date,
+  purchase_price numeric(10,2),
+  weight numeric(10,2),
+  condition text check (condition in ('neu', 'gut', 'gebraucht', 'defekt')),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Plus, Package, Search, Tag } from "lucide-react";
-import { getStatusColor, getStatusLabel } from "@/lib/utils";
+import { getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -86,6 +86,8 @@ export default function InventoryPage() {
                 <th className="pb-3 font-medium">Name</th>
                 <th className="pb-3 font-medium">Hersteller</th>
                 <th className="pb-3 font-medium">Kategorie</th>
+                <th className="pb-3 font-medium">Anzahl</th>
+                <th className="pb-3 font-medium">Mietpreis/Tag</th>
                 <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 font-medium text-right">Aktionen</th>
               </tr>
@@ -103,6 +105,14 @@ export default function InventoryPage() {
                     </td>
                     <td className="py-3 text-gray-600">
                       {product.category?.name || "-"}
+                    </td>
+                    <td className="py-3 text-gray-600">
+                      {product.quantity ?? 1}
+                    </td>
+                    <td className="py-3 text-gray-600">
+                      {product.rental_price_per_day
+                        ? formatCurrency(product.rental_price_per_day)
+                        : "-"}
                     </td>
                     <td className="py-3">
                       <span
