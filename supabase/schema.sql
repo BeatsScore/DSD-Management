@@ -55,6 +55,8 @@ create table if not exists public.customers (
   phone text,
   address text,
   notes text,
+  id_document_front_url text,
+  id_document_back_url text,
   rating_payment integer check (rating_payment between 0 and 5),
   rating_behavior integer check (rating_behavior between 0 and 5),
   rating_equipment_care integer check (rating_equipment_care between 0 and 5),

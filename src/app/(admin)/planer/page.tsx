@@ -147,14 +147,20 @@ export default function PlannerPage() {
     if (!scanningOrderId || !frontBlob) return;
     setSavingId(true);
 
-    const orderPrefix = scanningOrder?.order_number || scanningOrderId.substring(0, 8);
+    const customerId = scanningOrder?.customer_id;
+    if (!customerId) {
+      toast.error("Kein Kunde für diesen Auftrag gefunden.");
+      setSavingId(false);
+      return;
+    }
+
     const timestamp = Date.now();
 
     let frontUrl: string | null = null;
     let backUrl: string | null = null;
 
     // Upload front
-    const frontPath = `${scanningOrderId}/front-${timestamp}.jpg`;
+    const frontPath = `${customerId}/front-${timestamp}.jpg`;
     const { error: frontError } = await supabase.storage
       .from("id-documents")
       .upload(frontPath, frontBlob, { contentType: "image/jpeg" });
@@ -168,7 +174,7 @@ export default function PlannerPage() {
 
     // Upload back if exists
     if (backBlob) {
-      const backPath = `${scanningOrderId}/back-${timestamp}.jpg`;
+      const backPath = `${customerId}/back-${timestamp}.jpg`;
       const { error: backError } = await supabase.storage
         .from("id-documents")
         .upload(backPath, backBlob, { contentType: "image/jpeg" });
@@ -181,14 +187,14 @@ export default function PlannerPage() {
       backUrl = backData.publicUrl;
     }
 
-    // Update order
+    // Update customer
     const { error: updateError } = await supabase
-      .from("orders")
+      .from("customers")
       .update({
         id_document_front_url: frontUrl,
         id_document_back_url: backUrl,
       })
-      .eq("id", scanningOrderId);
+      .eq("id", customerId);
 
     setSavingId(false);
 
@@ -197,16 +203,13 @@ export default function PlannerPage() {
       return;
     }
 
-    toast.success("ID-Dokumente gespeichert.");
+    toast.success("ID-Dokumente beim Kunden gespeichert.");
     setShowIdCapture(false);
     setFrontImage(null);
     setBackImage(null);
     setFrontBlob(null);
     setBackBlob(null);
     setIdCaptureStep("front");
-    setScanningOrder((prev: any) =>
-      prev ? { ...prev, id_document_front_url: frontUrl, id_document_back_url: backUrl } : prev
-    );
   };
 
   const openIdCapture = () => {
@@ -461,7 +464,6 @@ export default function PlannerPage() {
     const totalItems = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
     const scannedCount = scannedItems.length;
     const allScanned = scannedCount >= totalItems && totalItems > 0;
-    const hasIdDocument = !!scanningOrder?.id_document_front_url;
 
     return (
       <div className="max-w-xl mx-auto">
@@ -472,28 +474,16 @@ export default function PlannerPage() {
           </button>
         </div>
 
-        {/* ID Capture Button - only show if no ID yet */}
-        {!hasIdDocument && (
-          <div className="mb-4">
-            <button
-              onClick={openIdCapture}
-              className="w-full card flex items-center justify-center gap-2 py-4 border-dashed border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 transition-colors text-blue-700"
-            >
-              <CreditCard className="w-5 h-5" />
-              <span className="font-medium">ID Erfassung</span>
-            </button>
-          </div>
-        )}
-
-        {/* ID Document indicator */}
-        {hasIdDocument && (
-          <div className="card mb-4 bg-green-50 border-green-200">
-            <div className="flex items-center gap-2 text-green-700">
-              <CheckCircle2 className="w-5 h-5" />
-              <span className="text-sm font-medium">ID-Dokument erfasst</span>
-            </div>
-          </div>
-        )}
+        {/* ID Capture Button */}
+        <div className="mb-4">
+          <button
+            onClick={openIdCapture}
+            className="w-full card flex items-center justify-center gap-2 py-4 border-dashed border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 transition-colors text-blue-700"
+          >
+            <CreditCard className="w-5 h-5" />
+            <span className="font-medium">ID Erfassung</span>
+          </button>
+        </div>
 
         <div className="card mb-6">
           <div className="flex items-center justify-between mb-2">
