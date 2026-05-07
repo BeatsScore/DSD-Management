@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, Users, Search, Eye } from "lucide-react";
+import { Plus, Users, Search, Eye, Shield, ShieldCheck, ShieldAlert } from "lucide-react";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -80,6 +80,7 @@ export default function CustomersPage() {
                 <th className="pb-3 font-medium">Firma</th>
                 <th className="pb-3 font-medium">E-Mail</th>
                 <th className="pb-3 font-medium">Telefon</th>
+                <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 font-medium text-right">Aktionen</th>
               </tr>
             </thead>
@@ -91,6 +92,20 @@ export default function CustomersPage() {
                     <td className="py-3 text-gray-600">{customer.company || "-"}</td>
                     <td className="py-3 text-gray-600">{customer.email}</td>
                     <td className="py-3 text-gray-600">{customer.phone || "-"}</td>
+                    <td className="py-3">
+                      {customer.trust_status === "gruen" && (
+                        <ShieldCheck className="w-5 h-5 text-green-500" />
+                      )}
+                      {customer.trust_status === "gelb" && (
+                        <Shield className="w-5 h-5 text-yellow-500" />
+                      )}
+                      {customer.trust_status === "rot" && (
+                        <ShieldAlert className="w-5 h-5 text-red-500" />
+                      )}
+                      {!customer.trust_status && (
+                        <ShieldCheck className="w-5 h-5 text-green-500" />
+                      )}
+                    </td>
                     <td className="py-3 text-right">
                       <Link
                         href={`/kunden/${customer.id}/`}
@@ -104,7 +119,7 @@ export default function CustomersPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-500">
+                  <td colSpan={6} className="py-12 text-center text-gray-500">
                     <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                     Keine Kunden gefunden.
                   </td>
