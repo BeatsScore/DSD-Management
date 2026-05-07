@@ -18,6 +18,7 @@ import {
   CreditCard,
   Eye,
 } from "lucide-react";
+import { Html5QrcodeScanner } from "html5-qrcode";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 
 export default function PlannerPage() {
@@ -39,6 +40,10 @@ export default function PlannerPage() {
   const [backBlob, setBackBlob] = useState<Blob | null>(null);
   const [savingId, setSavingId] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+
+  // Barcode scanner states
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -237,30 +242,68 @@ export default function PlannerPage() {
     setOrderItems(items || []);
   };
 
-  const handleScan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!scanInput.trim() || !scanningOrderId) return;
+  const processBarcode = useCallback((barcode: string) => {
+    if (!barcode || !scanningOrderId) return;
 
-    const barcode = scanInput.trim();
+    const trimmed = barcode.trim();
     const matchedItem = orderItems.find(
-      (item) => item.product?.barcode === barcode && !scannedItems.includes(item.product?.id)
+      (item) => item.product?.barcode === trimmed && !scannedItems.includes(item.product?.id)
     );
 
     if (matchedItem) {
-      setScannedItems([...scannedItems, matchedItem.product.id]);
+      setScannedItems((prev) => [...prev, matchedItem.product.id]);
       toast.success(`${matchedItem.product.name} gescannt`);
     } else {
       const matchedById = orderItems.find(
-        (item) => item.product?.product_id === barcode && !scannedItems.includes(item.product?.id)
+        (item) => item.product?.product_id === trimmed && !scannedItems.includes(item.product?.id)
       );
       if (matchedById) {
-        setScannedItems([...scannedItems, matchedById.product.id]);
+        setScannedItems((prev) => [...prev, matchedById.product.id]);
         toast.success(`${matchedById.product.name} gescannt`);
       } else {
         toast.error("Artikel nicht in diesem Auftrag gefunden oder bereits gescannt.");
       }
     }
     setScanInput("");
+  }, [scanningOrderId, orderItems, scannedItems]);
+
+  useEffect(() => {
+    if (!showBarcodeScanner) return;
+
+    const scanner = new Html5QrcodeScanner(
+      "barcode-scanner-container",
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        rememberLastUsedCamera: true,
+        showTorchButtonIfSupported: true,
+      },
+      false
+    );
+
+    scanner.render(
+      (decodedText: string) => {
+        processBarcode(decodedText);
+        setShowBarcodeScanner(false);
+        scanner.clear().catch(() => {});
+        scannerRef.current = null;
+      },
+      () => {}
+    );
+
+    scannerRef.current = scanner;
+
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(() => {});
+        scannerRef.current = null;
+      }
+    };
+  }, [showBarcodeScanner, processBarcode]);
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    processBarcode(scanInput);
   };
 
   const confirmPickup = async () => {
@@ -286,6 +329,11 @@ export default function PlannerPage() {
     setOrderItems([]);
     stopCamera();
     setShowIdCapture(false);
+    setShowBarcodeScanner(false);
+    if (scannerRef.current) {
+      scannerRef.current.clear().catch(() => {});
+      scannerRef.current = null;
+    }
   };
 
   if (loading) {
@@ -472,7 +520,11 @@ export default function PlannerPage() {
             value={scanInput}
             onChange={(e) => setScanInput(e.target.value)}
           />
-          <button type="submit" className="btn-primary px-4">
+          <button
+            type="button"
+            onClick={() => setShowBarcodeScanner(true)}
+            className="btn-primary px-4"
+          >
             <QrCode className="w-4 h-4" />
           </button>
         </form>
@@ -520,6 +572,30 @@ export default function PlannerPage() {
           <CheckCircle2 className="w-4 h-4 inline mr-2" />
           Abholung bestätigen
         </button>
+
+        {/* Barcode Scanner Modal */}
+        {showBarcodeScanner && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg">Barcode scannen</h3>
+                <button
+                  onClick={() => {
+                    setShowBarcodeScanner(false);
+                    if (scannerRef.current) {
+                      scannerRef.current.clear().catch(() => {});
+                      scannerRef.current = null;
+                    }
+                  }}
+                  className="p-2 text-gray-400 hover:text-black"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div id="barcode-scanner-container" className="rounded-lg overflow-hidden" />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
