@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, Package, Search, Tag } from "lucide-react";
+import { Plus, Package, Search, Tag, Eye } from "lucide-react";
 import { getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
 
 export default function InventoryPage() {
@@ -126,9 +126,10 @@ export default function InventoryPage() {
                     <td className="py-3 text-right">
                       <Link
                         href={`/inventar/${product.id}/`}
-                        className="text-accent hover:underline text-xs"
+                        className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                        title="Details"
                       >
-                        Details
+                        <Eye className="w-4 h-4" />
                       </Link>
                     </td>
                   </tr>

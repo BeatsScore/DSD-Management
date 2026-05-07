@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, ClipboardList, Search } from "lucide-react";
+import { Plus, ClipboardList, Search, Eye } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 
 export default function OrdersPage() {
@@ -117,9 +117,10 @@ export default function OrdersPage() {
                     <td className="py-3 text-right">
                       <Link
                         href={`/auftraege/${order.id}/`}
-                        className="text-accent hover:underline text-xs"
+                        className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                        title="Details"
                       >
-                        Details
+                        <Eye className="w-4 h-4" />
                       </Link>
                     </td>
                   </tr>

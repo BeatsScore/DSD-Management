@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Check,
   CreditCard,
+  Eye,
 } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 
@@ -552,8 +553,12 @@ export default function PlannerPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Link href={`/auftraege/${order.id}/`} className="btn-secondary text-sm py-2 px-3">
-                  Details
+                <Link
+                  href={`/auftraege/${order.id}/`}
+                  className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                  title="Details"
+                >
+                  <Eye className="w-4 h-4" />
                 </Link>
                 {order.status === "bestaetigt" && (
                   <button onClick={() => startPickup(order.id)} className="btn-primary text-sm py-2 px-3">
