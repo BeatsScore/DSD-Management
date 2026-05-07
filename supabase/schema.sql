@@ -24,7 +24,7 @@ create table if not exists public.products (
   id uuid default gen_random_uuid() primary key,
   product_id text not null unique,
   name text not null,
-  manufacturer text not null,
+  manufacturer text,
   manufacture_date date,
   dimensions text,
   description text,

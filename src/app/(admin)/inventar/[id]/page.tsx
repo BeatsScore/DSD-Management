@@ -308,12 +308,11 @@ export default function ProductDetailPage() {
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">Herstellername *</label>
+            <label className="label">Herstellername</label>
             <input
               className="input-field"
               value={form.manufacturer}
               onChange={(e) => updateForm("manufacturer", e.target.value)}
-              required
             />
           </div>
           <div>

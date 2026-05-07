@@ -126,8 +126,8 @@ export default function NewProductPage() {
       }
     }
 
-    if (!form.name || !form.manufacturer) {
-      toast.error("Bitte füllen Sie alle Pflichtfelder aus.");
+    if (!form.name) {
+      toast.error("Bitte geben Sie einen Produktnamen ein.");
       return;
     }
 
@@ -252,14 +252,13 @@ export default function NewProductPage() {
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">Herstellername *</label>
+            <label className="label">Herstellername</label>
             <input
               className="input-field"
               value={form.manufacturer}
               onChange={(e) =>
                 setForm({ ...form, manufacturer: e.target.value })
               }
-              required
             />
           </div>
           <div>
