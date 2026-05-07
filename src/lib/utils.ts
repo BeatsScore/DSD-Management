@@ -1,0 +1,82 @@
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function formatDate(date: string | null | undefined): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("de-CH");
+}
+
+export function formatDateTime(date: string | null | undefined): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleString("de-CH");
+}
+
+export function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null) return "-";
+  return new Intl.NumberFormat("de-CH", {
+    style: "currency",
+    currency: "CHF",
+  }).format(amount);
+}
+
+export function generateOrderNumber(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `AUF-${year}-${random}`;
+}
+
+export function generateProductId(categoryPrefix: string, index: number): string {
+  const padded = String(index).padStart(4, "0");
+  return `${categoryPrefix.toUpperCase()}-${padded}`;
+}
+
+export function generateBarcode(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+export function getStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    verfuegbar: "bg-green-100 text-green-800",
+    vermietet: "bg-blue-100 text-blue-800",
+    reserviert: "bg-yellow-100 text-yellow-800",
+    defekt: "bg-red-100 text-red-800",
+    offen: "bg-gray-100 text-gray-800",
+    verhandlungsphase: "bg-yellow-100 text-yellow-800",
+    vertragsphase: "bg-orange-100 text-orange-800",
+    bestaetigt: "bg-green-100 text-green-800",
+    abgeholt: "bg-blue-100 text-blue-800",
+    zurueckgebracht: "bg-purple-100 text-purple-800",
+    abgeschlossen: "bg-green-100 text-green-800",
+    storniert: "bg-red-100 text-red-800",
+    bearbeitung: "bg-blue-100 text-blue-800",
+    abgelehnt: "bg-red-100 text-red-800",
+    angebot_erstellt: "bg-yellow-100 text-yellow-800",
+  };
+  return colors[status] || "bg-gray-100 text-gray-800";
+}
+
+export function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    verfuegbar: "Verfügbar",
+    vermietet: "Vermietet",
+    reserviert: "Reserviert",
+    defekt: "Defekt",
+    offen: "Offen",
+    verhandlungsphase: "Verhandlungsphase",
+    vertragsphase: "Vertragsphase",
+    bestaetigt: "Bestaetigt",
+    abgeholt: "Abgeholt",
+    zurueckgebracht: "Zurückgebracht",
+    abgeschlossen: "Abgeschlossen",
+    storniert: "Storniert",
+    bearbeitung: "In Bearbeitung",
+    abgelehnt: "Abgelehnt",
+    angebot_erstellt: "Angebot erstellt",
+  };
+  return labels[status] || status;
+}

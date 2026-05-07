@@ -1,0 +1,121 @@
+export type UserRole = "admin" | "staff" | "customer";
+
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: UserRole;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
+
+export type ProductStatus = "verfuegbar" | "vermietet" | "reserviert" | "defekt";
+
+export interface Product {
+  id: string;
+  product_id: string;
+  name: string;
+  manufacturer: string;
+  manufacture_date: string | null;
+  dimensions: string | null;
+  description: string | null;
+  category_id: string;
+  category?: ProductCategory;
+  status: ProductStatus;
+  barcode: string;
+  barcode_data_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OrderStatus = "offen" | "verhandlungsphase" | "vertragsphase" | "bestaetigt" | "abgeholt" | "zurueckgebracht" | "abgeschlossen" | "storniert";
+
+export interface Customer {
+  id: string;
+  name: string;
+  company: string | null;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Order {
+  id: string;
+  order_number: string;
+  customer_id: string;
+  customer?: Customer;
+  assigned_to: string | null;
+  assigned_profile?: Profile;
+  status: OrderStatus;
+  start_date: string;
+  end_date: string;
+  total_amount: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  product?: Product;
+  quantity: number;
+  price_per_day: number | null;
+  created_at: string;
+}
+
+export type RequestStatus = "offen" | "bearbeitung" | "abgelehnt" | "angebot_erstellt";
+
+export interface Request {
+  id: string;
+  name: string;
+  company: string | null;
+  email: string;
+  phone: string | null;
+  event_description: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  product_ids: string[] | null;
+  status: RequestStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Document {
+  id: string;
+  order_id: string;
+  type: "angebot" | "rechnung" | "mietvertrag" | "auftragsbestaetigung" | "ablehnung";
+  file_url: string | null;
+  file_name: string;
+  created_at: string;
+}
+
+export interface InventoryStatusLog {
+  id: string;
+  product_id: string;
+  old_status: ProductStatus;
+  new_status: ProductStatus;
+  changed_by: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface PickupSession {
+  id: string;
+  order_id: string;
+  started_at: string;
+  completed_at: string | null;
+  scanned_items: string[];
+  started_by: string;
+}
