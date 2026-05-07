@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -12,6 +12,10 @@ import {
   Circle,
   ArrowRight,
   X,
+  Camera,
+  RotateCcw,
+  Check,
+  CreditCard,
 } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 
@@ -22,7 +26,21 @@ export default function PlannerPage() {
   const [scanInput, setScanInput] = useState("");
   const [scannedItems, setScannedItems] = useState<string[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [scanningOrder, setScanningOrder] = useState<any>(null);
   const supabase = createClient();
+
+  // ID Capture states
+  const [showIdCapture, setShowIdCapture] = useState(false);
+  const [idCaptureStep, setIdCaptureStep] = useState<"front" | "back" | "review">("front");
+  const [frontImage, setFrontImage] = useState<string | null>(null);
+  const [backImage, setBackImage] = useState<string | null>(null);
+  const [frontBlob, setFrontBlob] = useState<Blob | null>(null);
+  const [backBlob, setBackBlob] = useState<Blob | null>(null);
+  const [savingId, setSavingId] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const loadOrders = useCallback(async () => {
     const { data } = await supabase
@@ -38,7 +56,176 @@ export default function PlannerPage() {
     loadOrders();
   }, [loadOrders]);
 
+  // Camera cleanup
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch {
+      toast.error("Kamera konnte nicht gestartet werden.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        if (idCaptureStep === "front") {
+          setFrontImage(url);
+          setFrontBlob(blob);
+          setIdCaptureStep("back");
+          // Restart camera for back side
+          if (stream) {
+            stream.getTracks().forEach((t) => t.stop());
+          }
+          startCamera();
+        } else if (idCaptureStep === "back") {
+          setBackImage(url);
+          setBackBlob(blob);
+          stopCamera();
+          setIdCaptureStep("review");
+        }
+      },
+      "image/jpeg",
+      0.9
+    );
+  };
+
+  const retake = () => {
+    if (idCaptureStep === "review" && backImage) {
+      setBackImage(null);
+      setBackBlob(null);
+      setIdCaptureStep("back");
+      startCamera();
+    } else if (idCaptureStep === "back" && frontImage) {
+      setBackImage(null);
+      setBackBlob(null);
+      setIdCaptureStep("front");
+      startCamera();
+    } else if (idCaptureStep === "front") {
+      startCamera();
+    }
+  };
+
+  const saveIdDocuments = async () => {
+    if (!scanningOrderId || !frontBlob) return;
+    setSavingId(true);
+
+    const orderPrefix = scanningOrder?.order_number || scanningOrderId.substring(0, 8);
+    const timestamp = Date.now();
+
+    let frontUrl: string | null = null;
+    let backUrl: string | null = null;
+
+    // Upload front
+    const frontPath = `${scanningOrderId}/front-${timestamp}.jpg`;
+    const { error: frontError } = await supabase.storage
+      .from("id-documents")
+      .upload(frontPath, frontBlob, { contentType: "image/jpeg" });
+    if (frontError) {
+      toast.error("Fehler beim Upload Vorderseite: " + frontError.message);
+      setSavingId(false);
+      return;
+    }
+    const { data: frontData } = supabase.storage.from("id-documents").getPublicUrl(frontPath);
+    frontUrl = frontData.publicUrl;
+
+    // Upload back if exists
+    if (backBlob) {
+      const backPath = `${scanningOrderId}/back-${timestamp}.jpg`;
+      const { error: backError } = await supabase.storage
+        .from("id-documents")
+        .upload(backPath, backBlob, { contentType: "image/jpeg" });
+      if (backError) {
+        toast.error("Fehler beim Upload Rückseite: " + backError.message);
+        setSavingId(false);
+        return;
+      }
+      const { data: backData } = supabase.storage.from("id-documents").getPublicUrl(backPath);
+      backUrl = backData.publicUrl;
+    }
+
+    // Update order
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({
+        id_document_front_url: frontUrl,
+        id_document_back_url: backUrl,
+      })
+      .eq("id", scanningOrderId);
+
+    setSavingId(false);
+
+    if (updateError) {
+      toast.error("Fehler beim Speichern: " + updateError.message);
+      return;
+    }
+
+    toast.success("ID-Dokumente gespeichert.");
+    setShowIdCapture(false);
+    setFrontImage(null);
+    setBackImage(null);
+    setFrontBlob(null);
+    setBackBlob(null);
+    setIdCaptureStep("front");
+    setScanningOrder((prev: any) =>
+      prev ? { ...prev, id_document_front_url: frontUrl, id_document_back_url: backUrl } : prev
+    );
+  };
+
+  const openIdCapture = () => {
+    setShowIdCapture(true);
+    setIdCaptureStep("front");
+    setFrontImage(null);
+    setBackImage(null);
+    setFrontBlob(null);
+    setBackBlob(null);
+    startCamera();
+  };
+
+  const closeIdCapture = () => {
+    stopCamera();
+    setShowIdCapture(false);
+    setFrontImage(null);
+    setBackImage(null);
+    setFrontBlob(null);
+    setBackBlob(null);
+    setIdCaptureStep("front");
+  };
+
   const startPickup = async (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    setScanningOrder(order || null);
     setScanningOrderId(orderId);
     setScannedItems([]);
     setScanInput("");
@@ -62,7 +249,6 @@ export default function PlannerPage() {
       setScannedItems([...scannedItems, matchedItem.product.id]);
       toast.success(`${matchedItem.product.name} gescannt`);
     } else {
-      // Try by product_id as fallback
       const matchedById = orderItems.find(
         (item) => item.product?.product_id === barcode && !scannedItems.includes(item.product?.id)
       );
@@ -86,15 +272,19 @@ export default function PlannerPage() {
       toast.error("Fehler: " + error.message);
       return;
     }
-    toast.success("Abholung bestaetigt.");
+    toast.success("Abholung bestätigt.");
     setScanningOrderId(null);
+    setScanningOrder(null);
     loadOrders();
   };
 
   const cancelScan = () => {
     setScanningOrderId(null);
+    setScanningOrder(null);
     setScannedItems([]);
     setOrderItems([]);
+    stopCamera();
+    setShowIdCapture(false);
   };
 
   if (loading) {
@@ -105,10 +295,124 @@ export default function PlannerPage() {
     );
   }
 
+  // ID Capture Modal
+  if (showIdCapture && scanningOrderId) {
+    const hasFront = !!frontImage;
+    const hasBack = !!backImage;
+
+    return (
+      <div className="max-w-xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="page-header">ID Erfassung</h1>
+          <button onClick={closeIdCapture} className="p-2 text-gray-400 hover:text-black">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="card mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div
+              className={`flex-1 h-2 rounded-full ${
+                hasFront ? "bg-green-500" : "bg-gray-200"
+              }`}
+            />
+            <div
+              className={`flex-1 h-2 rounded-full ${
+                hasBack ? "bg-green-500" : "bg-gray-200"
+              }`}
+            />
+          </div>
+          <div className="text-sm text-gray-500 text-center">
+            {idCaptureStep === "front" && "Vorderseite des Ausweises fotografieren"}
+            {idCaptureStep === "back" && "Rückseite des Ausweises fotografieren"}
+            {idCaptureStep === "review" && "Überprüfung der Aufnahmen"}
+          </div>
+        </div>
+
+        {/* Camera preview or captured image */}
+        <div className="card mb-4 overflow-hidden">
+          <div className="relative aspect-[4/3] bg-black rounded-lg overflow-hidden">
+            {idCaptureStep === "review" ? (
+              <div className="grid grid-cols-2 gap-2 h-full p-2">
+                {frontImage && (
+                  <img
+                    src={frontImage}
+                    alt="Vorderseite"
+                    className="w-full h-full object-cover rounded"
+                  />
+                )}
+                {backImage && (
+                  <img
+                    src={backImage}
+                    alt="Rückseite"
+                    className="w-full h-full object-cover rounded"
+                  />
+                )}
+              </div>
+            ) : (
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                  <button
+                    onClick={capturePhoto}
+                    className="w-16 h-16 rounded-full border-4 border-white bg-white/20 hover:bg-white/30 transition-colors"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <canvas ref={canvasRef} className="hidden" />
+
+        <div className="flex gap-3">
+          {idCaptureStep === "review" ? (
+            <>
+              <button
+                onClick={retake}
+                className="flex-1 btn-secondary py-3 flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Erneut versuchen
+              </button>
+              <button
+                onClick={saveIdDocuments}
+                disabled={savingId}
+                className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
+              >
+                {savingId ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                Fertigstellen
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={closeIdCapture}
+              className="w-full btn-secondary py-3"
+            >
+              Abbrechen
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Scan Modal
   if (scanningOrderId) {
     const totalItems = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
     const scannedCount = scannedItems.length;
     const allScanned = scannedCount >= totalItems && totalItems > 0;
+    const hasIdDocument = !!scanningOrder?.id_document_front_url;
 
     return (
       <div className="max-w-xl mx-auto">
@@ -118,6 +422,29 @@ export default function PlannerPage() {
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* ID Capture Button - only show if no ID yet */}
+        {!hasIdDocument && (
+          <div className="mb-4">
+            <button
+              onClick={openIdCapture}
+              className="w-full card flex items-center justify-center gap-2 py-4 border-dashed border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 transition-colors text-blue-700"
+            >
+              <CreditCard className="w-5 h-5" />
+              <span className="font-medium">ID Erfassung</span>
+            </button>
+          </div>
+        )}
+
+        {/* ID Document indicator */}
+        {hasIdDocument && (
+          <div className="card mb-4 bg-green-50 border-green-200">
+            <div className="flex items-center gap-2 text-green-700">
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="text-sm font-medium">ID-Dokument erfasst</span>
+            </div>
+          </div>
+        )}
 
         <div className="card mb-6">
           <div className="flex items-center justify-between mb-2">
@@ -190,7 +517,7 @@ export default function PlannerPage() {
           }`}
         >
           <CheckCircle2 className="w-4 h-4 inline mr-2" />
-          Abholung bestaetigen
+          Abholung bestätigen
         </button>
       </div>
     );
