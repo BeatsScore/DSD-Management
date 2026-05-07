@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, Users, Search, Eye, Shield, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Plus, Users, Search, Eye, Shield, ShieldCheck, ShieldAlert, CreditCard } from "lucide-react";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -81,6 +81,7 @@ export default function CustomersPage() {
                 <th className="pb-3 font-medium">E-Mail</th>
                 <th className="pb-3 font-medium">Telefon</th>
                 <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 font-medium">ID</th>
                 <th className="pb-3 font-medium text-right">Aktionen</th>
               </tr>
             </thead>
@@ -106,6 +107,15 @@ export default function CustomersPage() {
                         <ShieldCheck className="w-5 h-5 text-green-500" />
                       )}
                     </td>
+                    <td className="py-3">
+                      {(customer.id_document_front_url || customer.id_document_back_url) ? (
+                        <span title="ID-Dokument hinterlegt">
+                          <CreditCard className="w-5 h-5 text-blue-500" />
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
                     <td className="py-3 text-right">
                       <Link
                         href={`/kunden/${customer.id}/`}
@@ -119,7 +129,7 @@ export default function CustomersPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-500">
+                  <td colSpan={7} className="py-12 text-center text-gray-500">
                     <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                     Keine Kunden gefunden.
                   </td>
