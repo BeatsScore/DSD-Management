@@ -770,7 +770,7 @@ export default function PlannerPage() {
                   >
                     <Eye className="w-4 h-4" />
                   </Link>
-                  {order.status === "abgeholt" && (
+                  {(order.status === "abgeholt" || order.status === "bestaetigt") && (
                     <button onClick={() => startReturn(order.id)} className="btn-primary text-sm py-2 px-3">
                       <QrCode className="w-4 h-4 mr-1" /> Rückgabe
                     </button>
