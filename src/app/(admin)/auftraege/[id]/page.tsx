@@ -8,6 +8,8 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from "@/lib/utils";
 import { generateDocument } from "@/lib/documents";
+import { useConfirm } from "@/hooks/useConfirm";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -19,6 +21,7 @@ export default function OrderDetailPage() {
   const [items, setItems] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
     async function load() {
@@ -46,7 +49,7 @@ export default function OrderDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Auftrag wirklich loeschen?")) return;
+    if (!(await confirm("Auftrag löschen?", "Dieser Auftrag wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
     await supabase.from("order_items").delete().eq("order_id", id);
     const { error } = await supabase.from("orders").delete().eq("id", id);
     if (error) {
@@ -84,7 +87,7 @@ export default function OrderDetailPage() {
   };
 
   const deleteDocument = async (docId: string) => {
-    if (!confirm("Dokument aus der Historie entfernen?")) return;
+    if (!(await confirm("Dokument entfernen?", "Dieses Dokument wird aus der Historie entfernt.", { confirmLabel: "Entfernen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
     const { error } = await supabase.from("documents").delete().eq("id", docId);
     if (error) {
       toast.error("Fehler: " + error.message);
@@ -289,6 +292,16 @@ export default function OrderDetailPage() {
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        description={state.description}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

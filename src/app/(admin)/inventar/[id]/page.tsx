@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import Barcode from "react-barcode";
 import { formatDate, getStatusColor, getStatusLabel, formatCurrency, safeParseFloat, safeParseInt } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -33,6 +35,8 @@ export default function ProductDetailPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [form, setForm] = useState<any>({});
+
+  const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
     async function load() {
@@ -168,7 +172,7 @@ export default function ProductDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Artikel wirklich löschen?")) return;
+    if (!(await confirm("Artikel löschen?", "Dieser Artikel wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
       toast.error("Fehler: " + error.message);
@@ -528,6 +532,17 @@ export default function ProductDetailPage() {
           </button>
         </div>
       </form>
+
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        description={state.description}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

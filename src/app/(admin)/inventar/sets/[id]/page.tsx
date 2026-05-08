@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { safeParseFloat } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 interface SelectedProduct {
   id: string;
@@ -40,6 +42,8 @@ export default function EditSetPage({ params }: { params: Promise<{ id: string }
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selected, setSelected] = useState<SelectedProduct[]>([]);
+
+  const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
     params.then((p) => setId(p.id));
@@ -131,7 +135,7 @@ export default function EditSetPage({ params }: { params: Promise<{ id: string }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Set wirklich löschen?")) return;
+    if (!(await confirm("Set löschen?", "Dieses Set wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
     const { error } = await supabase.from("product_sets").delete().eq("id", id);
     if (error) {
       toast.error("Fehler: " + error.message);
@@ -424,6 +428,17 @@ export default function EditSetPage({ params }: { params: Promise<{ id: string }
           </button>
         </div>
       </form>
+
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        description={state.description}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

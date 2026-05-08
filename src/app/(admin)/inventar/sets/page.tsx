@@ -14,11 +14,15 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 export default function SetsPage() {
   const [sets, setSets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+
+  const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
     async function load() {
@@ -33,7 +37,7 @@ export default function SetsPage() {
   }, [supabase]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Set wirklich löschen?")) return;
+    if (!(await confirm("Set löschen?", "Dieses Set wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
     const { error } = await supabase
       .from("product_sets")
       .delete()
@@ -166,6 +170,17 @@ export default function SetsPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        description={state.description}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

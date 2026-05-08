@@ -19,6 +19,8 @@ import {
   CreditCard,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 function StarRating({
   label,
@@ -159,6 +161,8 @@ export default function CustomerDetailPage() {
 
   const [form, setForm] = useState<any>({});
 
+  const { confirm, state, handleConfirm, handleCancel } = useConfirm();
+
   useEffect(() => {
     async function load() {
       const [{ data: c, error: ec }, { data: o, error: eo }] = await Promise.all([
@@ -252,7 +256,7 @@ export default function CustomerDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Kunde wirklich löschen?")) return;
+    if (!(await confirm("Kunde löschen?", "Dieser Kunde wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
     const { error } = await supabase.from("customers").delete().eq("id", id);
     if (error) {
       toast.error("Fehler: " + error.message);
@@ -565,6 +569,17 @@ export default function CustomerDetailPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={state.open}
+        title={state.title}
+        description={state.description}
+        confirmLabel={state.confirmLabel}
+        cancelLabel={state.cancelLabel}
+        variant={state.variant}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }
