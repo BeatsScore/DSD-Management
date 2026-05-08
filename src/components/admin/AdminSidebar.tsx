@@ -7,6 +7,7 @@ import {
   Package,
   ClipboardList,
   CalendarDays,
+  CalendarRange,
   Users,
   Volume2,
   LogOut,
@@ -31,6 +32,7 @@ export function AdminSidebar({ role }: { role: string }) {
   const links = [
     { href: "/dashboard/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/inventar/", label: "Inventar", icon: Package },
+    { href: "/inventar/kalender/", label: "Kalender", icon: CalendarRange },
     { href: "/auftraege/", label: "Aufträge", icon: ClipboardList },
     { href: "/planer/", label: "Planer", icon: CalendarDays },
     { href: "/kunden/", label: "Kunden", icon: Users },

@@ -3,27 +3,107 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, Package, Search, Tag, Eye, FolderOpen, Layers } from "lucide-react";
-import { getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
+import {
+  Plus,
+  Package,
+  Search,
+  Tag,
+  Eye,
+  FolderOpen,
+  Layers,
+  CalendarDays,
+} from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<Map<string, any[]>>(new Map());
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("products")
-        .select("*, category:category_id(*), owner:owner_id(full_name, email)")
-        .order("name", { ascending: true })
-        .limit(50);
-      setProducts(data || []);
+      const [{ data: p }, { data: oi }] = await Promise.all([
+        supabase
+          .from("products")
+          .select("*, category:category_id(*), owner:owner_id(full_name, email)")
+          .order("name", { ascending: true })
+          .limit(50),
+        supabase
+          .from("order_items")
+          .select(
+            "product_id, quantity, order:order_id(start_date, end_date, status)"
+          )
+          .neq("order.status", "storniert"),
+      ]);
+
+      setProducts(p || []);
+
+      // Build product_id -> bookings map
+      const map = new Map<string, any[]>();
+      (oi || []).forEach((item) => {
+        if (!map.has(item.product_id)) map.set(item.product_id, []);
+        map.get(item.product_id)!.push(item.order);
+      });
+      setBookings(map);
       setLoading(false);
     }
     load();
   }, [supabase]);
+
+  function getAvailability(product: any) {
+    if (product.condition === "defekt") {
+      return { label: "Defekt", className: "bg-red-100 text-red-800" };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const pb = bookings.get(product.id) || [];
+
+    const activeBooking = pb.find((b) => {
+      const s = new Date(b.start_date);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(b.end_date);
+      e.setHours(23, 59, 59, 999);
+      return today >= s && today <= e;
+    });
+
+    if (activeBooking) {
+      if (
+        activeBooking.status === "bestaetigt" ||
+        activeBooking.status === "abgeholt"
+      ) {
+        return { label: "Vermietet", className: "bg-blue-100 text-blue-800" };
+      }
+      if (
+        activeBooking.status === "offen" ||
+        activeBooking.status === "verhandlungsphase" ||
+        activeBooking.status === "vertragsphase"
+      ) {
+        return { label: "Reserviert", className: "bg-yellow-100 text-yellow-800" };
+      }
+      return { label: "Reserviert", className: "bg-yellow-100 text-yellow-800" };
+    }
+
+    return { label: "Verfügbar", className: "bg-green-100 text-green-800" };
+  }
+
+  function getUpcomingBooking(product: any) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const pb = bookings.get(product.id) || [];
+
+    const future = pb
+      .filter((b) => {
+        const s = new Date(b.start_date);
+        s.setHours(0, 0, 0, 0);
+        return s > today;
+      })
+      .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+
+    return future[0] || null;
+  }
 
   const grouped = useMemo(() => {
     const term = search.toLowerCase();
@@ -76,6 +156,13 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
+          <Link
+            href="/inventar/kalender/"
+            className="btn-secondary text-sm px-4 py-2.5"
+          >
+            <CalendarDays className="w-4 h-4 mr-1.5 md:mr-2" />{" "}
+            <span className="hidden sm:inline">Kalender</span>
+          </Link>
           <Link
             href="/inventar/kategorien/"
             className="btn-secondary text-sm px-4 py-2.5"
@@ -148,94 +235,116 @@ export default function InventoryPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {items.map((product) => (
-                        <tr key={product.id} className="hover:bg-gray-50">
-                          <td className="py-2.5 font-mono text-xs text-gray-500">
-                            {product.product_id}
-                          </td>
-                          <td className="py-2.5 font-medium">
-                            {product.name}
-                          </td>
-                          <td className="py-2.5 text-gray-600">
-                            {product.manufacturer || "-"}
-                          </td>
-                          <td className="py-2.5 text-gray-600">
-                            {product.quantity ?? 1}
-                          </td>
-                          <td className="py-2.5 text-gray-600">
-                            {product.rental_price_per_day
-                              ? formatCurrency(product.rental_price_per_day)
-                              : "-"}
-                          </td>
-                          <td className="py-2.5 text-gray-600">
-                            {product.owner?.full_name ||
-                              product.owner?.email ||
-                              "-"}
-                          </td>
-                          <td className="py-2.5">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                                product.status
-                              )}`}
-                            >
-                              {getStatusLabel(product.status)}
-                            </span>
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <Link
-                              href={`/inventar/${product.id}/`}
-                              className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                              title="Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
+                      {items.map((product) => {
+                        const avail = getAvailability(product);
+                        const upcoming = getUpcomingBooking(product);
+                        return (
+                          <tr key={product.id} className="hover:bg-gray-50">
+                            <td className="py-2.5 font-mono text-xs text-gray-500">
+                              {product.product_id}
+                            </td>
+                            <td className="py-2.5 font-medium">
+                              {product.name}
+                            </td>
+                            <td className="py-2.5 text-gray-600">
+                              {product.manufacturer || "-"}
+                            </td>
+                            <td className="py-2.5 text-gray-600">
+                              {product.quantity ?? 1}
+                            </td>
+                            <td className="py-2.5 text-gray-600">
+                              {product.rental_price_per_day
+                                ? formatCurrency(product.rental_price_per_day)
+                                : "-"}
+                            </td>
+                            <td className="py-2.5 text-gray-600">
+                              {product.owner?.full_name ||
+                                product.owner?.email ||
+                                "-"}
+                            </td>
+                            <td className="py-2.5">
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${avail.className}`}
+                                >
+                                  {avail.label}
+                                </span>
+                                {upcoming && (
+                                  <span className="text-[10px] text-gray-400">
+                                    Nächste Buchung:{" "}
+                                    {new Date(
+                                      upcoming.start_date
+                                    ).toLocaleDateString("de-CH")}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 text-right">
+                              <Link
+                                href={`/inventar/${product.id}/`}
+                                className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                                title="Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Mobile Cards */}
                 <div className="md:hidden space-y-2">
-                  {items.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="font-medium text-sm truncate">
-                            {product.name}
-                          </span>
-                          <span
-                            className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-                              product.status
-                            )}`}
-                          >
-                            {getStatusLabel(product.status)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {product.product_id}
-                        </div>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {product.quantity ?? 1}x{" "}
-                          {product.rental_price_per_day
-                            ? formatCurrency(product.rental_price_per_day) +
-                              "/Tag"
-                            : ""}
-                        </div>
-                      </div>
-                      <Link
-                        href={`/inventar/${product.id}/`}
-                        className="shrink-0 inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                        title="Details"
+                  {items.map((product) => {
+                    const avail = getAvailability(product);
+                    const upcoming = getUpcomingBooking(product);
+                    return (
+                      <div
+                        key={product.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white"
                       >
-                        <Eye className="w-4 h-4" />
-                      </Link>
-                    </div>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-medium text-sm truncate">
+                              {product.name}
+                            </span>
+                            <span
+                              className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${avail.className}`}
+                            >
+                              {avail.label}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {product.product_id}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {product.quantity ?? 1}x{" "}
+                            {product.rental_price_per_day
+                              ? formatCurrency(product.rental_price_per_day) +
+                                "/Tag"
+                              : ""}
+                            {upcoming && (
+                              <span className="ml-1">
+                                · Nächste Buchung:{" "}
+                                {new Date(
+                                  upcoming.start_date
+                                ).toLocaleDateString("de-CH")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Link
+                          href={`/inventar/${product.id}/`}
+                          className="shrink-0 inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                          title="Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
