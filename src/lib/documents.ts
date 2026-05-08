@@ -369,7 +369,7 @@ export function generateDocument(
             <p>Der Vermieter übernimmt keine Gewährleistung für den Erfolg der Veranstaltung. Die Haftung des Vermieters ist auf Vorsatz und grobe Fahrlässigkeit beschränkt.</p>
 
             <h2><span class="section-number">9</span> Anwendbares Recht und Gerichtsstand</h2>
-            <p>Auf diesen Vertrag ist ausschliesslich schweizerisches Recht anwendbar. Gerichtsstand ist Zürich.</p>
+            <p>Auf diesen Vertrag ist ausschliesslich schweizerisches Recht anwendbar. Gerichtsstand ist Basel.</p>
 
             <h1>Unterschriften</h1>
             <p style="margin-bottom:30px;">Mit ihrer Unterschrift bestätigen beide Parteien, dass sie die vorstehenden Bedingungen gelesen, verstanden und akzeptiert haben.</p>
