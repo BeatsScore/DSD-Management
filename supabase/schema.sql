@@ -76,6 +76,12 @@ create table if not exists public.orders (
   end_date date not null,
   total_amount numeric(10,2),
   notes text,
+  pickup_date date,
+  pickup_time text,
+  pickup_staff_id uuid references public.profiles(id) on delete set null,
+  return_date date,
+  return_time text,
+  return_staff_id uuid references public.profiles(id) on delete set null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

@@ -5,11 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from "@/lib/utils";
 import { generateDocument } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+
+type PlanType = "pickup" | "return" | null;
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -20,19 +22,29 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
+  // Planning modal state
+  const [planType, setPlanType] = useState<PlanType>(null);
+  const [planStaffId, setPlanStaffId] = useState("");
+  const [planDate, setPlanDate] = useState("");
+  const [planTime, setPlanTime] = useState("");
+  const [savingPlan, setSavingPlan] = useState(false);
+
   useEffect(() => {
     async function load() {
-      const [{ data: o }, { data: i }, { data: d }] = await Promise.all([
-        supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email)").eq("id", id).single(),
+      const [{ data: o }, { data: i }, { data: d }, { data: p }] = await Promise.all([
+        supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
         supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
+        supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "staff"]).order("full_name", { ascending: true }),
       ]);
       setOrder(o);
       setItems(i || []);
       setDocuments(d || []);
+      setProfiles(p || []);
       setLoading(false);
     }
     load();
@@ -97,6 +109,46 @@ export default function OrderDetailPage() {
     toast.success("Dokument entfernt.");
   };
 
+  const openPlanModal = (type: "pickup" | "return") => {
+    setPlanType(type);
+    if (type === "pickup") {
+      setPlanStaffId(order.pickup_staff_id || "");
+      setPlanDate(order.pickup_date || "");
+      setPlanTime(order.pickup_time || "");
+    } else {
+      setPlanStaffId(order.return_staff_id || "");
+      setPlanDate(order.return_date || "");
+      setPlanTime(order.return_time || "");
+    }
+  };
+
+  const closePlanModal = () => {
+    setPlanType(null);
+    setPlanStaffId("");
+    setPlanDate("");
+    setPlanTime("");
+  };
+
+  const savePlan = async () => {
+    setSavingPlan(true);
+    const payload = planType === "pickup"
+      ? { pickup_date: planDate || null, pickup_time: planTime || null, pickup_staff_id: planStaffId || null }
+      : { return_date: planDate || null, return_time: planTime || null, return_staff_id: planStaffId || null };
+
+    const { data, error } = await supabase.from("orders").update(payload).eq("id", id).select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").single();
+
+    setSavingPlan(false);
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    toast.success(planType === "pickup" ? "Abholung gespeichert." : "Rückgabe gespeichert.");
+    setOrder(data);
+    closePlanModal();
+  };
+
   const docTypeLabel = (type: string) => {
     const map: Record<string, string> = {
       angebot: "Angebot",
@@ -107,6 +159,8 @@ export default function OrderDetailPage() {
     };
     return map[type] || type;
   };
+
+  const planModalTitle = planType === "pickup" ? "Abholung planen" : planType === "return" ? "Rückgabe planen" : "";
 
   if (loading) {
     return (
@@ -167,6 +221,42 @@ export default function OrderDetailPage() {
           <div>
             <div className="text-xs text-gray-500 mb-1">Gesamtbetrag</div>
             <div className="font-medium">{formatCurrency(order.total_amount)}</div>
+          </div>
+
+          {/* Pickup info */}
+          <div className="sm:col-span-2 border-t border-gray-100 pt-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <Truck className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                <div>
+                  <div className="text-xs text-gray-500 mb-0.5">Geplante Abholung</div>
+                  {order.pickup_date ? (
+                    <div className="text-sm">
+                      <span className="font-medium">{formatDate(order.pickup_date)}</span>
+                      {order.pickup_time && <span> um {order.pickup_time}</span>}
+                      {order.pickup_staff && <div className="text-gray-500 text-xs mt-0.5">{order.pickup_staff.full_name}</div>}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400">Noch nicht geplant</div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <RotateCcw className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                <div>
+                  <div className="text-xs text-gray-500 mb-0.5">Geplante Rückgabe</div>
+                  {order.return_date ? (
+                    <div className="text-sm">
+                      <span className="font-medium">{formatDate(order.return_date)}</span>
+                      {order.return_time && <span> um {order.return_time}</span>}
+                      {order.return_staff && <div className="text-gray-500 text-xs mt-0.5">{order.return_staff.full_name}</div>}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400">Noch nicht geplant</div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -240,6 +330,18 @@ export default function OrderDetailPage() {
                 <CheckCircle className="w-4 h-4 mr-1" /> Abschliessen
               </button>
             )}
+
+            {/* Planning buttons */}
+            {["bestaetigt", "abgeholt", "zurueckgebracht", "abgeschlossen"].includes(order.status) && (
+              <>
+                <button onClick={() => openPlanModal("pickup")} className="btn-secondary text-sm py-2 px-4">
+                  <Calendar className="w-4 h-4 mr-1" /> Abholung planen
+                </button>
+                <button onClick={() => openPlanModal("return")} className="btn-secondary text-sm py-2 px-4">
+                  <PackageOpen className="w-4 h-4 mr-1" /> Rückgabe planen
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -292,6 +394,80 @@ export default function OrderDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Plan Modal */}
+      {planType && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">{planModalTitle}</h3>
+              <button onClick={closePlanModal} className="p-2 text-gray-400 hover:text-black">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mitarbeiter</label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <select
+                    value={planStaffId}
+                    onChange={(e) => setPlanStaffId(e.target.value)}
+                    className="input-field pl-9 w-full"
+                  >
+                    <option value="">Bitte wählen</option>
+                    {profiles.map((p) => (
+                      <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+                <div className="relative">
+                  <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="date"
+                    value={planDate}
+                    onChange={(e) => setPlanDate(e.target.value)}
+                    className="input-field pl-9 w-full"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Uhrzeit</label>
+                <div className="relative">
+                  <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="time"
+                    value={planTime}
+                    onChange={(e) => setPlanTime(e.target.value)}
+                    className="input-field pl-9 w-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={closePlanModal} className="flex-1 btn-secondary py-2.5">
+                Abbrechen
+              </button>
+              <button
+                onClick={savePlan}
+                disabled={savingPlan || !planStaffId || !planDate}
+                className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {savingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal
         open={state.open}
         title={state.title}

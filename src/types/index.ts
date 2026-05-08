@@ -81,6 +81,14 @@ export interface Order {
   end_date: string;
   total_amount: number | null;
   notes: string | null;
+  pickup_date: string | null;
+  pickup_time: string | null;
+  pickup_staff_id: string | null;
+  pickup_staff?: Profile | null;
+  return_date: string | null;
+  return_time: string | null;
+  return_staff_id: string | null;
+  return_staff?: Profile | null;
   created_at: string;
   updated_at: string;
 }

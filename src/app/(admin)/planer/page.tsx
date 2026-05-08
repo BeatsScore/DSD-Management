@@ -17,6 +17,10 @@ import {
   Check,
   CreditCard,
   Eye,
+  Truck,
+  PackageOpen,
+  User,
+  Clock,
 } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
@@ -51,8 +55,8 @@ export default function PlannerPage() {
   const loadOrders = useCallback(async () => {
     const { data, error } = await supabase
       .from("orders")
-      .select("*, customer:customer_id(name), assigned:assigned_to(full_name)")
-      .in("status", ["offen", "verhandlungsphase", "vertragsphase", "bestaetigt", "abgeholt"])
+      .select("*, customer:customer_id(name), assigned:assigned_to(full_name), pickup_staff:pickup_staff_id(full_name), return_staff:return_staff_id(full_name)")
+      .in("status", ["offen", "verhandlungsphase", "vertragsphase", "bestaetigt", "abgeholt", "zurueckgebracht"])
       .order("start_date", { ascending: true });
     if (error) {
       console.error("Failed to load orders:", error);
@@ -345,6 +349,15 @@ export default function PlannerPage() {
     }
   };
 
+  // Filter orders
+  const pickupOrders = orders
+    .filter((o) => o.pickup_date)
+    .sort((a, b) => new Date(a.pickup_date).getTime() - new Date(b.pickup_date).getTime());
+
+  const returnOrders = orders
+    .filter((o) => o.return_date)
+    .sort((a, b) => new Date(a.return_date).getTime() - new Date(b.return_date).getTime());
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -601,55 +614,137 @@ export default function PlannerPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="page-header">Auftragsplaner</h1>
         <p className="text-gray-600 mt-1">Übersicht aller aktiven Aufträge</p>
       </div>
 
-      <div className="grid gap-4">
-        {orders.length > 0 ? (
-          orders.map((order) => (
-            <div key={order.id} className="card flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="font-mono text-xs text-gray-500">{order.order_number}</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                    {getStatusLabel(order.status)}
-                  </span>
-                </div>
-                <div className="font-medium">{order.customer?.name || "-"}</div>
-                <div className="text-sm text-gray-500">
-                  {formatDate(order.start_date)} - {formatDate(order.end_date)}
-                </div>
-                {order.assigned && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    Zugewiesen: {order.assigned.full_name}
+      {/* Pickups */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Truck className="w-5 h-5 text-blue-600" />
+          <h2 className="text-lg font-semibold">Abholungen</h2>
+          <span className="text-sm text-gray-500">({pickupOrders.length})</span>
+        </div>
+        <div className="grid gap-4">
+          {pickupOrders.length > 0 ? (
+            pickupOrders.map((order) => (
+              <div key={order.id} className="card flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-mono text-xs text-gray-500">{order.order_number}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                      {getStatusLabel(order.status)}
+                    </span>
                   </div>
-                )}
+                  <div className="font-medium">{order.customer?.name || "-"}</div>
+                  <div className="text-sm text-gray-500">
+                    {formatDate(order.start_date)} - {formatDate(order.end_date)}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
+                    <div className="flex items-center gap-1.5 text-blue-700">
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      <span className="font-medium">{formatDate(order.pickup_date)}</span>
+                      {order.pickup_time && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {order.pickup_time}
+                        </span>
+                      )}
+                    </div>
+                    {order.pickup_staff && (
+                      <div className="flex items-center gap-1.5 text-gray-600">
+                        <User className="w-3.5 h-3.5" />
+                        {order.pickup_staff.full_name}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/auftraege/${order.id}/`}
+                    className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                    title="Details"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Link>
+                  {order.status === "bestaetigt" && (
+                    <button onClick={() => startPickup(order.id)} className="btn-primary text-sm py-2 px-3">
+                      <QrCode className="w-4 h-4 mr-1" /> Abholung
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/auftraege/${order.id}/`}
-                  className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                  title="Details"
-                >
-                  <Eye className="w-4 h-4" />
-                </Link>
-                {order.status === "bestaetigt" && (
-                  <button onClick={() => startPickup(order.id)} className="btn-primary text-sm py-2 px-3">
-                    <QrCode className="w-4 h-4 mr-1" /> Abholung
-                  </button>
-                )}
-              </div>
+            ))
+          ) : (
+            <div className="text-center py-10 bg-gray-50 rounded-xl">
+              <Truck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">Keine geplanten Abholungen.</p>
             </div>
-          ))
-        ) : (
-          <div className="text-center py-20 bg-gray-50 rounded-xl">
-            <CalendarDays className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">Keine aktiven Aufträge.</p>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
+
+      {/* Returns */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <PackageOpen className="w-5 h-5 text-purple-600" />
+          <h2 className="text-lg font-semibold">Rückgaben</h2>
+          <span className="text-sm text-gray-500">({returnOrders.length})</span>
+        </div>
+        <div className="grid gap-4">
+          {returnOrders.length > 0 ? (
+            returnOrders.map((order) => (
+              <div key={order.id} className="card flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-mono text-xs text-gray-500">{order.order_number}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                      {getStatusLabel(order.status)}
+                    </span>
+                  </div>
+                  <div className="font-medium">{order.customer?.name || "-"}</div>
+                  <div className="text-sm text-gray-500">
+                    {formatDate(order.start_date)} - {formatDate(order.end_date)}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
+                    <div className="flex items-center gap-1.5 text-purple-700">
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      <span className="font-medium">{formatDate(order.return_date)}</span>
+                      {order.return_time && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {order.return_time}
+                        </span>
+                      )}
+                    </div>
+                    {order.return_staff && (
+                      <div className="flex items-center gap-1.5 text-gray-600">
+                        <User className="w-3.5 h-3.5" />
+                        {order.return_staff.full_name}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/auftraege/${order.id}/`}
+                    className="inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                    title="Details"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-10 bg-gray-50 rounded-xl">
+              <PackageOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">Keine geplanten Rückgaben.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
