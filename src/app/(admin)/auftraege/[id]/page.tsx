@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from "@/lib/utils";
 import { generateDocument } from "@/lib/documents";
 
@@ -17,16 +17,19 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [{ data: o }, { data: i }] = await Promise.all([
+      const [{ data: o }, { data: i }, { data: d }] = await Promise.all([
         supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email)").eq("id", id).single(),
         supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id),
+        supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
       ]);
       setOrder(o);
       setItems(i || []);
+      setDocuments(d || []);
       setLoading(false);
     }
     load();
@@ -54,9 +57,50 @@ export default function OrderDetailPage() {
     router.push("/auftraege/");
   };
 
-  const generatePDF = (type: string) => {
+  const generatePDF = async (type: string) => {
     generateDocument(type, order, items, window);
+
+    // Save document record to DB
+    const fileName = `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const { error } = await supabase.from("documents").insert({
+      order_id: id,
+      type,
+      file_name: fileName,
+    });
+
+    if (!error) {
+      // Refresh documents list
+      const { data: d } = await supabase
+        .from("documents")
+        .select("*")
+        .eq("order_id", id)
+        .order("created_at", { ascending: false });
+      setDocuments(d || []);
+    }
   };
+
+  const deleteDocument = async (docId: string) => {
+    if (!confirm("Dokument aus der Historie entfernen?")) return;
+    const { error } = await supabase.from("documents").delete().eq("id", docId);
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+    setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    toast.success("Dokument entfernt.");
+  };
+
+  const docTypeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      angebot: "Angebot",
+      rechnung: "Rechnung",
+      mietvertrag: "Mietvertrag",
+      auftragsbestaetigung: "Auftragsbestaetigung",
+      ablehnung: "Ablehnung",
+    };
+    return map[type] || type;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -102,6 +146,8 @@ export default function OrderDetailPage() {
             <div className="text-xs text-gray-500 mb-1">Kunde</div>
             <div className="font-medium">{order.customer?.name || "-"}</div>
             {order.customer?.company && <div className="text-sm text-gray-600">{order.customer.company}</div>}
+            {order.customer?.phone && <div className="text-sm text-gray-500">{order.customer.phone}</div>}
+            {order.customer?.email && <div className="text-sm text-gray-500">{order.customer.email}</div>}
           </div>
           <div>
             <div className="text-xs text-gray-500 mb-1">Zugewiesen an</div>
@@ -191,15 +237,53 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="card">
-          <h2 className="section-header mb-4">Dokumente</h2>
+          <h2 className="section-header mb-4">Dokumente generieren</h2>
           <div className="flex flex-wrap gap-3">
             {["angebot", "rechnung", "mietvertrag", "auftragsbestaetigung", "ablehnung"].map((type) => (
               <button key={type} onClick={() => generatePDF(type)} className="btn-secondary text-sm py-2 px-4">
-                <FileText className="w-4 h-4 mr-1" /> {type === "angebot" ? "Angebot" : type === "rechnung" ? "Rechnung" : type === "mietvertrag" ? "Mietvertrag" : type === "auftragsbestaetigung" ? "Auftragsbestaetigung" : "Ablehnung"}
+                <FileText className="w-4 h-4 mr-1" /> {docTypeLabel(type)}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Document History */}
+        {documents.length > 0 && (
+          <div className="card">
+            <h2 className="section-header mb-4">Dokumentenhistorie</h2>
+            <div className="space-y-2">
+              {documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">{docTypeLabel(doc.type)}</div>
+                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatDate(doc.created_at)} · {doc.file_name}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => generatePDF(doc.type)}
+                    className="p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors shrink-0"
+                    title="Erneut generieren"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteDocument(doc.id)}
+                    className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors shrink-0"
+                    title="Entfernen"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

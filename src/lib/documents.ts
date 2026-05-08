@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from "./utils";
+import { companyInfo } from "./company";
 
 export function generateDocument(
   type: string,
@@ -27,14 +28,17 @@ export function generateDocument(
     )
   );
 
+  // Calculate totals from actual line items
+  let lineTotalSum = 0;
   const rows = items
     .map((item) => {
       const lineTotal = (item.price_per_day || 0) * item.quantity * days;
+      lineTotalSum += lineTotal;
       return `
         <tr>
           <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;">
             <div style="font-weight:600;color:#111;">${item.product?.name || "-"}</div>
-            <div style="font-size:11px;color:#888;">${item.product?.manufacturer || ""}</div>
+            <div style="font-size:11px;color:#888;">${item.product?.manufacturer || ""} ${item.product?.product_id ? "(" + item.product.product_id + ")" : ""}</div>
           </td>
           <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:center;color:#444;">${item.quantity}</td>
           <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;color:#444;">${item.price_per_day != null ? formatCurrency(item.price_per_day) : "-"}</td>
@@ -44,10 +48,12 @@ export function generateDocument(
     })
     .join("");
 
-  const subtotal = order.total_amount || 0;
+  const subtotal = lineTotalSum;
   const vatRate = 7.7;
   const vatAmount = subtotal * (vatRate / 100);
   const total = subtotal + vatAmount;
+
+  const customer = order.customer || {};
 
   if (type === "mietvertrag") {
     const equipmentList = items
@@ -256,7 +262,7 @@ export function generateDocument(
           <div class="page">
             <div class="header">
               <div>
-                <div class="brand">DSD Management</div>
+                <div class="brand">${companyInfo.name}</div>
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">Mietvertrag</div>
@@ -270,23 +276,23 @@ export function generateDocument(
             <div class="parties">
               <div class="party">
                 <div class="party-label">Vermieter</div>
-                <div class="party-name">DSD Management GmbH</div>
+                <div class="party-name">${companyInfo.legalName}</div>
                 <div class="party-detail">
-                  Post EG<br>
-                  Gartenstrasse 143<br>
-                  4052 Basel<br>
-                  Schweiz<br>
-                  E-Mail: info@dsdmanagement.ch<br>
-                  Tel: +41 44 123 45 67
+                  ${companyInfo.address}<br>
+                  ${companyInfo.city}<br>
+                  ${companyInfo.country}<br>
+                  E-Mail: ${companyInfo.email}<br>
+                  Tel: ${companyInfo.phone}
                 </div>
               </div>
               <div class="party">
                 <div class="party-label">Mieter</div>
-                <div class="party-name">${order.customer?.name || "-"}</div>
+                <div class="party-name">${customer.name || "-"}</div>
                 <div class="party-detail">
-                  ${order.customer?.company ? order.customer.company + "<br>" : ""}
-                  ${order.customer?.address ? order.customer.address + "<br>" : ""}
-                  ${order.customer?.email || ""}
+                  ${customer.company ? customer.company + "<br>" : ""}
+                  ${customer.address ? customer.address.replace(/\n/g, "<br>") + "<br>" : ""}
+                  ${customer.phone ? "Tel: " + customer.phone + "<br>" : ""}
+                  ${customer.email || ""}
                 </div>
               </div>
             </div>
@@ -376,8 +382,8 @@ export function generateDocument(
             </div>
 
             <div class="footer">
-              DSD Management GmbH | Post EG, Gartenstrasse 143 | 4052 Basel | info@dsdmanagement.ch | +41 44 123 45 67<br>
-              UBS AG Zürich | IBAN: CH12 3456 7890 1234 5678 9 | UID: CHE-123.456.789
+              ${companyInfo.legalName} | ${companyInfo.address} | ${companyInfo.city} | ${companyInfo.email} | ${companyInfo.phone}<br>
+              ${companyInfo.bank} | IBAN: ${companyInfo.iban} | UID: ${companyInfo.uid}
             </div>
           </div>
         </body>
@@ -388,6 +394,7 @@ export function generateDocument(
     return;
   }
 
+  // Default template for angebot, rechnung, auftragsbestaetigung, ablehnung
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
@@ -589,7 +596,7 @@ export function generateDocument(
           <div class="content">
             <div class="header">
               <div>
-                <div class="brand">DSD Management</div>
+                <div class="brand">${companyInfo.name}</div>
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">${docTitle}</div>
@@ -599,10 +606,11 @@ export function generateDocument(
               <div class="meta-block">
                 <div class="meta-label">Kunde</div>
                 <div class="meta-value">
-                  <strong>${order.customer?.name || "-"}</strong><br>
-                  ${order.customer?.company ? order.customer.company + "<br>" : ""}
-                  ${order.customer?.address ? order.customer.address + "<br>" : ""}
-                  ${order.customer?.email || ""}
+                  <strong>${customer.name || "-"}</strong><br>
+                  ${customer.company ? customer.company + "<br>" : ""}
+                  ${customer.address ? customer.address.replace(/\n/g, "<br>") + "<br>" : ""}
+                  ${customer.phone ? "Tel: " + customer.phone + "<br>" : ""}
+                  ${customer.email || ""}
                 </div>
               </div>
               <div class="meta-block" style="text-align:right;">
@@ -652,22 +660,21 @@ export function generateDocument(
 
             <div class="footer">
               <div>
-                <strong>DSD Management GmbH</strong><br>
-                Post EG<br>
-                Gartenstrasse 143<br>
-                4052 Basel, Schweiz<br>
-                info@dsdmanagement.ch
+                <strong>${companyInfo.legalName}</strong><br>
+                ${companyInfo.address}<br>
+                ${companyInfo.city}, ${companyInfo.country}<br>
+                ${companyInfo.email}
               </div>
               <div style="text-align:center;">
                 <strong>Kontakt</strong><br>
-                +41 44 123 45 67<br>
-                www.dsdmanagement.ch
+                ${companyInfo.phone}<br>
+                ${companyInfo.website}
               </div>
               <div style="text-align:right;">
                 <strong>Bankverbindung</strong><br>
-                UBS AG, Zürich<br>
-                IBAN: CH12 3456 7890 1234 5678 9<br>
-                UID: CHE-123.456.789
+                ${companyInfo.bank}<br>
+                IBAN: ${companyInfo.iban}<br>
+                UID: ${companyInfo.uid}
               </div>
             </div>
           </div>
