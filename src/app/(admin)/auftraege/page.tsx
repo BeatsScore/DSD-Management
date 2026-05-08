@@ -48,22 +48,22 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
         <div>
-          <h1 className="page-header">Aufträge</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Aufträge</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">
             {orders.length} Aufträge gesamt
           </p>
         </div>
-        <Link href="/auftraege/neu/" className="btn-primary">
-          <Plus className="w-4 h-4 mr-2" /> Auftrag erstellen
+        <Link href="/auftraege/neu/" className="btn-primary text-sm px-4 py-2.5">
+          <Plus className="w-4 h-4 mr-1.5" /> Auftrag erstellen
         </Link>
       </div>
 
-      <div className="card">
+      <div className="card p-4 md:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Search className="w-4 h-4 text-gray-400" />
+          <Search className="w-4 h-4 text-gray-400 shrink-0" />
           <input
             type="text"
             placeholder="Suchen nach Auftragsnr., Kunde oder Status..."
@@ -72,7 +72,9 @@ export default function OrdersPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left text-gray-500">
@@ -135,6 +137,47 @@ export default function OrdersPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-3">
+          {filtered.length > 0 ? (
+            filtered.map((order) => (
+              <Link
+                key={order.id}
+                href={`/auftraege/${order.id}/`}
+                className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="font-mono text-xs text-gray-500">{order.order_number}</span>
+                    <span
+                      className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
+                        order.status
+                      )}`}
+                    >
+                      {getStatusLabel(order.status)}
+                    </span>
+                  </div>
+                  <div className="font-medium text-sm">{order.customer?.name || "-"}</div>
+                  <div className="text-xs text-gray-500">
+                    {formatDate(order.start_date)} - {formatDate(order.end_date)}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {order.total_amount != null
+                      ? new Intl.NumberFormat("de-CH", { style: "currency", currency: "CHF" }).format(order.total_amount)
+                      : ""}
+                  </div>
+                </div>
+                <Eye className="w-4 h-4 text-gray-400 shrink-0" />
+              </Link>
+            ))
+          ) : (
+            <div className="py-12 text-center text-gray-500">
+              <ClipboardList className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              Keine Aufträge gefunden.
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -33,7 +33,7 @@ export default function InventoryPage() {
       products.filter(
         (p) =>
           p.name.toLowerCase().includes(term) ||
-          p.manufacturer.toLowerCase().includes(term) ||
+          p.manufacturer?.toLowerCase().includes(term) ||
           p.product_id.toLowerCase().includes(term) ||
           p.category?.name?.toLowerCase().includes(term)
       )
@@ -49,27 +49,27 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
         <div>
-          <h1 className="page-header">Inventar</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Inventar</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">
             {products.length} Artikel im Bestand
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/inventar/kategorien/" className="btn-secondary">
-            <Tag className="w-4 h-4 mr-2" /> Kategorien
+        <div className="flex items-center gap-2 md:gap-3">
+          <Link href="/inventar/kategorien/" className="btn-secondary text-sm px-4 py-2.5">
+            <Tag className="w-4 h-4 mr-1.5 md:mr-2" /> <span className="hidden sm:inline">Kategorien</span>
           </Link>
-          <Link href="/inventar/neu/" className="btn-primary">
-            <Plus className="w-4 h-4 mr-2" /> Artikel erstellen
+          <Link href="/inventar/neu/" className="btn-primary text-sm px-4 py-2.5">
+            <Plus className="w-4 h-4 mr-1.5 md:mr-2" /> <span className="hidden sm:inline">Artikel erstellen</span>
           </Link>
         </div>
       </div>
 
-      <div className="card">
+      <div className="card p-4 md:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Search className="w-4 h-4 text-gray-400" />
+          <Search className="w-4 h-4 text-gray-400 shrink-0" />
           <input
             type="text"
             placeholder="Suchen nach Name, Hersteller, ID oder Kategorie..."
@@ -78,7 +78,9 @@ export default function InventoryPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left text-gray-500">
@@ -102,7 +104,7 @@ export default function InventoryPage() {
                     </td>
                     <td className="py-3 font-medium">{product.name}</td>
                     <td className="py-3 text-gray-600">
-                      {product.manufacturer}
+                      {product.manufacturer || "-"}
                     </td>
                     <td className="py-3 text-gray-600">
                       {product.category?.name || "-"}
@@ -140,7 +142,7 @@ export default function InventoryPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-500">
+                  <td colSpan={9} className="py-12 text-center text-gray-500">
                     <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                     Keine Artikel gefunden.
                   </td>
@@ -148,6 +150,49 @@ export default function InventoryPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-3">
+          {filtered.length > 0 ? (
+            filtered.map((product) => (
+              <div
+                key={product.id}
+                className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="font-medium text-sm truncate">{product.name}</span>
+                    <span
+                      className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
+                        product.status
+                      )}`}
+                    >
+                      {getStatusLabel(product.status)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {product.product_id} {product.category?.name ? "· " + product.category.name : ""}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    {product.quantity ?? 1}x {product.rental_price_per_day ? formatCurrency(product.rental_price_per_day) + "/Tag" : ""}
+                  </div>
+                </div>
+                <Link
+                  href={`/inventar/${product.id}/`}
+                  className="shrink-0 inline-flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                  title="Details"
+                >
+                  <Eye className="w-4 h-4" />
+                </Link>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center text-gray-500">
+              <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              Keine Artikel gefunden.
+            </div>
+          )}
         </div>
       </div>
     </div>
