@@ -67,8 +67,7 @@ export function AdminSidebar({ role }: { role: string }) {
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
           <div className="flex items-center gap-2">
-            <Volume2 className="w-5 h-5 text-white" />
-            <span className="font-bold text-white">DSD Management</span>
+            <img src="/logo.png" alt="DSD Management" className="h-8 w-auto object-contain" />
           </div>
           <button
             onClick={closeMobile}
