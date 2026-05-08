@@ -17,7 +17,7 @@ export function PublicNavbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="DSD Management" className="h-8 w-auto object-contain" />
+            <img src="/logo.png" alt="DSD Management" className="h-12 w-auto object-contain" />
           </Link>
           <nav className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (

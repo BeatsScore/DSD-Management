@@ -62,7 +62,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <img src="/logo.png" alt="DSD Management" className="h-10 w-auto object-contain" />
+          <img src="/logo.png" alt="DSD Management" className="h-16 w-auto object-contain" />
         </div>
         <div className="card">
           <h2 className="text-lg font-semibold text-center mb-6">
