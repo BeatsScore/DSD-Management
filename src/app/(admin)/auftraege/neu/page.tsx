@@ -63,9 +63,26 @@ export default function NewOrderPage() {
       toast.error("Bitte fuellen Sie alle Pflichtfelder aus.");
       return;
     }
+    if (new Date(form.startDate) > new Date(form.endDate)) {
+      toast.error("Das Startdatum darf nicht nach dem Enddatum liegen.");
+      return;
+    }
 
     setLoading(true);
     const orderNumber = generateOrderNumber();
+
+    // Calculate total amount from line items
+    const days = Math.max(
+      1,
+      Math.ceil(
+        (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
+    );
+    const totalAmount = selectedProducts.reduce(
+      (sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * days,
+      0
+    );
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -77,6 +94,7 @@ export default function NewOrderPage() {
         end_date: form.endDate,
         status: "offen",
         notes: form.notes || null,
+        total_amount: totalAmount > 0 ? totalAmount : null,
       })
       .select()
       .single();
@@ -96,14 +114,11 @@ export default function NewOrderPage() {
       }));
       const { error: itemsError } = await supabase.from("order_items").insert(items);
       if (itemsError) {
+        // Best effort: try to clean up the empty order
+        await supabase.from("orders").delete().eq("id", order.id);
         setLoading(false);
         toast.error("Fehler beim Hinzufuegen der Artikel: " + itemsError.message);
         return;
-      }
-
-      // Update product statuses to reserved
-      for (const sp of selectedProducts) {
-        await supabase.from("products").update({ status: "reserviert" }).eq("id", sp.productId);
       }
     }
 

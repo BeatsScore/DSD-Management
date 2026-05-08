@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Loader2, ArrowLeft, Plus, ImageIcon, X } from "lucide-react";
-import { generateBarcode, generateProductId } from "@/lib/utils";
+import { generateBarcode, generateProductId, safeParseFloat, safeParseInt } from "@/lib/utils";
 
 export default function NewProductPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -70,11 +70,18 @@ export default function NewProductPage() {
       toast.error("Bild darf maximal 5 MB gross sein.");
       return;
     }
+    if (imagePreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    const url = URL.createObjectURL(file);
     setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setImagePreview(url);
   };
 
   const removeImage = () => {
+    if (imagePreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImageFile(null);
     setImagePreview(null);
   };
@@ -136,15 +143,12 @@ export default function NewProductPage() {
 
     setLoading(true);
 
-    const { count } = await supabase
-      .from("products")
-      .select("*", { count: "exact", head: true });
-
+    // Use timestamp to avoid race conditions with count-based IDs
     const categoryPrefix = isNewCategory
       ? newCategoryName.substring(0, 3)
       : categories.find((c) => c.id === categoryId)?.name?.substring(0, 3) ||
         "PROD";
-    const productIdStr = generateProductId(categoryPrefix, (count || 0) + 1);
+    const productIdStr = generateProductId(categoryPrefix, Date.now() % 100000);
     const barcode = generateBarcode();
 
     const { data: inserted, error } = await supabase
@@ -160,16 +164,12 @@ export default function NewProductPage() {
         status: "verfuegbar",
         barcode,
         technical_specs: form.technicalSpecs || null,
-        rental_price_per_day: form.rentalPricePerDay
-          ? parseFloat(form.rentalPricePerDay)
-          : null,
-        quantity: parseInt(form.quantity) || 1,
+        rental_price_per_day: safeParseFloat(form.rentalPricePerDay),
+        quantity: safeParseInt(form.quantity, 1),
         manual_url: form.manualUrl || null,
         purchase_date: form.purchaseDate || null,
-        purchase_price: form.purchasePrice
-          ? parseFloat(form.purchasePrice)
-          : null,
-        weight: form.weight ? parseFloat(form.weight) : null,
+        purchase_price: safeParseFloat(form.purchasePrice),
+        weight: safeParseFloat(form.weight),
         condition: form.condition || null,
         owner_id: form.ownerId || null,
       })
@@ -220,6 +220,8 @@ export default function NewProductPage() {
                   src={imagePreview}
                   alt="Vorschau"
                   className="w-48 h-48 object-cover rounded-lg border border-gray-200"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <button
                   type="button"

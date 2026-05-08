@@ -17,11 +17,14 @@ export default function CatalogPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: c }, { data: s }] = await Promise.all([
+      const [{ data: p, error: ep }, { data: c, error: ec }, { data: s, error: es }] = await Promise.all([
         supabase.from("products").select("*, category:category_id(*)").order("name", { ascending: true }),
         supabase.from("product_categories").select("*").order("name", { ascending: true }),
         supabase.from("product_sets").select("*, items:set_items(*, product:product_id(id, name))").eq("active", true).order("name", { ascending: true }),
       ]);
+      if (ep || ec || es) {
+        console.error("Failed to load catalog:", ep || ec || es);
+      }
       setProducts(p || []);
       setFiltered(p || []);
       setCategories(c || []);
@@ -76,6 +79,8 @@ export default function CatalogPage() {
                       src={set.image_url}
                       alt={set.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                 ) : (

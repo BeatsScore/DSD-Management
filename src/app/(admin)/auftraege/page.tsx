@@ -15,11 +15,14 @@ export default function OrdersPage() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("orders")
         .select("*, customer:customer_id(name)")
         .order("created_at", { ascending: false })
         .limit(50);
+      if (error) {
+        console.error("Failed to load orders:", error);
+      }
       setOrders(data || []);
       setFiltered(data || []);
       setLoading(false);

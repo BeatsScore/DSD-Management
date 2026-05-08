@@ -1,14 +1,24 @@
 import { formatCurrency, formatDate } from "./utils";
 import { companyInfo } from "./company";
 
+function escapeHtml(text: string | null | undefined): string {
+  if (text == null) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function generateDocument(
   type: string,
   order: any,
   items: any[],
   window: Window
-) {
+): boolean {
   const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+  if (!printWindow) return false;
 
   const titleMap: Record<string, string> = {
     angebot: "Angebot",
@@ -37,8 +47,8 @@ export function generateDocument(
       return `
         <tr>
           <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;">
-            <div style="font-weight:600;color:#111;">${item.product?.name || "-"}</div>
-            <div style="font-size:11px;color:#888;">${item.product?.manufacturer || ""} ${item.product?.product_id ? "(" + item.product.product_id + ")" : ""}</div>
+            <div style="font-weight:600;color:#111;">${escapeHtml(item.product?.name) || "-"}</div>
+            <div style="font-size:11px;color:#888;">${escapeHtml(item.product?.manufacturer) || ""} ${item.product?.product_id ? "(" + escapeHtml(item.product.product_id) + ")" : ""}</div>
           </td>
           <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:center;color:#444;">${item.quantity}</td>
           <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;color:#444;">${item.price_per_day != null ? formatCurrency(item.price_per_day) : "-"}</td>
@@ -60,8 +70,8 @@ export function generateDocument(
       .map(
         (item) =>
           `<tr>
-            <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:12px;">${item.product?.name || "-"}</td>
-            <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:12px;text-align:center;">${item.product?.product_id || "-"}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:12px;">${escapeHtml(item.product?.name) || "-"}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:12px;text-align:center;">${escapeHtml(item.product?.product_id) || "-"}</td>
             <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:12px;text-align:center;">${item.quantity}</td>
             <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:12px;text-align:right;">${item.price_per_day != null ? formatCurrency(item.price_per_day) : "-"}</td>
           </tr>`
@@ -73,7 +83,7 @@ export function generateDocument(
       <html>
         <head>
           <meta charset="utf-8">
-          <title>Mietvertrag - ${order.order_number}</title>
+          <title>Mietvertrag - ${escapeHtml(order.order_number)}</title>
           <style>
             @page { margin: 0; size: A4; }
             * { box-sizing: border-box; }
@@ -269,7 +279,7 @@ export function generateDocument(
             </div>
 
             <div style="font-size:12px;color:#666;margin-bottom:30px;">
-              Auftragsnummer: <strong>${order.order_number}</strong> | Datum: ${today}
+              Auftragsnummer: <strong>${escapeHtml(order.order_number)}</strong> | Datum: ${today}
             </div>
 
             <h1>Vertragsparteien</h1>
@@ -287,12 +297,12 @@ export function generateDocument(
               </div>
               <div class="party">
                 <div class="party-label">Mieter</div>
-                <div class="party-name">${customer.name || "-"}</div>
+                <div class="party-name">${escapeHtml(customer.name) || "-"}</div>
                 <div class="party-detail">
-                  ${customer.company ? customer.company + "<br>" : ""}
-                  ${customer.address ? customer.address.replace(/\n/g, "<br>") + "<br>" : ""}
-                  ${customer.phone ? "Tel: " + customer.phone + "<br>" : ""}
-                  ${customer.email || ""}
+                  ${customer.company ? escapeHtml(customer.company) + "<br>" : ""}
+                  ${customer.address ? escapeHtml(customer.address).replace(/\n/g, "<br>") + "<br>" : ""}
+                  ${customer.phone ? "Tel: " + escapeHtml(customer.phone) + "<br>" : ""}
+                  ${escapeHtml(customer.email) || ""}
                 </div>
               </div>
             </div>
@@ -391,7 +401,7 @@ export function generateDocument(
     `);
     printWindow.document.close();
     setTimeout(() => printWindow.print(), 300);
-    return;
+    return true;
   }
 
   // Default template for angebot, rechnung, auftragsbestaetigung, ablehnung
@@ -400,7 +410,7 @@ export function generateDocument(
     <html>
       <head>
         <meta charset="utf-8">
-        <title>${docTitle} - ${order.order_number}</title>
+        <title>${escapeHtml(docTitle)} - ${escapeHtml(order.order_number)}</title>
         <style>
           @page { margin: 0; size: A4; }
           * { box-sizing: border-box; }
@@ -606,17 +616,17 @@ export function generateDocument(
               <div class="meta-block">
                 <div class="meta-label">Kunde</div>
                 <div class="meta-value">
-                  <strong>${customer.name || "-"}</strong><br>
-                  ${customer.company ? customer.company + "<br>" : ""}
-                  ${customer.address ? customer.address.replace(/\n/g, "<br>") + "<br>" : ""}
-                  ${customer.phone ? "Tel: " + customer.phone + "<br>" : ""}
-                  ${customer.email || ""}
+                  <strong>${escapeHtml(customer.name) || "-"}</strong><br>
+                  ${customer.company ? escapeHtml(customer.company) + "<br>" : ""}
+                  ${customer.address ? escapeHtml(customer.address).replace(/\n/g, "<br>") + "<br>" : ""}
+                  ${customer.phone ? "Tel: " + escapeHtml(customer.phone) + "<br>" : ""}
+                  ${escapeHtml(customer.email) || ""}
                 </div>
               </div>
               <div class="meta-block" style="text-align:right;">
                 <div class="meta-label">Auftragsdetails</div>
                 <div class="meta-value">
-                  <strong>${order.order_number}</strong><br>
+                  <strong>${escapeHtml(order.order_number)}</strong><br>
                   Datum: ${today}<br>
                   Zeitraum: ${formatDate(order.start_date)} – ${formatDate(order.end_date)}<br>
                   Dauer: ${days} Tag${days > 1 ? "e" : ""}
@@ -684,4 +694,5 @@ export function generateDocument(
   `);
   printWindow.document.close();
   setTimeout(() => printWindow.print(), 300);
+  return true;
 }

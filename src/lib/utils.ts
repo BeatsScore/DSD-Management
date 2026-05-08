@@ -39,6 +39,18 @@ export function generateBarcode(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
+export function safeParseFloat(value: string | null | undefined): number | null {
+  if (!value || value.trim() === "") return null;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? null : parsed;
+}
+
+export function safeParseInt(value: string | null | undefined, fallback = 1): number {
+  if (!value || value.trim() === "") return fallback;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? fallback : parsed;
+}
+
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     verfuegbar: "bg-green-100 text-green-800",

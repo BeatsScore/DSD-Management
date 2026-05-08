@@ -45,7 +45,7 @@ export default function LoginPage() {
       options: {
         data: {
           full_name: fullName || email,
-          role: "admin",
+          role: "customer",
         },
       },
     });

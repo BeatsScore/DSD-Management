@@ -49,11 +49,15 @@ export default function PlannerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const loadOrders = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .select("*, customer:customer_id(name), assigned:assigned_to(full_name)")
       .in("status", ["offen", "verhandlungsphase", "vertragsphase", "bestaetigt", "abgeholt"])
       .order("start_date", { ascending: true });
+    if (error) {
+      console.error("Failed to load orders:", error);
+      toast.error("Fehler beim Laden der Aufträge.");
+    }
     setOrders(data || []);
     setLoading(false);
   }, [supabase]);
@@ -107,6 +111,7 @@ export default function PlannerPage() {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         if (idCaptureStep === "front") {
+          if (frontImage?.startsWith("blob:")) URL.revokeObjectURL(frontImage);
           setFrontImage(url);
           setFrontBlob(blob);
           setIdCaptureStep("back");
@@ -116,6 +121,7 @@ export default function PlannerPage() {
           }
           startCamera();
         } else if (idCaptureStep === "back") {
+          if (backImage?.startsWith("blob:")) URL.revokeObjectURL(backImage);
           setBackImage(url);
           setBackBlob(blob);
           stopCamera();
@@ -156,43 +162,41 @@ export default function PlannerPage() {
 
     const timestamp = Date.now();
 
-    let frontUrl: string | null = null;
-    let backUrl: string | null = null;
+    let frontPath: string | null = null;
+    let backPath: string | null = null;
 
     // Upload front
-    const frontPath = `${customerId}/front-${timestamp}.jpg`;
+    const frontFilePath = `${customerId}/front-${timestamp}.jpg`;
     const { error: frontError } = await supabase.storage
       .from("id-documents")
-      .upload(frontPath, frontBlob, { contentType: "image/jpeg" });
+      .upload(frontFilePath, frontBlob, { contentType: "image/jpeg" });
     if (frontError) {
       toast.error("Fehler beim Upload Vorderseite: " + frontError.message);
       setSavingId(false);
       return;
     }
-    const { data: frontData } = supabase.storage.from("id-documents").getPublicUrl(frontPath);
-    frontUrl = frontData.publicUrl;
+    frontPath = frontFilePath;
 
     // Upload back if exists
     if (backBlob) {
-      const backPath = `${customerId}/back-${timestamp}.jpg`;
+      const backFilePath = `${customerId}/back-${timestamp}.jpg`;
       const { error: backError } = await supabase.storage
         .from("id-documents")
-        .upload(backPath, backBlob, { contentType: "image/jpeg" });
+        .upload(backFilePath, backBlob, { contentType: "image/jpeg" });
       if (backError) {
         toast.error("Fehler beim Upload Rückseite: " + backError.message);
         setSavingId(false);
         return;
       }
-      const { data: backData } = supabase.storage.from("id-documents").getPublicUrl(backPath);
-      backUrl = backData.publicUrl;
+      backPath = backFilePath;
     }
 
-    // Update customer
+    // Update customer (store path only, not public URL)
     const { error: updateError } = await supabase
       .from("customers")
       .update({
-        id_document_front_url: frontUrl,
-        id_document_back_url: backUrl,
+        id_document_front_url: frontPath,
+        id_document_back_url: backPath,
       })
       .eq("id", customerId);
 
@@ -225,6 +229,8 @@ export default function PlannerPage() {
   const closeIdCapture = () => {
     stopCamera();
     setShowIdCapture(false);
+    if (frontImage?.startsWith("blob:")) URL.revokeObjectURL(frontImage);
+    if (backImage?.startsWith("blob:")) URL.revokeObjectURL(backImage);
     setFrontImage(null);
     setBackImage(null);
     setFrontBlob(null);
@@ -391,6 +397,8 @@ export default function PlannerPage() {
                     src={frontImage}
                     alt="Vorderseite"
                     className="w-full h-full object-cover rounded"
+                    loading="lazy"
+                    decoding="async"
                   />
                 )}
                 {backImage && (
@@ -398,6 +406,8 @@ export default function PlannerPage() {
                     src={backImage}
                     alt="Rückseite"
                     className="w-full h-full object-cover rounded"
+                    loading="lazy"
+                    decoding="async"
                   />
                 )}
               </div>

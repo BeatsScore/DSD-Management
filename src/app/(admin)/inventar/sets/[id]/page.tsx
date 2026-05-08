@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { safeParseFloat } from "@/lib/utils";
 
 interface SelectedProduct {
   id: string;
@@ -91,8 +92,12 @@ export default function EditSetPage({ params }: { params: Promise<{ id: string }
       toast.error("Bild darf maximal 5 MB gross sein.");
       return;
     }
+    if (imagePreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    const url = URL.createObjectURL(file);
     setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setImagePreview(url);
   };
 
   const toggleProduct = (product: any) => {
@@ -160,7 +165,7 @@ export default function EditSetPage({ params }: { params: Promise<{ id: string }
       .update({
         name: name.trim(),
         description: description.trim() || null,
-        rental_price_per_day: price ? parseFloat(price) : null,
+        rental_price_per_day: safeParseFloat(price),
         image_url: imageUrl,
         active,
       })
@@ -237,6 +242,8 @@ export default function EditSetPage({ params }: { params: Promise<{ id: string }
                   src={imagePreview}
                   alt="Vorschau"
                   className="w-48 h-48 object-cover rounded-lg border border-gray-200"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <button
                   type="button"

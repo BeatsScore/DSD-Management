@@ -58,7 +58,11 @@ export default function OrderDetailPage() {
   };
 
   const generatePDF = async (type: string) => {
-    generateDocument(type, order, items, window);
+    const success = generateDocument(type, order, items, window);
+    if (!success) {
+      toast.error("Popup wurde blockiert. Bitte erlauben Sie Popups für diese Seite.");
+      return;
+    }
 
     // Save document record to DB
     const fileName = `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;

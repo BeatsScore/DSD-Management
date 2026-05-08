@@ -77,6 +77,8 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
               src={set.image_url}
               alt={set.name}
               className="w-full aspect-video object-cover rounded-xl"
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="w-full aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center">

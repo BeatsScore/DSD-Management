@@ -14,11 +14,14 @@ export default function CustomersPage() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("customers")
         .select("*")
         .order("name", { ascending: true })
         .limit(50);
+      if (error) {
+        console.error("Failed to load customers:", error);
+      }
       setCustomers(data || []);
       setFiltered(data || []);
       setLoading(false);

@@ -108,6 +108,8 @@ export default function SetsPage() {
                     src={set.image_url}
                     alt={set.name}
                     className="w-14 h-14 object-cover rounded-lg shrink-0"
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">

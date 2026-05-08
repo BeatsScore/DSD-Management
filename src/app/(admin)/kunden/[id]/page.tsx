@@ -159,7 +159,7 @@ export default function CustomerDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: c }, { data: o }] = await Promise.all([
+      const [{ data: c, error: ec }, { data: o, error: eo }] = await Promise.all([
         supabase.from("customers").select("*").eq("id", id).single(),
         supabase
           .from("orders")
@@ -167,6 +167,10 @@ export default function CustomerDetailPage() {
           .eq("customer_id", id)
           .order("created_at", { ascending: false }),
       ]);
+      if (ec || eo) {
+        console.error("Failed to load customer:", ec || eo);
+        toast.error("Fehler beim Laden der Kundendaten.");
+      }
       if (c) {
         setCustomer(c);
         setForm({

@@ -16,7 +16,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import Barcode from "react-barcode";
-import { formatDate, getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
+import { formatDate, getStatusColor, getStatusLabel, formatCurrency, safeParseFloat, safeParseInt } from "@/lib/utils";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -87,8 +87,12 @@ export default function ProductDetailPage() {
       toast.error("Bild darf maximal 5 MB gross sein.");
       return;
     }
+    if (imagePreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    const url = URL.createObjectURL(file);
     setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setImagePreview(url);
   };
 
   const uploadImage = async (): Promise<string | null> => {
@@ -109,6 +113,9 @@ export default function ProductDetailPage() {
   };
 
   const removeImage = () => {
+    if (imagePreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImageFile(null);
     setImagePreview(null);
   };
@@ -118,6 +125,10 @@ export default function ProductDetailPage() {
     setSaving(true);
 
     let imageUrl = imagePreview;
+    // Prevent blob URLs from being saved to the database
+    if (imageUrl?.startsWith("blob:")) {
+      imageUrl = product?.image_url || null;
+    }
     if (imageFile) {
       const uploaded = await uploadImage();
       if (uploaded) imageUrl = uploaded;
@@ -137,16 +148,12 @@ export default function ProductDetailPage() {
         status: form.status,
         image_url: imageUrl,
         technical_specs: form.technicalSpecs || null,
-        rental_price_per_day: form.rentalPricePerDay
-          ? parseFloat(form.rentalPricePerDay)
-          : null,
-        quantity: parseInt(form.quantity) || 1,
+        rental_price_per_day: safeParseFloat(form.rentalPricePerDay),
+        quantity: safeParseInt(form.quantity, 1),
         manual_url: form.manualUrl || null,
         purchase_date: form.purchaseDate || null,
-        purchase_price: form.purchasePrice
-          ? parseFloat(form.purchasePrice)
-          : null,
-        weight: form.weight ? parseFloat(form.weight) : null,
+        purchase_price: safeParseFloat(form.purchasePrice),
+        weight: safeParseFloat(form.weight),
         condition: form.condition || null,
         owner_id: form.ownerId || null,
       })
@@ -277,6 +284,8 @@ export default function ProductDetailPage() {
                   src={imagePreview}
                   alt="Vorschau"
                   className="w-48 h-48 object-cover rounded-lg border border-gray-200"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <button
                   type="button"

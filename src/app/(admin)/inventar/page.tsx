@@ -24,7 +24,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: oi }] = await Promise.all([
+      const [{ data: p, error: ep }, { data: oi, error: eoi }] = await Promise.all([
         supabase
           .from("products")
           .select("*, category:category_id(*), owner:owner_id(full_name, email)")
@@ -37,6 +37,9 @@ export default function InventoryPage() {
           )
           .neq("order.status", "storniert"),
       ]);
+      if (ep || eoi) {
+        console.error("Failed to load inventory:", ep || eoi);
+      }
 
       setProducts(p || []);
 

@@ -158,7 +158,18 @@ create table if not exists public.set_items (
   created_at timestamptz default now()
 );
 
--- RLS
+-- RLS helper function
+create or replace function public.is_admin_or_staff()
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('admin', 'staff')
+  );
+end;
+$$ language plpgsql security definer;
+
+-- RLS enable
 alter table public.profiles enable row level security;
 alter table public.product_categories enable row level security;
 alter table public.products enable row level security;
@@ -172,23 +183,30 @@ alter table public.pickup_sessions enable row level security;
 alter table public.product_sets enable row level security;
 alter table public.set_items enable row level security;
 
-create policy "Allow all access to authenticated" on public.profiles for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.product_categories for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.products for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.customers for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.orders for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.order_items for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.requests for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.documents for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.inventory_status_logs for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.pickup_sessions for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.product_sets for all to authenticated using (true) with check (true);
-create policy "Allow all access to authenticated" on public.set_items for all to authenticated using (true) with check (true);
+-- Profiles: own profile read, admin/staff full access
+create policy "Users can read own profile" on public.profiles for select to authenticated using (auth.uid() = id);
+create policy "Admin and staff full access on profiles" on public.profiles for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 
+-- Internal tables: admin/staff only
+create policy "Admin and staff full access on categories" on public.product_categories for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on products" on public.products for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on customers" on public.customers for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on orders" on public.orders for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on order_items" on public.order_items for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on requests" on public.requests for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on documents" on public.documents for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on inventory_status_logs" on public.inventory_status_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on pickup_sessions" on public.pickup_sessions for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on product_sets" on public.product_sets for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on set_items" on public.set_items for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+
+-- Public catalog access (anon)
 create policy "Allow public read on products" on public.products for select to anon using (true);
 create policy "Allow public read on categories" on public.product_categories for select to anon using (true);
 create policy "Allow public read on product_sets" on public.product_sets for select to anon using (true);
 create policy "Allow public read on set_items" on public.set_items for select to anon using (true);
+
+-- Public inquiry
 create policy "Allow public insert on requests" on public.requests for insert to anon with check (true);
 
 -- Function to create profile on signup
