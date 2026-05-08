@@ -151,6 +151,8 @@ export default function CustomerDetailPage() {
 
   const [customer, setCustomer] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
+  const [idFrontUrl, setIdFrontUrl] = useState<string | null>(null);
+  const [idBackUrl, setIdBackUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -185,6 +187,23 @@ export default function CustomerDetailPage() {
           ratingEquipmentCare: c.rating_equipment_care ?? 0,
           trustStatus: c.trust_status || "gruen",
         });
+        // Load signed URLs for ID documents
+        if (c.id_document_front_url) {
+          const { data: frontData } = await supabase.storage
+            .from("id-documents")
+            .createSignedUrl(c.id_document_front_url, 3600);
+          setIdFrontUrl(frontData?.signedUrl || null);
+        } else {
+          setIdFrontUrl(null);
+        }
+        if (c.id_document_back_url) {
+          const { data: backData } = await supabase.storage
+            .from("id-documents")
+            .createSignedUrl(c.id_document_back_url, 3600);
+          setIdBackUrl(backData?.signedUrl || null);
+        } else {
+          setIdBackUrl(null);
+        }
       }
       setOrders(o || []);
       setLoading(false);
@@ -476,6 +495,38 @@ export default function CustomerDetailPage() {
                 />
               </div>
             </div>
+
+            {(idFrontUrl || idBackUrl) && (
+              <div className="border-t border-gray-100 pt-5">
+                <h3 className="font-medium text-gray-900 mb-4">ID-Dokumente</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {idFrontUrl && (
+                    <a href={idFrontUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <div className="text-xs text-gray-500 mb-1">Vorderseite</div>
+                      <img
+                        src={idFrontUrl}
+                        alt="ID Vorderseite"
+                        className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-blue-400 transition-colors"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </a>
+                  )}
+                  {idBackUrl && (
+                    <a href={idBackUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <div className="text-xs text-gray-500 mb-1">Rückseite</div>
+                      <img
+                        src={idBackUrl}
+                        alt="ID Rückseite"
+                        className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-blue-400 transition-colors"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
