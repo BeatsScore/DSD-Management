@@ -133,6 +133,7 @@ export function generateDocument(
               margin: 40px 0 20px;
               padding-bottom: 8px;
               border-bottom: 2px solid #000;
+              page-break-after: avoid;
             }
             h2 {
               font-size: 14px;
@@ -140,6 +141,7 @@ export function generateDocument(
               margin: 30px 0 12px;
               text-transform: uppercase;
               letter-spacing: 0.5px;
+              page-break-after: avoid;
             }
             p, li {
               font-size: 12px;
@@ -157,6 +159,7 @@ export function generateDocument(
               display: flex;
               gap: 40px;
               margin: 30px 0;
+              page-break-inside: avoid;
             }
             .party {
               flex: 1;
@@ -187,6 +190,7 @@ export function generateDocument(
               width: 100%;
               border-collapse: collapse;
               margin-bottom: 20px;
+              page-break-inside: avoid;
             }
             thead th {
               padding: 12px;
@@ -206,6 +210,7 @@ export function generateDocument(
               padding: 20px;
               margin: 30px 0;
               border-left: 3px solid #000;
+              page-break-inside: avoid;
             }
             .price-row {
               display: flex;
@@ -226,6 +231,7 @@ export function generateDocument(
               display: flex;
               gap: 60px;
               margin-top: 60px;
+              page-break-inside: avoid;
             }
             .signature-block {
               flex: 1;
@@ -503,6 +509,7 @@ export function generateDocument(
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 10px;
+            page-break-inside: avoid;
           }
           thead th {
             padding: 14px 12px;
@@ -524,6 +531,7 @@ export function generateDocument(
             width: 320px;
             margin-left: auto;
             margin-top: 30px;
+            page-break-inside: avoid;
           }
           .summary-row {
             display: flex;
@@ -580,6 +588,7 @@ export function generateDocument(
             font-size: 12px;
             color: #555;
             line-height: 1.6;
+            page-break-inside: avoid;
           }
           .notice-title {
             font-weight: 700;
