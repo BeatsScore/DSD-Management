@@ -93,16 +93,24 @@ export function generateDocument(
               max-width: 210mm;
               min-height: 297mm;
               margin: 0 auto;
-              padding: 50px 60px;
+              padding: 120px 60px 50px;
               position: relative;
             }
             .header {
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              margin-bottom: 50px;
               padding-bottom: 25px;
               border-bottom: 3px solid #000;
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              max-width: 210mm;
+              margin: 0 auto;
+              padding: 50px 60px 25px;
+              background: #fff;
+              z-index: 100;
             }
             .brand {
               font-size: 26px;
@@ -425,16 +433,24 @@ export function generateDocument(
             max-width: 210mm;
             min-height: 297mm;
             margin: 0 auto;
-            padding: 50px 60px;
+            padding: 130px 60px 50px;
             position: relative;
           }
           .header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 60px;
             padding-bottom: 30px;
             border-bottom: 3px solid #000;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 50px 60px 30px;
+            background: #fff;
+            z-index: 100;
           }
           .brand {
             font-size: 26px;
@@ -599,7 +615,8 @@ export function generateDocument(
             letter-spacing: 0.5px;
           }
           @media print {
-            .page { padding: 40px 50px; }
+            .page { padding: 130px 50px 40px; }
+            .header { padding: 40px 50px 30px; }
           }
         </style>
       </head>
