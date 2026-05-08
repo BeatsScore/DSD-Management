@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate } from "./utils";
+import { formatCurrency, formatDate, getRentalDays } from "./utils";
 import { companyInfo } from "./company";
 
 function escapeHtml(text: string | null | undefined): string {
@@ -30,13 +30,7 @@ export function generateDocument(
 
   const docTitle = titleMap[type] || type;
   const today = new Date().toLocaleDateString("de-CH");
-  const days = Math.max(
-    1,
-    Math.ceil(
-      (new Date(order.end_date).getTime() - new Date(order.start_date).getTime()) /
-        (1000 * 60 * 60 * 24)
-    )
-  );
+  const days = getRentalDays(order.start_date, order.end_date);
 
   // Calculate totals from actual line items
   let lineTotalSum = 0;

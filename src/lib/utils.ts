@@ -51,6 +51,16 @@ export function safeParseInt(value: string | null | undefined, fallback = 1): nu
   return isNaN(parsed) ? fallback : parsed;
 }
 
+export function getRentalDays(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  const diffMs = end.getTime() - start.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(1, diffDays + 1); // inclusive of both start and end day
+}
+
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     verfuegbar: "bg-green-100 text-green-800",

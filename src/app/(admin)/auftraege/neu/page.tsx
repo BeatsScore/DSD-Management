@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Loader2, ArrowLeft, Plus, X } from "lucide-react";
-import { generateOrderNumber } from "@/lib/utils";
+import { generateOrderNumber, getRentalDays } from "@/lib/utils";
 
 export default function NewOrderPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -72,13 +72,7 @@ export default function NewOrderPage() {
     const orderNumber = generateOrderNumber();
 
     // Calculate total amount from line items
-    const days = Math.max(
-      1,
-      Math.ceil(
-        (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
-    );
+    const days = getRentalDays(form.startDate, form.endDate);
     const totalAmount = selectedProducts.reduce(
       (sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * days,
       0
