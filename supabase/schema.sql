@@ -137,6 +137,27 @@ create table if not exists public.pickup_sessions (
   started_by uuid references public.profiles(id) not null
 );
 
+-- Product Sets
+create table if not exists public.product_sets (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  description text,
+  image_url text,
+  rental_price_per_day numeric(10,2),
+  active boolean not null default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Set items (products in a set)
+create table if not exists public.set_items (
+  id uuid default gen_random_uuid() primary key,
+  set_id uuid references public.product_sets(id) on delete cascade not null,
+  product_id uuid references public.products(id) on delete cascade not null,
+  quantity integer not null default 1,
+  created_at timestamptz default now()
+);
+
 -- RLS
 alter table public.profiles enable row level security;
 alter table public.product_categories enable row level security;
@@ -148,6 +169,8 @@ alter table public.requests enable row level security;
 alter table public.documents enable row level security;
 alter table public.inventory_status_logs enable row level security;
 alter table public.pickup_sessions enable row level security;
+alter table public.product_sets enable row level security;
+alter table public.set_items enable row level security;
 
 create policy "Allow all access to authenticated" on public.profiles for all to authenticated using (true) with check (true);
 create policy "Allow all access to authenticated" on public.product_categories for all to authenticated using (true) with check (true);
@@ -159,9 +182,13 @@ create policy "Allow all access to authenticated" on public.requests for all to 
 create policy "Allow all access to authenticated" on public.documents for all to authenticated using (true) with check (true);
 create policy "Allow all access to authenticated" on public.inventory_status_logs for all to authenticated using (true) with check (true);
 create policy "Allow all access to authenticated" on public.pickup_sessions for all to authenticated using (true) with check (true);
+create policy "Allow all access to authenticated" on public.product_sets for all to authenticated using (true) with check (true);
+create policy "Allow all access to authenticated" on public.set_items for all to authenticated using (true) with check (true);
 
 create policy "Allow public read on products" on public.products for select to anon using (true);
 create policy "Allow public read on categories" on public.product_categories for select to anon using (true);
+create policy "Allow public read on product_sets" on public.product_sets for select to anon using (true);
+create policy "Allow public read on set_items" on public.set_items for select to anon using (true);
 create policy "Allow public insert on requests" on public.requests for insert to anon with check (true);
 
 -- Function to create profile on signup

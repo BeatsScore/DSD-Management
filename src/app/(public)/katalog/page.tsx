@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Package, Filter } from "lucide-react";
-import { getStatusColor, getStatusLabel } from "@/lib/utils";
+import { Package, Filter, Layers } from "lucide-react";
+import { getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
 
 export default function CatalogPage() {
   const [products, setProducts] = useState<any[]>([]);
+  const [sets, setSets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");
@@ -16,13 +17,15 @@ export default function CatalogPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: c }] = await Promise.all([
+      const [{ data: p }, { data: c }, { data: s }] = await Promise.all([
         supabase.from("products").select("*, category:category_id(*)").order("name", { ascending: true }),
         supabase.from("product_categories").select("*").order("name", { ascending: true }),
+        supabase.from("product_sets").select("*, items:set_items(*, product:product_id(id, name))").eq("active", true).order("name", { ascending: true }),
       ]);
       setProducts(p || []);
       setFiltered(p || []);
       setCategories(c || []);
+      setSets(s || []);
       setLoading(false);
     }
     load();
@@ -52,6 +55,63 @@ export default function CatalogPage() {
           Durchsuchen Sie unser Sortiment an professioneller Eventtechnik.
         </p>
       </div>
+
+      {/* Sets Section */}
+      {sets.length > 0 && !activeCategory && (
+        <div className="mb-12">
+          <div className="flex items-center gap-2 mb-4">
+            <Layers className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-bold text-gray-900">Sets & Pakete</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            {sets.map((set) => (
+              <Link
+                key={set.id}
+                href={`/katalog/set/${set.id}/`}
+                className="card hover:shadow-md transition-shadow group relative overflow-hidden"
+              >
+                {set.image_url ? (
+                  <div className="h-40 -mx-5 -mt-5 mb-4 overflow-hidden">
+                    <img
+                      src={set.image_url}
+                      alt={set.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-32 -mx-5 -mt-5 mb-4 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <Layers className="w-10 h-10 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">
+                    Set
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {set.items?.length || 0} Artikel
+                  </span>
+                </div>
+                <h3 className="font-semibold text-gray-900 group-hover:text-accent transition-colors mb-1">
+                  {set.name}
+                </h3>
+                <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                  {set.description || "Keine Beschreibung vorhanden."}
+                </p>
+                {set.rental_price_per_day ? (
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-bold text-gray-900">
+                      {formatCurrency(set.rental_price_per_day)}
+                    </span>
+                    <span className="text-sm text-gray-500">/ Tag</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-400">Preis auf Anfrage</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Sidebar Filter */}

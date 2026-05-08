@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, Package, Search, Tag, Eye, FolderOpen } from "lucide-react";
+import { Plus, Package, Search, Tag, Eye, FolderOpen, Layers } from "lucide-react";
 import { getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
 
 export default function InventoryPage() {
@@ -82,6 +82,13 @@ export default function InventoryPage() {
           >
             <Tag className="w-4 h-4 mr-1.5 md:mr-2" />{" "}
             <span className="hidden sm:inline">Kategorien</span>
+          </Link>
+          <Link
+            href="/inventar/sets/"
+            className="btn-secondary text-sm px-4 py-2.5"
+          >
+            <Layers className="w-4 h-4 mr-1.5 md:mr-2" />{" "}
+            <span className="hidden sm:inline">Sets</span>
           </Link>
           <Link
             href="/inventar/neu/"

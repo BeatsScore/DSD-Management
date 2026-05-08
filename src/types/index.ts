@@ -139,3 +139,23 @@ export interface PickupSession {
   scanned_items: string[];
   started_by: string;
 }
+
+export interface ProductSet {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  rental_price_per_day: number | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SetItem {
+  id: string;
+  set_id: string;
+  product_id: string;
+  product?: Product;
+  quantity: number;
+  created_at: string;
+}
