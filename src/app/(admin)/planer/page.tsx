@@ -29,6 +29,7 @@ export default function PlannerPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanningOrderId, setScanningOrderId] = useState<string | null>(null);
+  const [scanMode, setScanMode] = useState<"pickup" | "return">("pickup");
   const [scanInput, setScanInput] = useState("");
   const [scannedItems, setScannedItems] = useState<string[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
@@ -246,6 +247,21 @@ export default function PlannerPage() {
     const order = orders.find((o) => o.id === orderId);
     setScanningOrder(order || null);
     setScanningOrderId(orderId);
+    setScanMode("pickup");
+    setScannedItems([]);
+    setScanInput("");
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("*, product:product_id(*)")
+      .eq("order_id", orderId);
+    setOrderItems(items || []);
+  };
+
+  const startReturn = async (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    setScanningOrder(order || null);
+    setScanningOrderId(orderId);
+    setScanMode("return");
     setScannedItems([]);
     setScanInput("");
     const { data: items } = await supabase
@@ -330,6 +346,22 @@ export default function PlannerPage() {
       return;
     }
     toast.success("Abholung bestätigt.");
+    setScanningOrderId(null);
+    setScanningOrder(null);
+    loadOrders();
+  };
+
+  const confirmReturn = async () => {
+    if (!scanningOrderId) return;
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "zurueckgebracht" })
+      .eq("id", scanningOrderId);
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+    toast.success("Rückgabe bestätigt.");
     setScanningOrderId(null);
     setScanningOrder(null);
     loadOrders();
@@ -487,26 +519,29 @@ export default function PlannerPage() {
     const totalItems = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
     const scannedCount = scannedItems.length;
     const allScanned = scannedCount >= totalItems && totalItems > 0;
+    const isPickup = scanMode === "pickup";
 
     return (
       <div className="max-w-xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="page-header">Abholung scannen</h1>
+          <h1 className="page-header">{isPickup ? "Abholung scannen" : "Rückgabe scannen"}</h1>
           <button onClick={cancelScan} className="p-2 text-gray-400 hover:text-black">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* ID Capture Button */}
-        <div className="mb-4">
-          <button
-            onClick={openIdCapture}
-            className="w-full card flex items-center justify-center gap-2 py-4 border-dashed border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 transition-colors text-blue-700"
-          >
-            <CreditCard className="w-5 h-5" />
-            <span className="font-medium">ID Erfassung</span>
-          </button>
-        </div>
+        {/* ID Capture Button - only for pickup */}
+        {isPickup && (
+          <div className="mb-4">
+            <button
+              onClick={openIdCapture}
+              className="w-full card flex items-center justify-center gap-2 py-4 border-dashed border-2 border-blue-300 hover:border-blue-400 hover:bg-blue-50 transition-colors text-blue-700"
+            >
+              <CreditCard className="w-5 h-5" />
+              <span className="font-medium">ID Erfassung</span>
+            </button>
+          </div>
+        )}
 
         <div className="card mb-6">
           <div className="flex items-center justify-between mb-2">
@@ -574,7 +609,7 @@ export default function PlannerPage() {
         </div>
 
         <button
-          onClick={confirmPickup}
+          onClick={isPickup ? confirmPickup : confirmReturn}
           disabled={!allScanned}
           className={`w-full py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
             allScanned
@@ -583,7 +618,7 @@ export default function PlannerPage() {
           }`}
         >
           <CheckCircle2 className="w-4 h-4 inline mr-2" />
-          Abholung bestätigen
+          {isPickup ? "Abholung bestätigen" : "Rückgabe bestätigen"}
         </button>
 
         {/* Barcode Scanner Modal */}
@@ -735,6 +770,11 @@ export default function PlannerPage() {
                   >
                     <Eye className="w-4 h-4" />
                   </Link>
+                  {order.status === "abgeholt" && (
+                    <button onClick={() => startReturn(order.id)} className="btn-primary text-sm py-2 px-3">
+                      <QrCode className="w-4 h-4 mr-1" /> Rückgabe
+                    </button>
+                  )}
                 </div>
               </div>
             ))
