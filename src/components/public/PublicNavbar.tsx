@@ -10,7 +10,6 @@ export function PublicNavbar() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/katalog/", label: "Katalog" },
-    { href: "/anfrage/", label: "Anfrage" },
   ];
 
   return (
