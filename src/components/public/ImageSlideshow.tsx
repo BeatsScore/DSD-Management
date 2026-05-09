@@ -17,11 +17,11 @@ export function ImageSlideshow({ images, alt }: ImageSlideshowProps) {
   const next = () => setCurrent((c) => (c === images.length - 1 ? 0 : c + 1));
 
   return (
-    <div className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+    <div className="relative bg-gray-100 rounded-xl overflow-hidden">
       <img
         src={images[current]}
         alt={`${alt} - Bild ${current + 1}`}
-        className="w-full h-full object-cover"
+        className="w-full h-auto object-contain max-h-[500px]"
         loading="lazy"
         decoding="async"
       />
@@ -56,7 +56,7 @@ export function ImageSlideshow({ images, alt }: ImageSlideshowProps) {
             ))}
           </div>
 
-          <div className="absolute top-3 right-3 px-2 py-0.5 bg-black/50 text-white text-xs rounded-full">
+          <div className="absolute top-3 right-3 px-2 py-0.5 bg-black/50 text-white text-xs rounded-full pointer-events-none">
             {current + 1} / {images.length}
           </div>
         </>
