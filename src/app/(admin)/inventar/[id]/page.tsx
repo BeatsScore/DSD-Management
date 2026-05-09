@@ -103,8 +103,8 @@ export default function ProductDetailPage() {
         toast.error(`"${file.name}" ist kein Bild.`);
         return false;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`"${file.name}" ist grösser als 5 MB.`);
+      if (file.size > 8 * 1024 * 1024) {
+        toast.error(`"${file.name}" ist grösser als 8 MB.`);
         return false;
       }
       return true;
