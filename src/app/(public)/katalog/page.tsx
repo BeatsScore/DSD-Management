@@ -169,12 +169,8 @@ export default function CatalogPage() {
                         loading="lazy"
                         decoding="async"
                       />
-                      <span
-                        className={`absolute top-3 right-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          product.status
-                        )}`}
-                      >
-                        {getStatusLabel(product.status)}
+                      <span className="absolute top-3 right-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-900 text-white">
+                        {product.quantity}x
                       </span>
                     </div>
                   ) : (
@@ -182,12 +178,8 @@ export default function CatalogPage() {
                       <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                         <Package className="w-5 h-5 text-gray-600" />
                       </div>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          product.status
-                        )}`}
-                      >
-                        {getStatusLabel(product.status)}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-900 text-white">
+                        {product.quantity}x
                       </span>
                     </div>
                   )}
