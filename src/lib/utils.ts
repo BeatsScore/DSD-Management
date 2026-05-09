@@ -91,7 +91,7 @@ export function getStatusLabel(status: string): string {
     offen: "Offen",
     verhandlungsphase: "Verhandlungsphase",
     vertragsphase: "Vertragsphase",
-    bestaetigt: "Bestaetigt",
+    bestaetigt: "Bestätigt",
     abgeholt: "Abgeholt",
     zurueckgebracht: "Zurückgebracht",
     abgeschlossen: "Abgeschlossen",
