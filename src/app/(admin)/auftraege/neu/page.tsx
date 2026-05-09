@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Loader2, ArrowLeft, Plus, X } from "lucide-react";
+import { Loader2, ArrowLeft, Plus, X, UserPlus } from "lucide-react";
 import { generateOrderNumber, getRentalDays } from "@/lib/utils";
 
 export default function NewOrderPage() {
@@ -27,6 +27,18 @@ export default function NewOrderPage() {
   const [selectedProducts, setSelectedProducts] = useState<
     { productId: string; quantity: number; pricePerDay: number }[]
   >([]);
+
+  // New customer modal state
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: "",
+    company: "",
+    email: "",
+    phone: "",
+    address: "",
+    notes: "",
+  });
 
   useEffect(() => {
     async function load() {
@@ -121,6 +133,48 @@ export default function NewOrderPage() {
     router.push("/auftraege/");
   };
 
+  const openCustomerModal = () => {
+    setNewCustomerForm({ name: "", company: "", email: "", phone: "", address: "", notes: "" });
+    setShowCustomerModal(true);
+  };
+
+  const closeCustomerModal = () => {
+    setShowCustomerModal(false);
+  };
+
+  const saveNewCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomerForm.name || !newCustomerForm.email) {
+      toast.error("Bitte füllen Sie alle Pflichtfelder aus.");
+      return;
+    }
+    setSavingCustomer(true);
+    const { data, error } = await supabase
+      .from("customers")
+      .insert({
+        name: newCustomerForm.name,
+        company: newCustomerForm.company || null,
+        email: newCustomerForm.email,
+        phone: newCustomerForm.phone || null,
+        address: newCustomerForm.address || null,
+        notes: newCustomerForm.notes || null,
+      })
+      .select()
+      .single();
+
+    setSavingCustomer(false);
+
+    if (error || !data) {
+      toast.error("Fehler: " + (error?.message || "Unbekannter Fehler"));
+      return;
+    }
+
+    toast.success("Kunde erstellt.");
+    setCustomers((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    setForm((prev) => ({ ...prev, customerId: data.id }));
+    closeCustomerModal();
+  };
+
   return (
     <div className="max-w-3xl">
       <Link href="/auftraege/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-black mb-6">
@@ -138,7 +192,16 @@ export default function NewOrderPage() {
               <select
                 className="input-field"
                 value={form.customerId}
-                onChange={(e) => setForm({ ...form, customerId: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "__new__") {
+                    openCustomerModal();
+                    // Reset select back to empty so the option can be selected again
+                    setForm((prev) => ({ ...prev, customerId: "" }));
+                  } else {
+                    setForm((prev) => ({ ...prev, customerId: value }));
+                  }
+                }}
                 required
               >
                 <option value="">Bitte wählen</option>
@@ -147,6 +210,9 @@ export default function NewOrderPage() {
                     {c.name}
                   </option>
                 ))}
+                <option value="__new__" className="font-semibold text-blue-600">
+                  + Neuer Kunde...
+                </option>
               </select>
             </div>
             <div>
@@ -272,6 +338,102 @@ export default function NewOrderPage() {
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Auftrag speichern"}
         </button>
       </form>
+
+      {/* New Customer Modal */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-blue-600" />
+                Neuer Kunde
+              </h3>
+              <button onClick={closeCustomerModal} className="p-2 text-gray-400 hover:text-black">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={saveNewCustomer} className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <input
+                    className="input-field w-full"
+                    value={newCustomerForm.name}
+                    onChange={(e) => setNewCustomerForm((prev) => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Firma</label>
+                  <input
+                    className="input-field w-full"
+                    value={newCustomerForm.company}
+                    onChange={(e) => setNewCustomerForm((prev) => ({ ...prev, company: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail *</label>
+                  <input
+                    type="email"
+                    className="input-field w-full"
+                    value={newCustomerForm.email}
+                    onChange={(e) => setNewCustomerForm((prev) => ({ ...prev, email: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                  <input
+                    type="tel"
+                    className="input-field w-full"
+                    value={newCustomerForm.phone}
+                    onChange={(e) => setNewCustomerForm((prev) => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                <textarea
+                  rows={2}
+                  className="input-field w-full"
+                  value={newCustomerForm.address}
+                  onChange={(e) => setNewCustomerForm((prev) => ({ ...prev, address: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Interne Notizen</label>
+                <textarea
+                  rows={2}
+                  className="input-field w-full"
+                  value={newCustomerForm.notes}
+                  onChange={(e) => setNewCustomerForm((prev) => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={closeCustomerModal}
+                  className="flex-1 btn-secondary py-2.5"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCustomer}
+                  className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2"
+                >
+                  {savingCustomer ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Kunde speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
