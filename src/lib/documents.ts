@@ -93,7 +93,7 @@ export function generateDocument(
               max-width: 210mm;
               min-height: 297mm;
               margin: 0 auto;
-              padding: 95px 60px 50px;
+              padding: 115px 60px 50px;
               position: relative;
             }
             .header {
@@ -615,8 +615,8 @@ export function generateDocument(
             letter-spacing: 0.5px;
           }
           @media print {
-            .page { padding: 90px 50px 40px; }
-            .header { padding: 16px 50px 12px; }
+            .page { padding: 110px 50px 40px; }
+            .header { padding: 16px 50px 14px; }
           }
         </style>
       </head>
