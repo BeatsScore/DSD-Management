@@ -158,20 +158,39 @@ export default function CatalogPage() {
                 <Link
                   key={product.id}
                   href={`/katalog/${product.id}/`}
-                  className="card hover:shadow-md transition-shadow group"
+                  className="card hover:shadow-md transition-shadow group overflow-hidden"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Package className="w-5 h-5 text-gray-600" />
+                  {product.image_urls && product.image_urls.length > 0 ? (
+                    <div className="relative h-40 -mx-5 -mt-5 mb-4 overflow-hidden">
+                      <img
+                        src={product.image_urls[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <span
+                        className={`absolute top-3 right-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                          product.status
+                        )}`}
+                      >
+                        {getStatusLabel(product.status)}
+                      </span>
                     </div>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        product.status
-                      )}`}
-                    >
-                      {getStatusLabel(product.status)}
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <Package className="w-5 h-5 text-gray-600" />
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                          product.status
+                        )}`}
+                      >
+                        {getStatusLabel(product.status)}
+                      </span>
+                    </div>
+                  )}
                   <h3 className="font-semibold text-gray-900 group-hover:text-accent transition-colors mb-1">
                     {product.name}
                   </h3>

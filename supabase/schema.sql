@@ -32,7 +32,7 @@ create table if not exists public.products (
   status text not null default 'verfuegbar' check (status in ('verfuegbar', 'vermietet', 'reserviert', 'defekt')),
   barcode text not null unique,
   barcode_data_url text,
-  image_url text,
+  image_urls text[],
   technical_specs text,
   rental_price_per_day numeric(10,2),
   quantity integer not null default 1,

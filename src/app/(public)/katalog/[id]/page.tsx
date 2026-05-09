@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Package, ArrowLeft, Calendar, Ruler, Building2, Tag } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
+import { ImageSlideshow } from "@/components/public/ImageSlideshow";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -33,11 +34,15 @@ export default async function ProductDetailPage({ params }: Props) {
 
       <div className="card">
         <div className="flex flex-col md:flex-row gap-8">
-          {/* Image placeholder */}
+          {/* Image slideshow */}
           <div className="md:w-1/3">
-            <div className="aspect-square bg-gray-100 rounded-xl flex items-center justify-center">
-              <Package className="w-16 h-16 text-gray-300" />
-            </div>
+            {product.image_urls && product.image_urls.length > 0 ? (
+              <ImageSlideshow images={product.image_urls} alt={product.name} />
+            ) : (
+              <div className="aspect-square bg-gray-100 rounded-xl flex items-center justify-center">
+                <Package className="w-16 h-16 text-gray-300" />
+              </div>
+            )}
           </div>
 
           {/* Details */}

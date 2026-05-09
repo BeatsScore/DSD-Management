@@ -34,7 +34,7 @@ export interface Product {
   status: ProductStatus;
   barcode: string;
   barcode_data_url: string | null;
-  image_url: string | null;
+  image_urls: string[] | null;
   technical_specs: string | null;
   rental_price_per_day: number | null;
   quantity: number;

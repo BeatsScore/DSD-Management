@@ -14,8 +14,8 @@ export default function NewProductPage() {
   const [loading, setLoading] = useState(false);
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const router = useRouter();
   const supabase = createClient();
 
@@ -60,47 +60,50 @@ export default function NewProductPage() {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Bitte laden Sie ein Bild hoch.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Bild darf maximal 5 MB gross sein.");
-      return;
-    }
-    if (imagePreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(imagePreview);
-    }
-    const url = URL.createObjectURL(file);
-    setImageFile(file);
-    setImagePreview(url);
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error(`"${file.name}" ist kein Bild.`);
+        return false;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`"${file.name}" ist grösser als 5 MB.`);
+        return false;
+      }
+      return true;
+    });
+    if (validFiles.length === 0) return;
+
+    const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
+    setImageFiles((prev) => [...prev, ...validFiles]);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
   };
 
-  const removeImage = () => {
-    if (imagePreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(imagePreview);
-    }
-    setImageFile(null);
-    setImagePreview(null);
+  const removeImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => {
+      const url = prev[index];
+      if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
-  const uploadImage = async (productId: string): Promise<string | null> => {
-    if (!imageFile) return null;
-    const ext = imageFile.name.split(".").pop() || "jpg";
-    const fileName = `${productId}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
-      .from("product-images")
-      .upload(fileName, imageFile);
-    if (error) {
-      toast.error("Fehler beim Bild-Upload: " + error.message);
-      return null;
+  const uploadImages = async (productId: string): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const file of imageFiles) {
+      const ext = file.name.split(".").pop() || "jpg";
+      const fileName = `${productId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+      const { error } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file);
+      if (error) {
+        toast.error("Fehler beim Bild-Upload: " + error.message);
+        continue;
+      }
+      const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(fileName);
+      urls.push(publicUrl);
     }
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("product-images").getPublicUrl(fileName);
-    return publicUrl;
+    return urls;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,13 +185,13 @@ export default function NewProductPage() {
       return;
     }
 
-    // Upload image if present
-    if (imageFile && inserted) {
-      const imageUrl = await uploadImage(inserted.id);
-      if (imageUrl) {
+    // Upload images if present
+    if (imageFiles.length > 0 && inserted) {
+      const imageUrls = await uploadImages(inserted.id);
+      if (imageUrls.length > 0) {
         await supabase
           .from("products")
-          .update({ image_url: imageUrl })
+          .update({ image_urls: imageUrls })
           .eq("id", inserted.id);
       }
     }
@@ -212,37 +215,37 @@ export default function NewProductPage() {
       <form onSubmit={handleSubmit} className="card space-y-5">
         {/* Image upload */}
         <div>
-          <label className="label">Produktbild</label>
-          <div className="mt-2">
-            {imagePreview ? (
-              <div className="relative inline-block">
+          <label className="label">Produktbilder</label>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {imagePreviews.map((preview, index) => (
+              <div key={index} className="relative inline-block">
                 <img
-                  src={imagePreview}
-                  alt="Vorschau"
-                  className="w-48 h-48 object-cover rounded-lg border border-gray-200"
+                  src={preview}
+                  alt={`Vorschau ${index + 1}`}
+                  className="w-32 h-32 object-cover rounded-lg border border-gray-200"
                   loading="lazy"
                   decoding="async"
                 />
                 <button
                   type="button"
-                  onClick={removeImage}
+                  onClick={() => removeImage(index)}
                   className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
-                <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">Bild hochladen</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageChange}
-                />
-              </label>
-            )}
+            ))}
+            <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+              <Plus className="w-6 h-6 text-gray-400 mb-1" />
+              <span className="text-xs text-gray-500">Hinzufügen</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleImageChange}
+              />
+            </label>
           </div>
         </div>
 
