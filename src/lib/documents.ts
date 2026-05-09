@@ -433,7 +433,7 @@ export function generateDocument(
             max-width: 210mm;
             min-height: 297mm;
             margin: 0 auto;
-            padding: 95px 60px 50px;
+            padding: 115px 60px 50px;
             position: relative;
           }
           .header {
