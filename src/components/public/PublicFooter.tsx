@@ -9,7 +9,7 @@ export function PublicFooter() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="bg-white rounded-lg px-3 py-2">
-                <img src="/logo.png" alt="DSD Management" className="h-8 w-auto object-contain" />
+                <img src="/logo.png" alt="DSD Management" className="h-12 w-auto object-contain" />
               </div>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
