@@ -280,7 +280,7 @@ export function generateDocument(
           <div class="page">
             <div class="header">
               <div>
-                <img src="/logo.png" alt="${companyInfo.name}" style="height:56px;width:auto;object-fit:contain;" />
+                <img src="/logo.png" alt="${companyInfo.name}" style="height:168px;width:auto;object-fit:contain;" />
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">Mietvertrag</div>
@@ -626,7 +626,7 @@ export function generateDocument(
           <div class="content">
             <div class="header">
               <div>
-                <img src="/logo.png" alt="${companyInfo.name}" style="height:56px;width:auto;object-fit:contain;" />
+                <img src="/logo.png" alt="${companyInfo.name}" style="height:168px;width:auto;object-fit:contain;" />
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">${docTitle}</div>
