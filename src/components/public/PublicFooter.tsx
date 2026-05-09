@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Volume2, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 
 export function PublicFooter() {
   return (
@@ -8,7 +8,9 @@ export function PublicFooter() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <img src="/logo.png" alt="DSD Management" className="h-30 w-auto object-contain" />
+              <div className="bg-white rounded-lg px-3 py-2">
+                <img src="/logo.png" alt="DSD Management" className="h-8 w-auto object-contain" />
+              </div>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
               Professionelle Eventtechnik zur Miete. Zuverlaessig, flexibel und 
