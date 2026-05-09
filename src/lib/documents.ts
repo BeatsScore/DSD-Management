@@ -93,7 +93,7 @@ export function generateDocument(
               max-width: 210mm;
               min-height: 297mm;
               margin: 0 auto;
-              padding: 115px 60px 50px;
+              padding: 155px 60px 50px;
               position: relative;
             }
             .header {
@@ -280,13 +280,13 @@ export function generateDocument(
           <div class="page">
             <div class="header">
               <div>
-                <img src="/logo.png" alt="${companyInfo.name}" style="height:50px;width:auto;object-fit:contain;" />
+                <img src="/logo.png" alt="${companyInfo.name}" style="height:90px;width:auto;object-fit:contain;" />
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">Mietvertrag</div>
             </div>
 
-            <div style="font-size:12px;color:#666;margin-bottom:18px;">
+            <div style="font-size:12px;color:#666;margin-top:15px;margin-bottom:18px;">
               Auftragsnummer: <strong>${escapeHtml(order.order_number)}</strong> | Datum: ${today}
             </div>
 
@@ -478,6 +478,7 @@ export function generateDocument(
           .meta-grid {
             display: flex;
             justify-content: space-between;
+            margin-top: 15px;
             margin-bottom: 28px;
           }
           .meta-block {
@@ -615,7 +616,7 @@ export function generateDocument(
             letter-spacing: 0.5px;
           }
           @media print {
-            .page { padding: 110px 50px 40px; }
+            .page { padding: 150px 50px 40px; }
             .header { padding: 16px 50px 14px; }
           }
         </style>
@@ -626,7 +627,7 @@ export function generateDocument(
           <div class="content">
             <div class="header">
               <div>
-                <img src="/logo.png" alt="${companyInfo.name}" style="height:50px;width:auto;object-fit:contain;" />
+                <img src="/logo.png" alt="${companyInfo.name}" style="height:90px;width:auto;object-fit:contain;" />
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">${docTitle}</div>
