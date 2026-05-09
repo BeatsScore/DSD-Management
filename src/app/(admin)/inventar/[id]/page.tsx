@@ -40,6 +40,7 @@ export default function ProductDetailPage() {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  const [manualFile, setManualFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "maintenance">("details");
 
   // Maintenance form state
@@ -131,6 +132,21 @@ export default function ProductDetailPage() {
     return urls;
   };
 
+  const uploadManual = async (): Promise<string | null> => {
+    if (!manualFile) return null;
+    const ext = manualFile.name.split(".").pop() || "pdf";
+    const fileName = `manual-${id}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("product-manuals")
+      .upload(fileName, manualFile, { contentType: manualFile.type });
+    if (error) {
+      toast.error("Fehler beim Upload der Bedienungsanleitung: " + error.message);
+      return null;
+    }
+    const { data: { publicUrl } } = supabase.storage.from("product-manuals").getPublicUrl(fileName);
+    return publicUrl;
+  };
+
   const removeExistingImage = (index: number) => {
     setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
@@ -151,6 +167,12 @@ export default function ProductDetailPage() {
     const newUrls = imageFiles.length > 0 ? await uploadNewImages() : [];
     const allUrls = [...existingImageUrls, ...newUrls];
 
+    let manualUrl = form.manualUrl || null;
+    if (manualFile) {
+      const uploaded = await uploadManual();
+      if (uploaded) manualUrl = uploaded;
+    }
+
     const { error } = await supabase.from("products").update({
       name: form.name,
       manufacturer: form.manufacturer,
@@ -163,7 +185,7 @@ export default function ProductDetailPage() {
       technical_specs: form.technicalSpecs || null,
       rental_price_per_day: safeParseFloat(form.rentalPricePerDay),
       quantity: safeParseInt(form.quantity, 1),
-      manual_url: form.manualUrl || null,
+      manual_url: manualUrl,
       purchase_date: form.purchaseDate || null,
       purchase_price: safeParseFloat(form.purchasePrice),
       weight: safeParseFloat(form.weight),
@@ -179,6 +201,7 @@ export default function ProductDetailPage() {
     setExistingImageUrls(allUrls);
     setImageFiles([]);
     setImagePreviews([]);
+    setManualFile(null);
   };
 
   const handleDelete = async () => {
@@ -412,10 +435,45 @@ export default function ProductDetailPage() {
             </div>
 
             <div>
-              <label className="label">Bedienungsanleitung (URL)</label>
-              <div className="relative">
-                <input type="url" className="input-field pr-10" placeholder="https://..." value={form.manualUrl} onChange={(e) => updateForm("manualUrl", e.target.value)} />
-                {!form.manualUrl && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Nicht verfügbar</span>}
+              <label className="label">Bedienungsanleitung</label>
+              <div className="space-y-3">
+                <div className="relative">
+                  <input type="url" className="input-field pr-10" placeholder="https://..." value={form.manualUrl} onChange={(e) => updateForm("manualUrl", e.target.value)} />
+                  {!form.manualUrl && !manualFile && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Nicht verfügbar</span>}
+                </div>
+
+                {manualFile ? (
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <FileText className="w-5 h-5 text-gray-400" />
+                    <span className="text-sm truncate flex-1">{manualFile.name}</span>
+                    <button type="button" onClick={() => setManualFile(null)} className="p-1 text-gray-400 hover:text-red-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                    <FileText className="w-6 h-6 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-500">PDF hochladen</span>
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.type !== "application/pdf") {
+                          toast.error("Bitte eine PDF-Datei hochladen.");
+                          return;
+                        }
+                        if (file.size > 20 * 1024 * 1024) {
+                          toast.error("PDF darf maximal 20 MB gross sein.");
+                          return;
+                        }
+                        setManualFile(file);
+                      }}
+                    />
+                  </label>
+                )}
               </div>
             </div>
 

@@ -33,5 +33,9 @@ create table if not exists public.maintenance_logs (
 alter table public.damage_logs enable row level security;
 alter table public.maintenance_logs enable row level security;
 
+-- Drop existing policies first to avoid conflicts
+drop policy if exists "Admin and staff full access on damage_logs" on public.damage_logs;
+drop policy if exists "Admin and staff full access on maintenance_logs" on public.maintenance_logs;
+
 create policy "Admin and staff full access on damage_logs" on public.damage_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 create policy "Admin and staff full access on maintenance_logs" on public.maintenance_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
