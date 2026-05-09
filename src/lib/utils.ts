@@ -39,15 +39,19 @@ export function generateBarcode(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-export function safeParseFloat(value: string | null | undefined): number | null {
-  if (!value || value.trim() === "") return null;
-  const parsed = parseFloat(value);
+export function safeParseFloat(value: string | number | null | undefined): number | null {
+  if (value == null) return null;
+  const str = String(value).trim();
+  if (str === "") return null;
+  const parsed = parseFloat(str);
   return isNaN(parsed) ? null : parsed;
 }
 
-export function safeParseInt(value: string | null | undefined, fallback = 1): number {
-  if (!value || value.trim() === "") return fallback;
-  const parsed = parseInt(value, 10);
+export function safeParseInt(value: string | number | null | undefined, fallback = 1): number {
+  if (value == null) return fallback;
+  const str = String(value).trim();
+  if (str === "") return fallback;
+  const parsed = parseInt(str, 10);
   return isNaN(parsed) ? fallback : parsed;
 }
 
