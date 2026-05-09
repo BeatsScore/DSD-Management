@@ -46,6 +46,7 @@ export default function PlannerPage() {
   const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
   const [damageProductId, setDamageProductId] = useState<string>("");
   const [savingDamage, setSavingDamage] = useState(false);
+  const [damageCameraActive, setDamageCameraActive] = useState(false);
 
   // ID Capture states
   const [showIdCapture, setShowIdCapture] = useState(false);
@@ -453,6 +454,50 @@ export default function PlannerPage() {
     }
     setDamagePhotoPreview(null);
     setDamageProductId("");
+    setDamageCameraActive(false);
+    stopCamera();
+  };
+
+  const startDamageCamera = async () => {
+    setDamageCameraActive(true);
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch {
+      toast.error("Kamera konnte nicht gestartet werden.");
+      setDamageCameraActive(false);
+    }
+  };
+
+  const captureDamagePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        if (damagePhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(damagePhotoPreview);
+        const file = new File([blob], `damage-${Date.now()}.jpg`, { type: "image/jpeg" });
+        setDamagePhotoFile(file);
+        setDamagePhotoPreview(url);
+        stopCamera();
+        setDamageCameraActive(false);
+      },
+      "image/jpeg",
+      0.9
+    );
   };
 
   const cancelScan = () => {
@@ -812,6 +857,8 @@ export default function PlannerPage() {
                   src={damagePhotoPreview}
                   alt="Vorschau"
                   className="w-full max-h-64 object-contain rounded-lg border border-gray-200"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <button
                   onClick={() => {
@@ -824,12 +871,46 @@ export default function PlannerPage() {
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
+            ) : damageCameraActive ? (
+              <div className="relative aspect-[4/3] bg-black rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3">
+                  <button
+                    onClick={() => {
+                      stopCamera();
+                      setDamageCameraActive(false);
+                    }}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-full text-sm backdrop-blur"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={captureDamagePhoto}
+                    className="w-14 h-14 rounded-full border-4 border-white bg-white/20 hover:bg-white/30 transition-colors"
+                  />
+                </div>
+              </div>
             ) : (
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
-                <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">Foto hochladen</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleDamagePhotoChange} />
-              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={startDamageCamera}
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                >
+                  <Camera className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-500">Foto aufnehmen</span>
+                </button>
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                  <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-500">Foto hochladen</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleDamagePhotoChange} />
+                </label>
+              </div>
             )}
           </div>
         </div>
