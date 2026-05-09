@@ -374,11 +374,7 @@ export default function PlannerPage() {
       return;
     }
     toast.success("Rückgabe bestätigt.");
-    setScanningOrderId(null);
-    setScanningOrder(null);
-    setScannedItems([]);
-    setOrderItems([]);
-    // Open damage capture
+    // Open damage capture (keep scanningOrderId for saving)
     setShowDamageCapture(true);
     setDamageProductId(orderItems[0]?.product?.id || "");
     loadOrders();
@@ -456,6 +452,11 @@ export default function PlannerPage() {
     setDamageProductId("");
     setDamageCameraActive(false);
     stopCamera();
+    // Clear scan state since damage capture is done
+    setScanningOrderId(null);
+    setScanningOrder(null);
+    setScannedItems([]);
+    setOrderItems([]);
   };
 
   const startDamageCamera = async () => {
