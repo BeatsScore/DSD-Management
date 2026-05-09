@@ -56,6 +56,15 @@ export default function OrderDetailPage() {
   const [paidAmount, setPaidAmount] = useState("");
   const [savingPayment, setSavingPayment] = useState(false);
 
+  // Damage protocol modal state
+  const [showDamageModal, setShowDamageModal] = useState(false);
+  const [damageProductIds, setDamageProductIds] = useState<string[]>([]);
+  const [damageDescription, setDamageDescription] = useState("");
+  const [damageSeverity, setDamageSeverity] = useState<"leicht" | "mittel" | "schwer">("leicht");
+  const [damagePhotoFile, setDamagePhotoFile] = useState<File | null>(null);
+  const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
+  const [savingDamage, setSavingDamage] = useState(false);
+
   useEffect(() => {
     async function load() {
       const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }] = await Promise.all([
@@ -63,7 +72,7 @@ export default function OrderDetailPage() {
         supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "staff"]).order("full_name", { ascending: true }),
-        supabase.from("damage_logs").select("*, product:product_id(name, product_id)").eq("order_id", id).order("created_at", { ascending: false }),
+        supabase.from("damage_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
       ]);
       setOrder(o);
       setItems(i || []);
@@ -201,6 +210,86 @@ export default function OrderDetailPage() {
     }
     setDamageLogs((prev) => prev.filter((d) => d.id !== logId));
     toast.success("Eintrag entfernt.");
+  };
+
+  const openDamageModal = () => {
+    setShowDamageModal(true);
+    setDamageProductIds([]);
+    setDamageDescription("");
+    setDamageSeverity("leicht");
+    setDamagePhotoFile(null);
+    setDamagePhotoPreview(null);
+  };
+
+  const closeDamageModal = () => {
+    setShowDamageModal(false);
+    setDamageProductIds([]);
+    setDamageDescription("");
+    setDamageSeverity("leicht");
+    setDamagePhotoFile(null);
+    if (damagePhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(damagePhotoPreview);
+    setDamagePhotoPreview(null);
+  };
+
+  const handleDamagePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Bitte ein Bild hochladen.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Bild darf maximal 5 MB gross sein.");
+      return;
+    }
+    if (damagePhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(damagePhotoPreview);
+    const url = URL.createObjectURL(file);
+    setDamagePhotoFile(file);
+    setDamagePhotoPreview(url);
+  };
+
+  const saveDamage = async () => {
+    if (!damageDescription.trim()) {
+      toast.error("Bitte eine Beschreibung eingeben.");
+      return;
+    }
+    setSavingDamage(true);
+
+    let photoPath: string | null = null;
+    if (damagePhotoFile) {
+      const ext = damagePhotoFile.name.split(".").pop() || "jpg";
+      const fileName = `damage-${id}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("damage-photos")
+        .upload(fileName, damagePhotoFile, { contentType: damagePhotoFile.type });
+      if (uploadError) {
+        toast.error("Fehler beim Upload: " + uploadError.message);
+        setSavingDamage(false);
+        return;
+      }
+      photoPath = fileName;
+    }
+
+    const { error } = await supabase.from("damage_logs").insert({
+      order_id: id,
+      product_ids: damageProductIds.length > 0 ? damageProductIds : null,
+      description: damageDescription.trim(),
+      photo_path: photoPath,
+      severity: damageSeverity,
+    });
+
+    setSavingDamage(false);
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    toast.success("Schadensprotokoll gespeichert.");
+    closeDamageModal();
+    // Refresh damage logs
+    const { data: dl } = await supabase.from("damage_logs").select("*").eq("order_id", id).order("created_at", { ascending: false });
+    setDamageLogs(dl || []);
   };
 
   const docTypeLabel = (type: string) => {
@@ -450,6 +539,13 @@ export default function OrderDetailPage() {
                 </button>
               </>
             )}
+
+            {/* Damage protocol button */}
+            {["abgeholt", "zurueckgebracht", "abgeschlossen"].includes(order.status) && (
+              <button onClick={openDamageModal} className="btn-secondary text-sm py-2 px-4">
+                <AlertTriangle className="w-4 h-4 mr-1" /> Schadensprotokoll
+              </button>
+            )}
           </div>
         </div>
 
@@ -472,24 +568,31 @@ export default function OrderDetailPage() {
               <h2 className="section-header">Schadensprotokoll</h2>
             </div>
             <div className="space-y-3">
-              {damageLogs.map((log) => (
-                <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white">
-                  <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${log.severity === 'schwer' ? 'text-red-600' : log.severity === 'mittel' ? 'text-amber-600' : 'text-yellow-500'}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{log.product?.name || "Unbekanntes Produkt"}</div>
-                    <div className="text-sm text-gray-600 mt-0.5">{log.description}</div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getStatusColor(log.severity === 'schwer' ? 'defekt' : log.severity === 'mittel' ? 'reserviert' : 'verfuegbar')}`}>
-                        {log.severity === 'leicht' ? 'Leicht' : log.severity === 'mittel' ? 'Mittel' : 'Schwer'}
-                      </span>
-                      <span>{formatDate(log.created_at)}</span>
+              {damageLogs.map((log) => {
+                const affectedProducts = (log.product_ids || [])
+                  .map((pid: string) => items.find((i) => i.product?.id === pid)?.product?.name)
+                  .filter(Boolean);
+                return (
+                  <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white">
+                    <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${log.severity === 'schwer' ? 'text-red-600' : log.severity === 'mittel' ? 'text-amber-600' : 'text-yellow-500'}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">
+                        {affectedProducts.length > 0 ? affectedProducts.join(", ") : "Allgemein"}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-0.5">{log.description}</div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getStatusColor(log.severity === 'schwer' ? 'defekt' : log.severity === 'mittel' ? 'reserviert' : 'verfuegbar')}`}>
+                          {log.severity === 'leicht' ? 'Leicht' : log.severity === 'mittel' ? 'Mittel' : 'Schwer'}
+                        </span>
+                        <span>{formatDate(log.created_at)}</span>
+                      </div>
                     </div>
+                    <button onClick={() => deleteDamageLog(log.id)} className="p-1.5 text-gray-400 hover:text-red-600">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button onClick={() => deleteDamageLog(log.id)} className="p-1.5 text-gray-400 hover:text-red-600">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -579,6 +682,135 @@ export default function OrderDetailPage() {
               <button onClick={closePlanModal} className="flex-1 btn-secondary py-2.5">Abbrechen</button>
               <button onClick={savePlan} disabled={savingPlan || !planStaffId || !planDate} className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50">
                 {savingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Damage Protocol Modal */}
+      {showDamageModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Schadensprotokoll</h3>
+              <button onClick={closeDamageModal} className="p-2 text-gray-400 hover:text-black">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="card mb-4">
+              <div className="flex items-center gap-2 text-amber-700">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="text-sm font-medium">Optionale Schadensdokumentation</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Betroffene Artikel</label>
+                <div className="space-y-2">
+                  {items.map((item) => {
+                    const pid = item.product?.id;
+                    const checked = pid && damageProductIds.includes(pid);
+                    return (
+                      <label key={item.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={!!checked}
+                          onChange={(e) => {
+                            if (!pid) return;
+                            setDamageProductIds((prev) =>
+                              e.target.checked ? [...prev, pid] : prev.filter((id) => id !== pid)
+                            );
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                        />
+                        <span className="text-sm">{item.product?.name}</span>
+                        <span className="text-xs text-gray-400 ml-auto">{item.product?.product_id}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Schweregrad</label>
+                <div className="flex gap-2">
+                  {(["leicht", "mittel", "schwer"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setDamageSeverity(s)}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${
+                        damageSeverity === s
+                          ? s === "schwer"
+                            ? "bg-red-100 border-red-300 text-red-800"
+                            : s === "mittel"
+                            ? "bg-amber-100 border-amber-300 text-amber-800"
+                            : "bg-green-100 border-green-300 text-green-800"
+                          : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {s === "leicht" ? "Leicht" : s === "mittel" ? "Mittel" : "Schwer"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung *</label>
+                <textarea
+                  rows={3}
+                  value={damageDescription}
+                  onChange={(e) => setDamageDescription(e.target.value)}
+                  placeholder="Beschreiben Sie den Schaden..."
+                  className="input-field w-full"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Foto</label>
+                {damagePhotoPreview ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={damagePhotoPreview}
+                      alt="Vorschau"
+                      className="w-full max-h-64 object-contain rounded-lg border border-gray-200"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <button
+                      onClick={() => {
+                        if (damagePhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(damagePhotoPreview);
+                        setDamagePhotoPreview(null);
+                        setDamagePhotoFile(null);
+                      }}
+                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                    <Camera className="w-8 h-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500">Foto hochladen</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleDamagePhotoChange} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={closeDamageModal} className="flex-1 btn-secondary py-3">
+                Abbrechen
+              </button>
+              <button
+                onClick={saveDamage}
+                disabled={savingDamage || !damageDescription.trim()}
+                className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {savingDamage ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 Speichern
               </button>
             </div>

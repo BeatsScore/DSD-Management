@@ -147,7 +147,7 @@ create table if not exists public.pickup_sessions (
 create table if not exists public.damage_logs (
   id uuid default gen_random_uuid() primary key,
   order_id uuid references public.orders(id) on delete cascade not null,
-  product_id uuid references public.products(id) on delete set null,
+  product_ids uuid[],
   description text not null,
   photo_path text,
   severity text check (severity in ('leicht', 'mittel', 'schwer')) default 'leicht',

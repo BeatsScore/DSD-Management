@@ -44,7 +44,7 @@ export default function PlannerPage() {
   const [damageSeverity, setDamageSeverity] = useState<"leicht" | "mittel" | "schwer">("leicht");
   const [damagePhotoFile, setDamagePhotoFile] = useState<File | null>(null);
   const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
-  const [damageProductId, setDamageProductId] = useState<string>("");
+  const [damageProductIds, setDamageProductIds] = useState<string[]>([]);
   const [savingDamage, setSavingDamage] = useState(false);
   const [damageCameraActive, setDamageCameraActive] = useState(false);
 
@@ -376,7 +376,7 @@ export default function PlannerPage() {
     toast.success("Rückgabe bestätigt.");
     // Open damage capture (keep scanningOrderId for saving)
     setShowDamageCapture(true);
-    setDamageProductId(orderItems[0]?.product?.id || "");
+    setDamageProductIds(orderItems[0]?.product?.id ? [orderItems[0].product.id] : []);
     loadOrders();
   };
 
@@ -423,7 +423,7 @@ export default function PlannerPage() {
 
     const { error } = await supabase.from("damage_logs").insert({
       order_id: scanningOrderId,
-      product_id: damageProductId || null,
+      product_ids: damageProductIds.length > 0 ? damageProductIds : null,
       description: damageDescription.trim(),
       photo_path: photoPath,
       severity: damageSeverity,
@@ -449,7 +449,7 @@ export default function PlannerPage() {
       URL.revokeObjectURL(damagePhotoPreview);
     }
     setDamagePhotoPreview(null);
-    setDamageProductId("");
+    setDamageProductIds([]);
     setDamageCameraActive(false);
     stopCamera();
     // Clear scan state since damage capture is done
@@ -803,17 +803,30 @@ export default function PlannerPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Betroffenes Produkt</label>
-            <select
-              value={damageProductId}
-              onChange={(e) => setDamageProductId(e.target.value)}
-              className="input-field w-full"
-            >
-              <option value="">Allgemein / Nicht spezifisch</option>
-              {orderItems.map((item) => (
-                <option key={item.id} value={item.product?.id}>{item.product?.name}</option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Betroffene Artikel</label>
+            <div className="space-y-2">
+              {orderItems.map((item) => {
+                const pid = item.product?.id;
+                const checked = pid && damageProductIds.includes(pid);
+                return (
+                  <label key={item.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={!!checked}
+                      onChange={(e) => {
+                        if (!pid) return;
+                        setDamageProductIds((prev) =>
+                          e.target.checked ? [...prev, pid] : prev.filter((id) => id !== pid)
+                        );
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                    />
+                    <span className="text-sm">{item.product?.name}</span>
+                    <span className="text-xs text-gray-400 ml-auto">{item.product?.product_id}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           <div>
