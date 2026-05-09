@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Package, ArrowLeft, Calendar, Ruler, Building2, Tag } from "lucide-react";
+import { Package, ArrowLeft, Calendar, Ruler, Building2, Tag, FileText } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 import { ImageSlideshow } from "@/components/public/ImageSlideshow";
 
@@ -103,10 +103,24 @@ export default async function ProductDetailPage({ params }: Props) {
 
             <div className="border-t border-gray-100 pt-6">
               <h2 className="font-semibold text-sm mb-2">Beschreibung</h2>
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
                 {product.description || "Keine Beschreibung vorhanden."}
               </p>
             </div>
+
+            {product.manual_url && (
+              <div className="mt-4">
+                <a
+                  href={product.manual_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  <FileText className="w-4 h-4" />
+                  Bedienungsanleitung ansehen
+                </a>
+              </div>
+            )}
 
             <div className="mt-8">
               <Link href="/anfrage/" className="btn-primary">
