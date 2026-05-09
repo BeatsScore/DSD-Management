@@ -93,22 +93,22 @@ export function generateDocument(
               max-width: 210mm;
               min-height: 297mm;
               margin: 0 auto;
-              padding: 120px 60px 50px;
+              padding: 95px 60px 50px;
               position: relative;
             }
             .header {
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              padding-bottom: 25px;
-              border-bottom: 3px solid #000;
+              padding-bottom: 12px;
+              border-bottom: 2px solid #000;
               position: fixed;
               top: 0;
               left: 0;
               right: 0;
               max-width: 210mm;
               margin: 0 auto;
-              padding: 50px 60px 25px;
+              padding: 18px 60px 12px;
               background: #fff;
               z-index: 100;
             }
@@ -136,17 +136,17 @@ export function generateDocument(
               letter-spacing: 1.5px;
             }
             h1 {
-              font-size: 20px;
+              font-size: 18px;
               font-weight: 700;
-              margin: 40px 0 20px;
-              padding-bottom: 8px;
+              margin: 22px 0 12px;
+              padding-bottom: 6px;
               border-bottom: 2px solid #000;
               page-break-after: avoid;
             }
             h2 {
-              font-size: 14px;
+              font-size: 13px;
               font-weight: 700;
-              margin: 30px 0 12px;
+              margin: 16px 0 8px;
               text-transform: uppercase;
               letter-spacing: 0.5px;
               page-break-after: avoid;
@@ -154,24 +154,24 @@ export function generateDocument(
             p, li {
               font-size: 12px;
               color: #333;
-              margin: 0 0 10px;
+              margin: 0 0 8px;
             }
             ul {
-              margin: 0 0 16px;
+              margin: 0 0 12px;
               padding-left: 20px;
             }
             li {
-              margin-bottom: 6px;
+              margin-bottom: 4px;
             }
             .parties {
               display: flex;
-              gap: 40px;
-              margin: 30px 0;
+              gap: 30px;
+              margin: 18px 0;
               page-break-inside: avoid;
             }
             .party {
               flex: 1;
-              padding: 20px;
+              padding: 14px;
               background: #f9f9f9;
               border: 1px solid #e5e5e5;
             }
@@ -180,14 +180,14 @@ export function generateDocument(
               text-transform: uppercase;
               letter-spacing: 1.2px;
               color: #999;
-              margin-bottom: 10px;
+              margin-bottom: 6px;
               font-weight: 700;
             }
             .party-name {
-              font-size: 15px;
+              font-size: 14px;
               font-weight: 700;
               color: #000;
-              margin-bottom: 6px;
+              margin-bottom: 4px;
             }
             .party-detail {
               font-size: 12px;
@@ -215,8 +215,8 @@ export function generateDocument(
             }
             .price-box {
               background: #f5f5f5;
-              padding: 20px;
-              margin: 30px 0;
+              padding: 14px;
+              margin: 18px 0;
               border-left: 3px solid #000;
               page-break-inside: avoid;
             }
@@ -237,8 +237,8 @@ export function generateDocument(
             }
             .signature-grid {
               display: flex;
-              gap: 60px;
-              margin-top: 60px;
+              gap: 50px;
+              margin-top: 40px;
               page-break-inside: avoid;
             }
             .signature-block {
@@ -246,8 +246,8 @@ export function generateDocument(
             }
             .signature-line {
               border-bottom: 1px solid #000;
-              height: 60px;
-              margin-bottom: 8px;
+              height: 48px;
+              margin-bottom: 6px;
             }
             .signature-label {
               font-size: 11px;
@@ -267,8 +267,8 @@ export function generateDocument(
               margin-right: 10px;
             }
             .footer {
-              margin-top: 60px;
-              padding-top: 20px;
+              margin-top: 35px;
+              padding-top: 12px;
               border-top: 1px solid #e5e5e5;
               font-size: 10px;
               color: #999;
@@ -280,13 +280,13 @@ export function generateDocument(
           <div class="page">
             <div class="header">
               <div>
-                <img src="/logo.png" alt="${companyInfo.name}" style="height:168px;width:auto;object-fit:contain;" />
+                <img src="/logo.png" alt="${companyInfo.name}" style="height:50px;width:auto;object-fit:contain;" />
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">Mietvertrag</div>
             </div>
 
-            <div style="font-size:12px;color:#666;margin-bottom:30px;">
+            <div style="font-size:12px;color:#666;margin-bottom:18px;">
               Auftragsnummer: <strong>${escapeHtml(order.order_number)}</strong> | Datum: ${today}
             </div>
 
@@ -433,22 +433,22 @@ export function generateDocument(
             max-width: 210mm;
             min-height: 297mm;
             margin: 0 auto;
-            padding: 130px 60px 50px;
+            padding: 95px 60px 50px;
             position: relative;
           }
           .header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            padding-bottom: 30px;
-            border-bottom: 3px solid #000;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #000;
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             max-width: 210mm;
             margin: 0 auto;
-            padding: 50px 60px 30px;
+            padding: 18px 60px 12px;
             background: #fff;
             z-index: 100;
           }
@@ -478,7 +478,7 @@ export function generateDocument(
           .meta-grid {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 50px;
+            margin-bottom: 28px;
           }
           .meta-block {
             max-width: 280px;
@@ -488,7 +488,7 @@ export function generateDocument(
             text-transform: uppercase;
             letter-spacing: 1.2px;
             color: #999;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
             font-weight: 600;
           }
           .meta-value {
@@ -502,8 +502,8 @@ export function generateDocument(
           }
           .info-row {
             display: flex;
-            gap: 50px;
-            margin-bottom: 50px;
+            gap: 40px;
+            margin-bottom: 28px;
           }
           .info-item {
             flex: 1;
@@ -513,7 +513,7 @@ export function generateDocument(
             text-transform: uppercase;
             letter-spacing: 1.2px;
             color: #999;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             font-weight: 600;
           }
           .info-value {
@@ -544,39 +544,39 @@ export function generateDocument(
             border-bottom: 2px solid #000;
           }
           .summary {
-            width: 320px;
+            width: 280px;
             margin-left: auto;
-            margin-top: 30px;
+            margin-top: 20px;
             page-break-inside: avoid;
           }
           .summary-row {
             display: flex;
             justify-content: space-between;
-            padding: 10px 0;
+            padding: 7px 0;
             font-size: 13px;
             color: #555;
             border-bottom: 1px solid #eee;
           }
           .summary-row:last-child {
             border-bottom: none;
-            padding-top: 16px;
-            margin-top: 6px;
+            padding-top: 12px;
+            margin-top: 4px;
             border-top: 2px solid #000;
           }
           .summary-row.total {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 800;
             color: #000;
           }
           .footer {
-            margin-top: 80px;
-            padding-top: 30px;
+            margin-top: 45px;
+            padding-top: 16px;
             border-top: 1px solid #e5e5e5;
             display: flex;
             justify-content: space-between;
             font-size: 10px;
             color: #999;
-            line-height: 1.8;
+            line-height: 1.7;
           }
           .footer strong {
             color: #333;
@@ -597,26 +597,26 @@ export function generateDocument(
           }
           .content { position: relative; z-index: 1; }
           .notice {
-            margin-top: 40px;
-            padding: 20px;
+            margin-top: 25px;
+            padding: 14px;
             background: #f9f9f9;
             border-left: 3px solid #000;
             font-size: 12px;
             color: #555;
-            line-height: 1.6;
+            line-height: 1.5;
             page-break-inside: avoid;
           }
           .notice-title {
             font-weight: 700;
             color: #000;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
           @media print {
-            .page { padding: 130px 50px 40px; }
-            .header { padding: 40px 50px 30px; }
+            .page { padding: 90px 50px 40px; }
+            .header { padding: 16px 50px 12px; }
           }
         </style>
       </head>
@@ -626,7 +626,7 @@ export function generateDocument(
           <div class="content">
             <div class="header">
               <div>
-                <img src="/logo.png" alt="${companyInfo.name}" style="height:168px;width:auto;object-fit:contain;" />
+                <img src="/logo.png" alt="${companyInfo.name}" style="height:50px;width:auto;object-fit:contain;" />
                 <div class="brand-sub">Professionelle Eventtechnik</div>
               </div>
               <div class="doc-badge">${docTitle}</div>
