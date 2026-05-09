@@ -45,6 +45,7 @@ export default function PlannerPage() {
   const [damagePhotoFile, setDamagePhotoFile] = useState<File | null>(null);
   const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
   const [damageProductIds, setDamageProductIds] = useState<string[]>([]);
+  const [damageOrderId, setDamageOrderId] = useState<string | null>(null);
   const [savingDamage, setSavingDamage] = useState(false);
   const [damageCameraActive, setDamageCameraActive] = useState(false);
 
@@ -374,7 +375,12 @@ export default function PlannerPage() {
       return;
     }
     toast.success("Rückgabe bestätigt.");
-    // Open damage capture (keep scanningOrderId for saving)
+    // Open damage capture
+    setDamageOrderId(scanningOrderId);
+    setScanningOrderId(null);
+    setScanningOrder(null);
+    setScannedItems([]);
+    setOrderItems([]);
     setShowDamageCapture(true);
     setDamageProductIds(orderItems[0]?.product?.id ? [orderItems[0].product.id] : []);
     loadOrders();
@@ -400,7 +406,7 @@ export default function PlannerPage() {
   };
 
   const saveDamage = async () => {
-    if (!scanningOrderId || !damageDescription.trim()) {
+    if (!damageOrderId || !damageDescription.trim()) {
       toast.error("Bitte eine Beschreibung eingeben.");
       return;
     }
@@ -409,7 +415,7 @@ export default function PlannerPage() {
     let photoPath: string | null = null;
     if (damagePhotoFile) {
       const ext = damagePhotoFile.name.split(".").pop() || "jpg";
-      const fileName = `damage-${scanningOrderId}-${Date.now()}.${ext}`;
+      const fileName = `damage-${damageOrderId}-${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("damage-photos")
         .upload(fileName, damagePhotoFile, { contentType: damagePhotoFile.type });
@@ -422,7 +428,7 @@ export default function PlannerPage() {
     }
 
     const { error } = await supabase.from("damage_logs").insert({
-      order_id: scanningOrderId,
+      order_id: damageOrderId,
       product_ids: damageProductIds.length > 0 ? damageProductIds : null,
       description: damageDescription.trim(),
       photo_path: photoPath,
@@ -452,11 +458,7 @@ export default function PlannerPage() {
     setDamageProductIds([]);
     setDamageCameraActive(false);
     stopCamera();
-    // Clear scan state since damage capture is done
-    setScanningOrderId(null);
-    setScanningOrder(null);
-    setScannedItems([]);
-    setOrderItems([]);
+    setDamageOrderId(null);
   };
 
   const startDamageCamera = async () => {
