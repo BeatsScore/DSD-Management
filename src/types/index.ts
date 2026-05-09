@@ -89,6 +89,9 @@ export interface Order {
   return_time: string | null;
   return_staff_id: string | null;
   return_staff?: Profile | null;
+  payment_status: "offen" | "anzahlung" | "vollstaendig" | null;
+  payment_method: "bar" | "ueberweisung" | "karte" | "paypal" | null;
+  paid_amount: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -146,6 +149,30 @@ export interface PickupSession {
   completed_at: string | null;
   scanned_items: string[];
   started_by: string;
+}
+
+export interface DamageLog {
+  id: string;
+  order_id: string;
+  product_id: string | null;
+  product?: Product | null;
+  description: string;
+  photo_path: string | null;
+  severity: "leicht" | "mittel" | "schwer";
+  created_at: string;
+}
+
+export interface MaintenanceLog {
+  id: string;
+  product_id: string;
+  product?: Product;
+  maintenance_date: string;
+  description: string;
+  cost: number | null;
+  next_service_date: string | null;
+  performed_by: string | null;
+  performed_by_profile?: Profile | null;
+  created_at: string;
 }
 
 export interface ProductSet {

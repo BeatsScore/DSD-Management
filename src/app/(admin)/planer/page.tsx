@@ -21,9 +21,11 @@ import {
   PackageOpen,
   User,
   Clock,
+  AlertTriangle,
+  ImageIcon,
 } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
+import { formatDate, getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
 
 export default function PlannerPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -35,6 +37,15 @@ export default function PlannerPage() {
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [scanningOrder, setScanningOrder] = useState<any>(null);
   const supabase = createClient();
+
+  // Damage capture states
+  const [showDamageCapture, setShowDamageCapture] = useState(false);
+  const [damageDescription, setDamageDescription] = useState("");
+  const [damageSeverity, setDamageSeverity] = useState<"leicht" | "mittel" | "schwer">("leicht");
+  const [damagePhotoFile, setDamagePhotoFile] = useState<File | null>(null);
+  const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
+  const [damageProductId, setDamageProductId] = useState<string>("");
+  const [savingDamage, setSavingDamage] = useState(false);
 
   // ID Capture states
   const [showIdCapture, setShowIdCapture] = useState(false);
@@ -364,7 +375,84 @@ export default function PlannerPage() {
     toast.success("Rückgabe bestätigt.");
     setScanningOrderId(null);
     setScanningOrder(null);
+    setScannedItems([]);
+    setOrderItems([]);
+    // Open damage capture
+    setShowDamageCapture(true);
+    setDamageProductId(orderItems[0]?.product?.id || "");
     loadOrders();
+  };
+
+  const handleDamagePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Bitte ein Bild hochladen.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Bild darf maximal 5 MB gross sein.");
+      return;
+    }
+    if (damagePhotoPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(damagePhotoPreview);
+    }
+    const url = URL.createObjectURL(file);
+    setDamagePhotoFile(file);
+    setDamagePhotoPreview(url);
+  };
+
+  const saveDamage = async () => {
+    if (!scanningOrderId || !damageDescription.trim()) {
+      toast.error("Bitte eine Beschreibung eingeben.");
+      return;
+    }
+    setSavingDamage(true);
+
+    let photoPath: string | null = null;
+    if (damagePhotoFile) {
+      const ext = damagePhotoFile.name.split(".").pop() || "jpg";
+      const fileName = `damage-${scanningOrderId}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("damage-photos")
+        .upload(fileName, damagePhotoFile, { contentType: damagePhotoFile.type });
+      if (uploadError) {
+        toast.error("Fehler beim Upload: " + uploadError.message);
+        setSavingDamage(false);
+        return;
+      }
+      photoPath = fileName;
+    }
+
+    const { error } = await supabase.from("damage_logs").insert({
+      order_id: scanningOrderId,
+      product_id: damageProductId || null,
+      description: damageDescription.trim(),
+      photo_path: photoPath,
+      severity: damageSeverity,
+    });
+
+    setSavingDamage(false);
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    toast.success("Schadensprotokoll gespeichert.");
+    closeDamageCapture();
+  };
+
+  const closeDamageCapture = () => {
+    setShowDamageCapture(false);
+    setDamageDescription("");
+    setDamageSeverity("leicht");
+    setDamagePhotoFile(null);
+    if (damagePhotoPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(damagePhotoPreview);
+    }
+    setDamagePhotoPreview(null);
+    setDamageProductId("");
   };
 
   const cancelScan = () => {
@@ -375,6 +463,7 @@ export default function PlannerPage() {
     stopCamera();
     setShowIdCapture(false);
     setShowBarcodeScanner(false);
+    setShowDamageCapture(false);
     if (scannerRef.current) {
       scannerRef.current.clear().catch(() => {});
       scannerRef.current = null;
@@ -648,6 +737,120 @@ export default function PlannerPage() {
     );
   }
 
+  // Damage Capture Modal
+  if (showDamageCapture) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="page-header">Schadensprotokoll</h1>
+          <button onClick={closeDamageCapture} className="p-2 text-gray-400 hover:text-black">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="card mb-4">
+          <div className="flex items-center gap-2 text-amber-700">
+            <AlertTriangle className="w-5 h-5" />
+            <span className="text-sm font-medium">Optionale Schadensdokumentation</span>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Betroffenes Produkt</label>
+            <select
+              value={damageProductId}
+              onChange={(e) => setDamageProductId(e.target.value)}
+              className="input-field w-full"
+            >
+              <option value="">Allgemein / Nicht spezifisch</option>
+              {orderItems.map((item) => (
+                <option key={item.id} value={item.product?.id}>{item.product?.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Schweregrad</label>
+            <div className="flex gap-2">
+              {(["leicht", "mittel", "schwer"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setDamageSeverity(s)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${
+                    damageSeverity === s
+                      ? s === "schwer"
+                        ? "bg-red-100 border-red-300 text-red-800"
+                        : s === "mittel"
+                        ? "bg-amber-100 border-amber-300 text-amber-800"
+                        : "bg-green-100 border-green-300 text-green-800"
+                      : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {s === "leicht" ? "Leicht" : s === "mittel" ? "Mittel" : "Schwer"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung *</label>
+            <textarea
+              rows={3}
+              value={damageDescription}
+              onChange={(e) => setDamageDescription(e.target.value)}
+              placeholder="Beschreiben Sie den Schaden..."
+              className="input-field w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Foto</label>
+            {damagePhotoPreview ? (
+              <div className="relative inline-block">
+                <img
+                  src={damagePhotoPreview}
+                  alt="Vorschau"
+                  className="w-full max-h-64 object-contain rounded-lg border border-gray-200"
+                />
+                <button
+                  onClick={() => {
+                    if (damagePhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(damagePhotoPreview);
+                    setDamagePhotoPreview(null);
+                    setDamagePhotoFile(null);
+                  }}
+                  className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+                <span className="text-sm text-gray-500">Foto hochladen</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleDamagePhotoChange} />
+              </label>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={closeDamageCapture} className="flex-1 btn-secondary py-3">
+            Überspringen
+          </button>
+          <button
+            onClick={saveDamage}
+            disabled={savingDamage || !damageDescription.trim()}
+            className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {savingDamage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Speichern
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -676,6 +879,23 @@ export default function PlannerPage() {
                   <div className="font-medium">{order.customer?.name || "-"}</div>
                   <div className="text-sm text-gray-500">
                     {formatDate(order.start_date)} - {formatDate(order.end_date)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {order.payment_status === "vollstaendig" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
+                        Bezahlt
+                      </span>
+                    )}
+                    {order.payment_status === "anzahlung" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">
+                        Anzahlung
+                      </span>
+                    )}
+                    {order.payment_status === "offen" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">
+                        Offen
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
                     <div className="flex items-center gap-1.5 text-blue-700">
@@ -742,6 +962,17 @@ export default function PlannerPage() {
                   <div className="font-medium">{order.customer?.name || "-"}</div>
                   <div className="text-sm text-gray-500">
                     {formatDate(order.start_date)} - {formatDate(order.end_date)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {order.payment_status === "vollstaendig" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">Bezahlt</span>
+                    )}
+                    {order.payment_status === "anzahlung" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">Anzahlung</span>
+                    )}
+                    {order.payment_status === "offen" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">Offen</span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
                     <div className="flex items-center gap-1.5 text-purple-700">

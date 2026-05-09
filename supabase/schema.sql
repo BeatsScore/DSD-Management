@@ -143,6 +143,29 @@ create table if not exists public.pickup_sessions (
   started_by uuid references public.profiles(id) not null
 );
 
+-- Damage logs
+create table if not exists public.damage_logs (
+  id uuid default gen_random_uuid() primary key,
+  order_id uuid references public.orders(id) on delete cascade not null,
+  product_id uuid references public.products(id) on delete set null,
+  description text not null,
+  photo_path text,
+  severity text check (severity in ('leicht', 'mittel', 'schwer')) default 'leicht',
+  created_at timestamptz default now()
+);
+
+-- Maintenance logs
+create table if not exists public.maintenance_logs (
+  id uuid default gen_random_uuid() primary key,
+  product_id uuid references public.products(id) on delete cascade not null,
+  maintenance_date date not null,
+  description text not null,
+  cost numeric(10,2),
+  next_service_date date,
+  performed_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz default now()
+);
+
 -- Product Sets
 create table if not exists public.product_sets (
   id uuid default gen_random_uuid() primary key,
@@ -188,6 +211,8 @@ alter table public.inventory_status_logs enable row level security;
 alter table public.pickup_sessions enable row level security;
 alter table public.product_sets enable row level security;
 alter table public.set_items enable row level security;
+alter table public.damage_logs enable row level security;
+alter table public.maintenance_logs enable row level security;
 
 -- Profiles: own profile read, admin/staff full access
 create policy "Users can read own profile" on public.profiles for select to authenticated using (auth.uid() = id);
@@ -205,6 +230,8 @@ create policy "Admin and staff full access on inventory_status_logs" on public.i
 create policy "Admin and staff full access on pickup_sessions" on public.pickup_sessions for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 create policy "Admin and staff full access on product_sets" on public.product_sets for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 create policy "Admin and staff full access on set_items" on public.set_items for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on damage_logs" on public.damage_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on maintenance_logs" on public.maintenance_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 
 -- Public catalog access (anon)
 create policy "Allow public read on products" on public.products for select to anon using (true);

@@ -21,6 +21,8 @@ export default function BookingCalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [products, setProducts] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [maintenanceItems, setMaintenanceItems] = useState<any[]>([]);
+  const [showMaintenance, setShowMaintenance] = useState(true);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -38,8 +40,15 @@ export default function BookingCalendarPage() {
         )
         .neq("order.status", "storniert");
 
+      const { data: maint } = await supabase
+        .from("maintenance_logs")
+        .select("*, product:product_id(name, product_id)")
+        .gte("maintenance_date", new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1).toISOString().slice(0, 10))
+        .lte("maintenance_date", new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 2, 0).toISOString().slice(0, 10));
+
       setProducts(p || []);
       setBookings(oi || []);
+      setMaintenanceItems(maint || []);
       setLoading(false);
     }
     load();
@@ -112,6 +121,17 @@ export default function BookingCalendarPage() {
       const d = new Date(day);
       d.setHours(12, 0, 0, 0);
       return d >= s && d <= e;
+    });
+  }
+
+  function getMaintenanceForDay(productId: string, day: Date) {
+    return maintenanceItems.find((m) => {
+      if (m.product_id !== productId) return false;
+      const mDate = new Date(m.maintenance_date);
+      mDate.setHours(0, 0, 0, 0);
+      const d = new Date(day);
+      d.setHours(0, 0, 0, 0);
+      return mDate.getTime() === d.getTime();
     });
   }
 
@@ -219,6 +239,10 @@ export default function BookingCalendarPage() {
           <span className="w-3 h-3 rounded-sm bg-green-400 border border-green-500" />
           <span>Zurückgebracht / Abgeschlossen</span>
         </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-blue-400 border border-blue-500" />
+          <span>Wartung</span>
+        </div>
       </div>
 
       {/* Calendar */}
@@ -295,13 +319,14 @@ export default function BookingCalendarPage() {
                       >
                         {days.map((day) => {
                           const booking = getBookingForDay(product.id, day);
+                          const maintenance = getMaintenanceForDay(product.id, day);
                           const isToday = isSameDay(day, today);
                           const isWeekend =
                             day.getDay() === 0 || day.getDay() === 6;
                           return (
                             <div
                               key={day.getTime()}
-                              className={`relative border-r border-gray-100 min-h-[36px] flex items-center justify-center ${
+                              className={`relative border-r border-gray-100 min-h-[36px] flex flex-col items-center justify-center gap-px ${
                                 isToday
                                   ? "bg-blue-50/50"
                                   : isWeekend
@@ -311,6 +336,8 @@ export default function BookingCalendarPage() {
                               title={
                                 booking
                                   ? `${booking.order_number} – ${booking.customer?.name || "Unbekannt"}\n${formatDate(booking.start_date)} – ${formatDate(booking.end_date)}\nStatus: ${getBookingLabel(booking.status)}`
+                                  : maintenance
+                                  ? `Wartung: ${maintenance.description}`
                                   : undefined
                               }
                             >
@@ -321,7 +348,10 @@ export default function BookingCalendarPage() {
                                   )}`}
                                 />
                               )}
-                              {isToday && !booking && (
+                              {maintenance && (
+                                <div className="w-full h-2 mx-px rounded-sm bg-blue-400 border border-blue-500" />
+                              )}
+                              {isToday && !booking && !maintenance && (
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                               )}
                             </div>

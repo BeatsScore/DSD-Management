@@ -5,13 +5,29 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User } from "lucide-react";
-import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from "@/lib/utils";
+import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench } from "lucide-react";
+import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat } from "@/lib/utils";
 import { generateDocument } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 type PlanType = "pickup" | "return" | null;
+
+function getPaymentColor(status: string | null | undefined): string {
+  switch (status) {
+    case "vollstaendig": return "bg-green-100 text-green-800";
+    case "anzahlung": return "bg-yellow-100 text-yellow-800";
+    default: return "bg-red-100 text-red-800";
+  }
+}
+
+function getPaymentLabel(status: string | null | undefined): string {
+  switch (status) {
+    case "vollstaendig": return "Bezahlt";
+    case "anzahlung": return "Anzahlung";
+    default: return "Offen";
+  }
+}
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -23,6 +39,7 @@ export default function OrderDetailPage() {
   const [items, setItems] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [damageLogs, setDamageLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
@@ -33,18 +50,31 @@ export default function OrderDetailPage() {
   const [planTime, setPlanTime] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
 
+  // Payment state
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
+  const [savingPayment, setSavingPayment] = useState(false);
+
   useEffect(() => {
     async function load() {
-      const [{ data: o }, { data: i }, { data: d }, { data: p }] = await Promise.all([
+      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }] = await Promise.all([
         supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
         supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "staff"]).order("full_name", { ascending: true }),
+        supabase.from("damage_logs").select("*, product:product_id(name, product_id)").eq("order_id", id).order("created_at", { ascending: false }),
       ]);
       setOrder(o);
       setItems(i || []);
       setDocuments(d || []);
       setProfiles(p || []);
+      setDamageLogs(dl || []);
+      if (o) {
+        setPaymentStatus(o.payment_status || "offen");
+        setPaymentMethod(o.payment_method || "");
+        setPaidAmount(o.paid_amount != null ? String(o.paid_amount) : "");
+      }
       setLoading(false);
     }
     load();
@@ -79,7 +109,6 @@ export default function OrderDetailPage() {
       return;
     }
 
-    // Save document record to DB
     const fileName = `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;
     const { error } = await supabase.from("documents").insert({
       order_id: id,
@@ -88,12 +117,7 @@ export default function OrderDetailPage() {
     });
 
     if (!error) {
-      // Refresh documents list
-      const { data: d } = await supabase
-        .from("documents")
-        .select("*")
-        .eq("order_id", id)
-        .order("created_at", { ascending: false });
+      const { data: d } = await supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false });
       setDocuments(d || []);
     }
   };
@@ -149,6 +173,36 @@ export default function OrderDetailPage() {
     closePlanModal();
   };
 
+  const savePayment = async () => {
+    setSavingPayment(true);
+    const { data, error } = await supabase.from("orders").update({
+      payment_status: paymentStatus || null,
+      payment_method: paymentMethod || null,
+      paid_amount: safeParseFloat(paidAmount) || 0,
+    }).eq("id", id).select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").single();
+
+    setSavingPayment(false);
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    toast.success("Zahlungsinformationen gespeichert.");
+    setOrder(data);
+  };
+
+  const deleteDamageLog = async (logId: string) => {
+    if (!(await confirm("Eintrag löschen?", "Dieser Schadenseintrag wird entfernt.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
+    const { error } = await supabase.from("damage_logs").delete().eq("id", logId);
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+    setDamageLogs((prev) => prev.filter((d) => d.id !== logId));
+    toast.success("Eintrag entfernt.");
+  };
+
   const docTypeLabel = (type: string) => {
     const map: Record<string, string> = {
       angebot: "Angebot",
@@ -159,6 +213,8 @@ export default function OrderDetailPage() {
     };
     return map[type] || type;
   };
+
+  const remainingAmount = (order?.total_amount || 0) - (order?.paid_amount || 0);
 
   const planModalTitle = planType === "pickup" ? "Abholung planen" : planType === "return" ? "Rückgabe planen" : "";
 
@@ -194,6 +250,9 @@ export default function OrderDetailPage() {
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
             {getStatusLabel(order.status)}
+          </span>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPaymentColor(order.payment_status)}`}>
+            {getPaymentLabel(order.payment_status)}
           </span>
           <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-600">
             <Trash2 className="w-5 h-5" />
@@ -257,6 +316,55 @@ export default function OrderDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Payment Tracking */}
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Banknote className="w-5 h-5 text-green-600" />
+            <h2 className="section-header">Zahlungsstatus</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Gesamtbetrag</div>
+              <div className="text-lg font-semibold">{formatCurrency(order.total_amount)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Restbetrag</div>
+              <div className={`text-lg font-semibold ${remainingAmount > 0 ? "text-red-600" : "text-green-600"}`}>
+                {formatCurrency(remainingAmount)}
+              </div>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zahlungsstatus</label>
+              <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="input-field w-full">
+                <option value="offen">Offen</option>
+                <option value="anzahlung">Anzahlung</option>
+                <option value="vollstaendig">Bezahlt</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zahlungsart</label>
+              <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="input-field w-full">
+                <option value="">Bitte wählen</option>
+                <option value="bar">Bar</option>
+                <option value="ueberweisung">Überweisung</option>
+                <option value="karte">Karte</option>
+                <option value="paypal">PayPal</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bezahlter Betrag (CHF)</label>
+              <input type="number" step="0.01" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} className="input-field w-full" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <button onClick={savePayment} disabled={savingPayment} className="btn-primary text-sm py-2 px-4">
+              {savingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Zahlung speichern"}
+            </button>
           </div>
         </div>
 
@@ -356,6 +464,36 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
+        {/* Damage Logs */}
+        {damageLogs.length > 0 && (
+          <div className="card">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              <h2 className="section-header">Schadensprotokoll</h2>
+            </div>
+            <div className="space-y-3">
+              {damageLogs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white">
+                  <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${log.severity === 'schwer' ? 'text-red-600' : log.severity === 'mittel' ? 'text-amber-600' : 'text-yellow-500'}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">{log.product?.name || "Unbekanntes Produkt"}</div>
+                    <div className="text-sm text-gray-600 mt-0.5">{log.description}</div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getStatusColor(log.severity === 'schwer' ? 'defekt' : log.severity === 'mittel' ? 'reserviert' : 'verfuegbar')}`}>
+                        {log.severity === 'leicht' ? 'Leicht' : log.severity === 'mittel' ? 'Mittel' : 'Schwer'}
+                      </span>
+                      <span>{formatDate(log.created_at)}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => deleteDamageLog(log.id)} className="p-1.5 text-gray-400 hover:text-red-600">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Document History */}
         {documents.length > 0 && (
           <div className="card">
@@ -411,11 +549,7 @@ export default function OrderDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mitarbeiter</label>
                 <div className="relative">
                   <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={planStaffId}
-                    onChange={(e) => setPlanStaffId(e.target.value)}
-                    className="input-field pl-9 w-full"
-                  >
+                  <select value={planStaffId} onChange={(e) => setPlanStaffId(e.target.value)} className="input-field pl-9 w-full">
                     <option value="">Bitte wählen</option>
                     {profiles.map((p) => (
                       <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
@@ -428,12 +562,7 @@ export default function OrderDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
                 <div className="relative">
                   <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="date"
-                    value={planDate}
-                    onChange={(e) => setPlanDate(e.target.value)}
-                    className="input-field pl-9 w-full"
-                  />
+                  <input type="date" value={planDate} onChange={(e) => setPlanDate(e.target.value)} className="input-field pl-9 w-full" />
                 </div>
               </div>
 
@@ -441,25 +570,14 @@ export default function OrderDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Uhrzeit</label>
                 <div className="relative">
                   <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="time"
-                    value={planTime}
-                    onChange={(e) => setPlanTime(e.target.value)}
-                    className="input-field pl-9 w-full"
-                  />
+                  <input type="time" value={planTime} onChange={(e) => setPlanTime(e.target.value)} className="input-field pl-9 w-full" />
                 </div>
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
-              <button onClick={closePlanModal} className="flex-1 btn-secondary py-2.5">
-                Abbrechen
-              </button>
-              <button
-                onClick={savePlan}
-                disabled={savingPlan || !planStaffId || !planDate}
-                className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
+              <button onClick={closePlanModal} className="flex-1 btn-secondary py-2.5">Abbrechen</button>
+              <button onClick={savePlan} disabled={savingPlan || !planStaffId || !planDate} className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50">
                 {savingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 Speichern
               </button>
