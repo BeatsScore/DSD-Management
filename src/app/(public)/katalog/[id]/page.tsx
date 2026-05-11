@@ -20,7 +20,7 @@ export default async function ProductDetailPage({ params }: Props) {
     .eq("id", id)
     .single();
 
-  if (!product) {
+  if (!product || product.active === false) {
     notFound();
   }
 

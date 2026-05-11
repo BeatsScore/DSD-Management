@@ -235,6 +235,7 @@ export default function ProductDetailPage() {
       purchase_price: safeParseFloat(form.purchasePrice),
       weight: safeParseFloat(form.weight),
       condition: form.condition || null,
+      active: form.active,
     }).eq("id", id);
 
     if (error) {
@@ -507,7 +508,7 @@ export default function ProductDetailPage() {
               <div><label className="label">Gewicht (kg)</label><input type="number" step="0.01" min="0" className="input-field" placeholder="0.00" value={form.weight} onChange={(e) => updateForm("weight", e.target.value)} /></div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-3 gap-4">
               <div>
                 <label className="label">Zustand</label>
                 <select className="input-field" value={form.condition} onChange={(e) => updateForm("condition", e.target.value)}>
@@ -516,6 +517,13 @@ export default function ProductDetailPage() {
                   <option value="gut">Gut</option>
                   <option value="gebraucht">Gebraucht</option>
                   <option value="defekt">Defekt</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Sichtbarkeit</label>
+                <select className="input-field" value={form.active ? "true" : "false"} onChange={(e) => updateForm("active", e.target.value === "true")}>
+                  <option value="true">Online (im Katalog sichtbar)</option>
+                  <option value="false">Offline (nicht im Katalog)</option>
                 </select>
               </div>
               <div>

@@ -39,6 +39,7 @@ export default function NewProductPage() {
     purchasePrice: "",
     weight: "",
     condition: "",
+    active: true,
   });
 
   useEffect(() => {
@@ -224,6 +225,7 @@ export default function NewProductPage() {
         purchase_price: safeParseFloat(form.purchasePrice),
         weight: safeParseFloat(form.weight),
         condition: form.condition || null,
+        active: form.active,
       })
       .select()
       .single();
@@ -421,7 +423,7 @@ export default function NewProductPage() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <div>
             <label className="label">Mietpreis pro Tag (CHF)</label>
             <input
@@ -463,6 +465,19 @@ export default function NewProductPage() {
               <option value="gut">Gut</option>
               <option value="gebraucht">Gebraucht</option>
               <option value="defekt">Defekt</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Sichtbarkeit</label>
+            <select
+              className="input-field"
+              value={form.active ? "true" : "false"}
+              onChange={(e) =>
+                setForm({ ...form, active: e.target.value === "true" })
+              }
+            >
+              <option value="true">Online (im Katalog sichtbar)</option>
+              <option value="false">Offline (nicht im Katalog)</option>
             </select>
           </div>
         </div>

@@ -45,6 +45,7 @@ export interface Product {
   condition: ProductCondition | null;
   owner_id: string | null;
   owner?: Profile;
+  active: boolean;
   created_at: string;
   updated_at: string;
 }
