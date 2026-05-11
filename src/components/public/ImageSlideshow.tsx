@@ -22,7 +22,7 @@ export function ImageSlideshow({ images, alt, aspectRatio = "aspect-square" }: I
       <img
         src={images[current]}
         alt={`${alt} - Bild ${current + 1}`}
-        className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+        className="w-full h-full object-contain transition-transform duration-500 ease-out group-hover:scale-110"
         loading="lazy"
         decoding="async"
       />
