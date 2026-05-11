@@ -25,7 +25,7 @@ export default async function ProductDetailPage({ params }: Props) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Link
         href="/katalog/"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-black mb-6"
@@ -34,9 +34,9 @@ export default async function ProductDetailPage({ params }: Props) {
       </Link>
 
       <div className="card">
-        <div className="flex flex-col md:flex-row gap-8">
+        <div className="flex flex-col md:flex-row gap-6">
           {/* Image slideshow */}
-          <div className="md:w-3/5">
+          <div className="md:w-1/2">
             {product.image_urls && product.image_urls.length > 0 ? (
               <ImageSlideshow images={product.image_urls} alt={product.name} aspectRatio="aspect-[3/4]" />
             ) : (
