@@ -235,7 +235,17 @@ export default function InventoryPage() {
 
                 {/* Desktop Table */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="min-w-full text-sm">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col className="w-[110px]" />
+                      <col className="w-[200px]" />
+                      <col className="w-[130px]" />
+                      <col className="w-[70px]" />
+                      <col className="w-[110px]" />
+                      <col className="w-[170px]" />
+                      <col className="w-[130px]" />
+                      <col className="w-[70px]" />
+                    </colgroup>
                     <thead>
                       <tr className="border-b border-gray-200 text-left text-gray-500">
                         <th className="pb-2 font-medium">Produkt-ID</th>
@@ -256,13 +266,13 @@ export default function InventoryPage() {
                         const upcoming = getUpcomingBooking(product);
                         return (
                           <tr key={product.id} className="hover:bg-gray-50">
-                            <td className="py-2.5 font-mono text-xs text-gray-500">
+                            <td className="py-2.5 font-mono text-xs text-gray-500 truncate">
                               {product.product_id}
                             </td>
-                            <td className="py-2.5 font-medium">
+                            <td className="py-2.5 font-medium truncate">
                               {product.name}
                             </td>
-                            <td className="py-2.5 text-gray-600">
+                            <td className="py-2.5 text-gray-600 truncate">
                               {product.manufacturer || "-"}
                             </td>
                             <td className="py-2.5 text-gray-600">
@@ -273,7 +283,7 @@ export default function InventoryPage() {
                                 ? formatCurrency(product.rental_price_per_day)
                                 : "-"}
                             </td>
-                            <td className="py-2.5 text-gray-600">
+                            <td className="py-2.5 text-gray-600 truncate">
                               {product.owners?.length > 0
                                 ? product.owners.map((o: any) => `${o.owner?.full_name || o.owner?.email} (${o.quantity})`).join(", ")
                                 : "-"}
@@ -286,7 +296,7 @@ export default function InventoryPage() {
                                   {avail.label}
                                 </span>
                                 {upcoming && (
-                                  <span className="text-[10px] text-gray-400">
+                                  <span className="text-[10px] text-gray-400 truncate">
                                     Nächste Buchung:{" "}
                                     {new Date(
                                       upcoming.start_date
