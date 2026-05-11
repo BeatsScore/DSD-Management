@@ -100,17 +100,10 @@ export function generateDocument(
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              padding-bottom: 12px;
+              padding: 18px 0 12px;
               border-bottom: 2px solid #000;
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              max-width: 210mm;
-              margin: 0 auto;
-              padding: 18px 60px 12px;
               background: #fff;
-              z-index: 100;
+              margin-bottom: 18px;
             }
             .brand {
               font-size: 26px;
@@ -433,24 +426,17 @@ export function generateDocument(
             max-width: 210mm;
             min-height: 297mm;
             margin: 0 auto;
-            padding: 115px 60px 50px;
+            padding: 30px 60px 50px;
             position: relative;
           }
           .header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            padding-bottom: 12px;
+            padding: 18px 0 12px;
             border-bottom: 2px solid #000;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            max-width: 210mm;
-            margin: 0 auto;
-            padding: 18px 60px 12px;
             background: #fff;
-            z-index: 100;
+            margin-bottom: 18px;
           }
           .brand {
             font-size: 26px;
