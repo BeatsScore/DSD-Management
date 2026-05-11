@@ -24,6 +24,7 @@ import Barcode from "react-barcode";
 import { formatDate, getStatusColor, getStatusLabel, formatCurrency, safeParseFloat, safeParseInt } from "@/lib/utils";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { ManualQrCode } from "@/components/ManualQrCode";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -473,6 +474,12 @@ export default function ProductDetailPage() {
                       }}
                     />
                   </label>
+                )}
+
+                {form.manualUrl && (
+                  <div className="pt-2">
+                    <ManualQrCode url={form.manualUrl} productName={form.name || product.name} size={96} />
+                  </div>
                 )}
               </div>
             </div>

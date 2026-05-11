@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Package, ArrowLeft, Calendar, Ruler, Building2, Tag, FileText } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 import { ImageSlideshow } from "@/components/public/ImageSlideshow";
+import { ManualQrCode } from "@/components/ManualQrCode";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -109,7 +110,7 @@ export default async function ProductDetailPage({ params }: Props) {
             </div>
 
             {product.manual_url && (
-              <div className="mt-4">
+              <div className="mt-4 space-y-3">
                 <a
                   href={product.manual_url}
                   target="_blank"
@@ -119,6 +120,7 @@ export default async function ProductDetailPage({ params }: Props) {
                   <FileText className="w-4 h-4" />
                   Bedienungsanleitung ansehen
                 </a>
+                <ManualQrCode url={product.manual_url} productName={product.name} size={96} />
               </div>
             )}
 
