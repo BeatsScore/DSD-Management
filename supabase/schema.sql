@@ -187,6 +187,23 @@ create table if not exists public.set_items (
   created_at timestamptz default now()
 );
 
+-- Manufacturers
+create table if not exists public.manufacturers (
+  id uuid default gen_random_uuid() primary key,
+  name text not null unique,
+  created_at timestamptz default now()
+);
+
+-- Product owners (many-to-many with quantity)
+create table if not exists public.product_owners (
+  id uuid default gen_random_uuid() primary key,
+  product_id uuid references public.products(id) on delete cascade not null,
+  owner_id uuid references public.profiles(id) not null,
+  quantity integer not null default 1,
+  created_at timestamptz default now(),
+  unique(product_id, owner_id)
+);
+
 -- RLS helper function
 create or replace function public.is_admin_or_staff()
 returns boolean as $$
@@ -213,6 +230,8 @@ alter table public.product_sets enable row level security;
 alter table public.set_items enable row level security;
 alter table public.damage_logs enable row level security;
 alter table public.maintenance_logs enable row level security;
+alter table public.manufacturers enable row level security;
+alter table public.product_owners enable row level security;
 
 -- Profiles: own profile read, admin/staff full access
 create policy "Users can read own profile" on public.profiles for select to authenticated using (auth.uid() = id);
@@ -232,12 +251,15 @@ create policy "Admin and staff full access on product_sets" on public.product_se
 create policy "Admin and staff full access on set_items" on public.set_items for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 create policy "Admin and staff full access on damage_logs" on public.damage_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 create policy "Admin and staff full access on maintenance_logs" on public.maintenance_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on manufacturers" on public.manufacturers for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on product_owners" on public.product_owners for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
 
 -- Public catalog access (anon)
 create policy "Allow public read on products" on public.products for select to anon using (true);
 create policy "Allow public read on categories" on public.product_categories for select to anon using (true);
 create policy "Allow public read on product_sets" on public.product_sets for select to anon using (true);
 create policy "Allow public read on set_items" on public.set_items for select to anon using (true);
+create policy "Allow public read on manufacturers" on public.manufacturers for select to anon using (true);
 
 -- Public inquiry
 create policy "Allow public insert on requests" on public.requests for insert to anon with check (true);

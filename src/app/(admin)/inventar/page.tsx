@@ -24,10 +24,10 @@ export default function InventoryPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p, error: ep }, { data: oi, error: eoi }] = await Promise.all([
+      const [{ data: p, error: ep }, { data: oi, error: eoi }, { data: po, error: epo }] = await Promise.all([
         supabase
           .from("products")
-          .select("*, category:category_id(*), owner:owner_id(full_name, email)")
+          .select("*, category:category_id(*)")
           .order("name", { ascending: true })
           .limit(50),
         supabase
@@ -36,12 +36,25 @@ export default function InventoryPage() {
             "product_id, quantity, order:order_id(start_date, end_date, status)"
           )
           .neq("order.status", "storniert"),
+        supabase
+          .from("product_owners")
+          .select("*, owner:owner_id(full_name, email)"),
       ]);
-      if (ep || eoi) {
-        console.error("Failed to load inventory:", ep || eoi);
+      if (ep || eoi || epo) {
+        console.error("Failed to load inventory:", ep || eoi || epo);
       }
 
-      setProducts(p || []);
+      // Attach owners to products
+      const ownersMap = new Map<string, any[]>();
+      (po || []).forEach((o) => {
+        if (!ownersMap.has(o.product_id)) ownersMap.set(o.product_id, []);
+        ownersMap.get(o.product_id)!.push(o);
+      });
+      const productsWithOwners = (p || []).map((product) => ({
+        ...product,
+        owners: ownersMap.get(product.id) || [],
+      }));
+      setProducts(productsWithOwners);
 
       // Build product_id -> bookings map
       const map = new Map<string, any[]>();
@@ -261,9 +274,9 @@ export default function InventoryPage() {
                                 : "-"}
                             </td>
                             <td className="py-2.5 text-gray-600">
-                              {product.owner?.full_name ||
-                                product.owner?.email ||
-                                "-"}
+                              {product.owners?.length > 0
+                                ? product.owners.map((o: any) => `${o.owner?.full_name || o.owner?.email} (${o.quantity})`).join(", ")
+                                : "-"}
                             </td>
                             <td className="py-2.5">
                               <div className="flex flex-col gap-0.5">
@@ -328,6 +341,11 @@ export default function InventoryPage() {
                               ? formatCurrency(product.rental_price_per_day) +
                                 "/Tag"
                               : ""}
+                            {product.owners?.length > 0 && (
+                              <span className="ml-1">
+                                · {product.owners.map((o: any) => `${o.owner?.full_name || o.owner?.email} (${o.quantity})`).join(", ")}
+                              </span>
+                            )}
                             {upcoming && (
                               <span className="ml-1">
                                 · Nächste Buchung:{" "}

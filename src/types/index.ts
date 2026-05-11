@@ -194,3 +194,18 @@ export interface SetItem {
   quantity: number;
   created_at: string;
 }
+
+export interface Manufacturer {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ProductOwner {
+  id: string;
+  product_id: string;
+  owner_id: string;
+  owner?: Profile;
+  quantity: number;
+  created_at: string;
+}

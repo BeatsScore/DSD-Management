@@ -11,12 +11,16 @@ import { generateBarcode, generateProductId, safeParseFloat, safeParseInt } from
 export default function NewProductPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
+  const [manufacturers, setManufacturers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [isNewManufacturer, setIsNewManufacturer] = useState(false);
+  const [newManufacturerName, setNewManufacturerName] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [manualFile, setManualFile] = useState<File | null>(null);
+  const [owners, setOwners] = useState<{ ownerId: string; quantity: string }[]>([]);
   const router = useRouter();
   const supabase = createClient();
 
@@ -35,17 +39,18 @@ export default function NewProductPage() {
     purchasePrice: "",
     weight: "",
     condition: "",
-    ownerId: "",
   });
 
   useEffect(() => {
     async function load() {
-      const [{ data: cats }, { data: staffList }] = await Promise.all([
+      const [{ data: cats }, { data: staffList }, { data: mfrs }] = await Promise.all([
         supabase.from("product_categories").select("*").order("name"),
         supabase.from("profiles").select("*").in("role", ["admin", "staff"]).order("full_name"),
+        supabase.from("manufacturers").select("*").order("name"),
       ]);
       setCategories(cats || []);
       setStaff(staffList || []);
+      setManufacturers(mfrs || []);
     }
     load();
   }, [supabase]);
@@ -160,7 +165,36 @@ export default function NewProductPage() {
       return;
     }
 
+    // Validate owner quantities
+    const totalOwnerQty = owners.reduce((sum, o) => sum + safeParseInt(o.quantity, 0), 0);
+    const productQty = safeParseInt(form.quantity, 1);
+    if (totalOwnerQty > productQty) {
+      toast.error(`Die Summe der Besitzer-Anteile (${totalOwnerQty}) darf nicht grösser als die Gesamtanzahl (${productQty}) sein.`);
+      return;
+    }
+
     setLoading(true);
+
+    // Handle new manufacturer
+    let manufacturerName = form.manufacturer;
+    if (isNewManufacturer) {
+      if (!newManufacturerName.trim()) {
+        setLoading(false);
+        toast.error("Bitte geben Sie einen Herstellernamen ein.");
+        return;
+      }
+      const { data: newMfr, error: mfrError } = await supabase
+        .from("manufacturers")
+        .insert({ name: newManufacturerName.trim() })
+        .select()
+        .single();
+      if (mfrError) {
+        setLoading(false);
+        toast.error("Fehler beim Erstellen des Herstellers: " + mfrError.message);
+        return;
+      }
+      manufacturerName = newManufacturerName.trim();
+    }
 
     // Use timestamp to avoid race conditions with count-based IDs
     const categoryPrefix = isNewCategory
@@ -175,7 +209,7 @@ export default function NewProductPage() {
       .insert({
         product_id: productIdStr,
         name: form.name,
-        manufacturer: form.manufacturer,
+        manufacturer: manufacturerName,
         manufacture_date: form.manufactureDate || null,
         dimensions: form.dimensions || null,
         description: form.description || null,
@@ -184,35 +218,48 @@ export default function NewProductPage() {
         barcode,
         technical_specs: form.technicalSpecs || null,
         rental_price_per_day: safeParseFloat(form.rentalPricePerDay),
-        quantity: safeParseInt(form.quantity, 1),
+        quantity: productQty,
         manual_url: form.manualUrl || null,
         purchase_date: form.purchaseDate || null,
         purchase_price: safeParseFloat(form.purchasePrice),
         weight: safeParseFloat(form.weight),
         condition: form.condition || null,
-        owner_id: form.ownerId || null,
       })
       .select()
       .single();
 
-    if (error) {
+    if (error || !inserted) {
       setLoading(false);
-      toast.error("Fehler: " + error.message);
+      toast.error("Fehler: " + (error?.message || "Unbekannter Fehler"));
       return;
+    }
+
+    // Insert product owners
+    const validOwners = owners.filter((o) => o.ownerId && safeParseInt(o.quantity, 0) > 0);
+    if (validOwners.length > 0) {
+      const ownerRows = validOwners.map((o) => ({
+        product_id: inserted.id,
+        owner_id: o.ownerId,
+        quantity: safeParseInt(o.quantity, 1),
+      }));
+      const { error: ownerError } = await supabase.from("product_owners").insert(ownerRows);
+      if (ownerError) {
+        console.error("Fehler beim Speichern der Besitzer:", ownerError);
+      }
     }
 
     // Upload images if present
     let updateData: any = {};
-    if (imageFiles.length > 0 && inserted) {
+    if (imageFiles.length > 0) {
       const imageUrls = await uploadImages(inserted.id);
       if (imageUrls.length > 0) updateData.image_urls = imageUrls;
     }
     // Upload manual PDF if present
-    if (manualFile && inserted) {
+    if (manualFile) {
       const manualUrl = await uploadManual(inserted.id);
       if (manualUrl) updateData.manual_url = manualUrl;
     }
-    if (Object.keys(updateData).length > 0 && inserted) {
+    if (Object.keys(updateData).length > 0) {
       await supabase.from("products").update(updateData).eq("id", inserted.id);
     }
 
@@ -282,13 +329,38 @@ export default function NewProductPage() {
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Herstellername</label>
-            <input
+            <select
               className="input-field"
-              value={form.manufacturer}
-              onChange={(e) =>
-                setForm({ ...form, manufacturer: e.target.value })
-              }
-            />
+              value={isNewManufacturer ? "__new__" : form.manufacturer}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "__new__") {
+                  setIsNewManufacturer(true);
+                  setForm({ ...form, manufacturer: "" });
+                } else {
+                  setIsNewManufacturer(false);
+                  setForm({ ...form, manufacturer: value });
+                }
+              }}
+            >
+              <option value="">Bitte wählen</option>
+              {manufacturers.map((m) => (
+                <option key={m.id} value={m.name}>{m.name}</option>
+              ))}
+              <option value="__new__">+ Neuer Hersteller</option>
+            </select>
+            {isNewManufacturer && (
+              <div className="mt-3">
+                <label className="label">Neuer Hersteller Name *</label>
+                <input
+                  className="input-field"
+                  placeholder="z. B. Pioneer"
+                  value={newManufacturerName}
+                  onChange={(e) => setNewManufacturerName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
           <div>
             <label className="label">Herstellungsdatum</label>
@@ -395,23 +467,56 @@ export default function NewProductPage() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="label">Besitzer</label>
-            <select
-              className="input-field"
-              value={form.ownerId}
-              onChange={(e) =>
-                setForm({ ...form, ownerId: e.target.value })
-              }
+        <div>
+          <label className="label">Besitzer</label>
+          <div className="space-y-2">
+            {owners.map((o, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <select
+                  className="input-field flex-1"
+                  value={o.ownerId}
+                  onChange={(e) => {
+                    const newOwners = [...owners];
+                    newOwners[idx].ownerId = e.target.value;
+                    setOwners(newOwners);
+                  }}
+                >
+                  <option value="">Bitte wählen</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.full_name || s.email}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  className="input-field w-24"
+                  placeholder="Anzahl"
+                  value={o.quantity}
+                  onChange={(e) => {
+                    const newOwners = [...owners];
+                    newOwners[idx].quantity = e.target.value;
+                    setOwners(newOwners);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setOwners((prev) => prev.filter((_, i) => i !== idx))}
+                  className="p-2 text-gray-400 hover:text-red-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setOwners((prev) => [...prev, { ownerId: "", quantity: "1" }])}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-md px-3 py-1.5 transition-colors"
             >
-              <option value="">Bitte wählen</option>
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.full_name || s.email}
-                </option>
-              ))}
-            </select>
+              <Plus className="w-3.5 h-3.5" />
+              Besitzer hinzufügen
+            </button>
           </div>
         </div>
 

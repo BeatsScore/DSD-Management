@@ -19,6 +19,7 @@ import {
   User,
   Banknote,
   Check,
+  Plus,
 } from "lucide-react";
 import Barcode from "react-barcode";
 import { formatDate, getStatusColor, getStatusLabel, formatCurrency, safeParseFloat, safeParseInt } from "@/lib/utils";
@@ -35,6 +36,8 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
+  const [manufacturers, setManufacturers] = useState<any[]>([]);
+  const [productOwners, setProductOwners] = useState<any[]>([]);
   const [maintenanceLogs, setMaintenanceLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,6 +46,8 @@ export default function ProductDetailPage() {
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "maintenance">("details");
+  const [isNewManufacturer, setIsNewManufacturer] = useState(false);
+  const [newManufacturerName, setNewManufacturerName] = useState("");
 
   // Maintenance form state
   const [showMaintForm, setShowMaintForm] = useState(false);
@@ -54,16 +59,19 @@ export default function ProductDetailPage() {
   const [savingMaint, setSavingMaint] = useState(false);
 
   const [form, setForm] = useState<any>({});
+  const [owners, setOwners] = useState<{ ownerId: string; quantity: string }[]>([]);
 
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: cats }, { data: staffList }, { data: logs }] = await Promise.all([
+      const [{ data: p }, { data: cats }, { data: staffList }, { data: logs }, { data: mfrs }, { data: po }] = await Promise.all([
         supabase.from("products").select("*, category:category_id(*)").eq("id", id).single(),
         supabase.from("product_categories").select("*").order("name"),
         supabase.from("profiles").select("*").in("role", ["admin", "staff"]).order("full_name"),
         supabase.from("maintenance_logs").select("*, performed_by_profile:performed_by(full_name)").eq("product_id", id).order("maintenance_date", { ascending: false }),
+        supabase.from("manufacturers").select("*").order("name"),
+        supabase.from("product_owners").select("*, owner:owner_id(full_name, email)").eq("product_id", id),
       ]);
       if (p) {
         setProduct(p);
@@ -83,14 +91,18 @@ export default function ProductDetailPage() {
           purchasePrice: p.purchase_price != null ? String(p.purchase_price) : "",
           weight: p.weight != null ? String(p.weight) : "",
           condition: p.condition || "",
-          ownerId: p.owner_id || "",
         });
         if (p.image_urls && p.image_urls.length > 0) {
           setExistingImageUrls(p.image_urls);
         }
       }
+      if (po && po.length > 0) {
+        setOwners(po.map((o: any) => ({ ownerId: o.owner_id, quantity: String(o.quantity) })));
+        setProductOwners(po);
+      }
       setCategories(cats || []);
       setStaff(staffList || []);
+      setManufacturers(mfrs || []);
       setMaintenanceLogs(logs || []);
       setLoading(false);
     }
@@ -163,6 +175,14 @@ export default function ProductDetailPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const totalOwnerQty = owners.reduce((sum, o) => sum + safeParseInt(o.quantity, 0), 0);
+    const productQty = safeParseInt(form.quantity, 1);
+    if (totalOwnerQty > productQty) {
+      toast.error(`Die Summe der Besitzer-Anteile (${totalOwnerQty}) darf nicht grösser als die Gesamtanzahl (${productQty}) sein.`);
+      return;
+    }
+
     setSaving(true);
 
     const newUrls = imageFiles.length > 0 ? await uploadNewImages() : [];
@@ -174,9 +194,33 @@ export default function ProductDetailPage() {
       if (uploaded) manualUrl = uploaded;
     }
 
+    // Handle new manufacturer
+    let manufacturerName = form.manufacturer;
+    if (isNewManufacturer) {
+      if (!newManufacturerName.trim()) {
+        setSaving(false);
+        toast.error("Bitte geben Sie einen Herstellernamen ein.");
+        return;
+      }
+      const { data: newMfr, error: mfrError } = await supabase
+        .from("manufacturers")
+        .insert({ name: newManufacturerName.trim() })
+        .select()
+        .single();
+      if (mfrError) {
+        setSaving(false);
+        toast.error("Fehler beim Erstellen des Herstellers: " + mfrError.message);
+        return;
+      }
+      manufacturerName = newManufacturerName.trim();
+      setManufacturers((prev) => [...prev, newMfr].sort((a, b) => a.name.localeCompare(b.name)));
+      setIsNewManufacturer(false);
+      setNewManufacturerName("");
+    }
+
     const { error } = await supabase.from("products").update({
       name: form.name,
-      manufacturer: form.manufacturer,
+      manufacturer: manufacturerName,
       manufacture_date: form.manufactureDate || null,
       dimensions: form.dimensions || null,
       description: form.description || null,
@@ -185,19 +229,33 @@ export default function ProductDetailPage() {
       image_urls: allUrls.length > 0 ? allUrls : null,
       technical_specs: form.technicalSpecs || null,
       rental_price_per_day: safeParseFloat(form.rentalPricePerDay),
-      quantity: safeParseInt(form.quantity, 1),
+      quantity: productQty,
       manual_url: manualUrl,
       purchase_date: form.purchaseDate || null,
       purchase_price: safeParseFloat(form.purchasePrice),
       weight: safeParseFloat(form.weight),
       condition: form.condition || null,
-      owner_id: form.ownerId || null,
     }).eq("id", id);
-    setSaving(false);
+
     if (error) {
+      setSaving(false);
       toast.error("Fehler: " + error.message);
       return;
     }
+
+    // Update product owners: delete existing, insert new
+    const validOwners = owners.filter((o) => o.ownerId && safeParseInt(o.quantity, 0) > 0);
+    await supabase.from("product_owners").delete().eq("product_id", id);
+    if (validOwners.length > 0) {
+      const ownerRows = validOwners.map((o) => ({
+        product_id: id,
+        owner_id: o.ownerId,
+        quantity: safeParseInt(o.quantity, 1),
+      }));
+      await supabase.from("product_owners").insert(ownerRows);
+    }
+
+    setSaving(false);
     toast.success("Artikel aktualisiert.");
     setExistingImageUrls(allUrls);
     setImageFiles([]);
@@ -380,7 +438,41 @@ export default function ProductDetailPage() {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <div><label className="label">Herstellername</label><input className="input-field" value={form.manufacturer} onChange={(e) => updateForm("manufacturer", e.target.value)} /></div>
+              <div>
+                <label className="label">Herstellername</label>
+                <select
+                  className="input-field"
+                  value={isNewManufacturer ? "__new__" : form.manufacturer}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "__new__") {
+                      setIsNewManufacturer(true);
+                      updateForm("manufacturer", "");
+                    } else {
+                      setIsNewManufacturer(false);
+                      updateForm("manufacturer", value);
+                    }
+                  }}
+                >
+                  <option value="">Bitte wählen</option>
+                  {manufacturers.map((m) => (
+                    <option key={m.id} value={m.name}>{m.name}</option>
+                  ))}
+                  <option value="__new__">+ Neuer Hersteller</option>
+                </select>
+                {isNewManufacturer && (
+                  <div className="mt-3">
+                    <label className="label">Neuer Hersteller Name *</label>
+                    <input
+                      className="input-field"
+                      placeholder="z. B. Pioneer"
+                      value={newManufacturerName}
+                      onChange={(e) => setNewManufacturerName(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </div>
               <div><label className="label">Herstellungsdatum</label><input type="date" className="input-field" value={form.manufactureDate} onChange={(e) => updateForm("manufactureDate", e.target.value)} /></div>
             </div>
 
@@ -428,10 +520,53 @@ export default function ProductDetailPage() {
               </div>
               <div>
                 <label className="label">Besitzer</label>
-                <select className="input-field" value={form.ownerId} onChange={(e) => updateForm("ownerId", e.target.value)}>
-                  <option value="">Bitte wählen</option>
-                  {staff.map((s) => (<option key={s.id} value={s.id}>{s.full_name || s.email}</option>))}
-                </select>
+                <div className="space-y-2">
+                  {owners.map((o, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <select
+                        className="input-field flex-1"
+                        value={o.ownerId}
+                        onChange={(e) => {
+                          const newOwners = [...owners];
+                          newOwners[idx].ownerId = e.target.value;
+                          setOwners(newOwners);
+                        }}
+                      >
+                        <option value="">Bitte wählen</option>
+                        {staff.map((s) => (
+                          <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        className="input-field w-24"
+                        placeholder="Anzahl"
+                        value={o.quantity}
+                        onChange={(e) => {
+                          const newOwners = [...owners];
+                          newOwners[idx].quantity = e.target.value;
+                          setOwners(newOwners);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOwners((prev) => prev.filter((_, i) => i !== idx))}
+                        className="p-2 text-gray-400 hover:text-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setOwners((prev) => [...prev, { ownerId: "", quantity: "1" }])}
+                    className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-md px-3 py-1.5 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Besitzer hinzufügen
+                  </button>
+                </div>
               </div>
             </div>
 
