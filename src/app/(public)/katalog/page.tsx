@@ -74,7 +74,7 @@ export default function CatalogPage() {
                 className="card hover:shadow-md transition-shadow group relative overflow-hidden"
               >
                 {set.image_url ? (
-                  <div className="h-40 -mx-5 -mt-5 mb-4 overflow-hidden">
+                  <div className="h-52 -mx-5 -mt-5 mb-4 overflow-hidden">
                     <img
                       src={set.image_url}
                       alt={set.name}
@@ -84,7 +84,7 @@ export default function CatalogPage() {
                     />
                   </div>
                 ) : (
-                  <div className="h-32 -mx-5 -mt-5 mb-4 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                  <div className="h-52 -mx-5 -mt-5 mb-4 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                     <Layers className="w-10 h-10 text-gray-400" />
                   </div>
                 )}
@@ -161,7 +161,7 @@ export default function CatalogPage() {
                   className="card hover:shadow-md transition-shadow group overflow-hidden"
                 >
                   {product.image_urls && product.image_urls.length > 0 ? (
-                    <div className="relative h-32 -mx-5 -mt-5 mb-4 overflow-hidden bg-gray-50 flex items-center justify-center">
+                    <div className="relative h-52 -mx-5 -mt-5 mb-4 overflow-hidden bg-gray-50 flex items-center justify-center">
                       <img
                         src={product.image_urls[0]}
                         alt={product.name}
