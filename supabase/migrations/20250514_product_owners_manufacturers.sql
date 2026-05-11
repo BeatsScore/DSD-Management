@@ -1,3 +1,9 @@
+-- Ensure profiles table exists (stub for foreign key compatibility)
+-- The real profiles table is created in schema.sql with auth.users reference
+create table if not exists public.profiles (
+  id uuid primary key
+);
+
 -- Manufacturers table
 create table if not exists public.manufacturers (
   id uuid default gen_random_uuid() primary key,
