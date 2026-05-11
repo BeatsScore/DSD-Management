@@ -36,7 +36,7 @@ export default async function ProductDetailPage({ params }: Props) {
       <div className="card">
         <div className="flex flex-col md:flex-row gap-6">
           {/* Image slideshow */}
-          <div className="md:w-1/2">
+          <div className="md:w-2/5">
             {product.image_urls && product.image_urls.length > 0 ? (
               <ImageSlideshow images={product.image_urls} alt={product.name} aspectRatio="aspect-[3/4]" />
             ) : (
