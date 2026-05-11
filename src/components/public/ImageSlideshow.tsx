@@ -6,9 +6,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 interface ImageSlideshowProps {
   images: string[];
   alt: string;
+  aspectRatio?: string;
 }
 
-export function ImageSlideshow({ images, alt }: ImageSlideshowProps) {
+export function ImageSlideshow({ images, alt, aspectRatio = "aspect-square" }: ImageSlideshowProps) {
   const [current, setCurrent] = useState(0);
 
   if (!images || images.length === 0) return null;
@@ -17,7 +18,7 @@ export function ImageSlideshow({ images, alt }: ImageSlideshowProps) {
   const next = () => setCurrent((c) => (c === images.length - 1 ? 0 : c + 1));
 
   return (
-    <div className="relative bg-gray-100 rounded-xl overflow-hidden aspect-square group">
+    <div className={`relative bg-gray-100 rounded-xl overflow-hidden ${aspectRatio} group`}>
       <img
         src={images[current]}
         alt={`${alt} - Bild ${current + 1}`}
