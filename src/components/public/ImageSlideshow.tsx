@@ -18,7 +18,7 @@ export function ImageSlideshow({ images, alt, aspectRatio = "aspect-square" }: I
   const next = () => setCurrent((c) => (c === images.length - 1 ? 0 : c + 1));
 
   return (
-    <div className={`relative bg-gray-100 rounded-xl overflow-hidden ${aspectRatio} group`}>
+    <div className={`relative bg-gray-100 rounded-xl overflow-hidden ${aspectRatio} group p-6`}>
       <img
         src={images[current]}
         alt={`${alt} - Bild ${current + 1}`}
