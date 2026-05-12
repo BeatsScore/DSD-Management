@@ -17,7 +17,7 @@ export interface ProductCategory {
   created_at: string;
 }
 
-export type ProductStatus = "verfuegbar" | "vermietet" | "reserviert" | "defekt";
+export type ProductStatus = "verfuegbar" | "vermietet" | "reserviert" | "defekt" | "inaktiv";
 
 export type ProductCondition = "neu" | "gut" | "gebraucht" | "defekt";
 
@@ -45,7 +45,6 @@ export interface Product {
   condition: ProductCondition | null;
   owner_id: string | null;
   owner?: Profile;
-  active: boolean;
   created_at: string;
   updated_at: string;
 }

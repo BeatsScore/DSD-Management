@@ -235,7 +235,6 @@ export default function ProductDetailPage() {
       purchase_price: safeParseFloat(form.purchasePrice),
       weight: safeParseFloat(form.weight),
       condition: form.condition || null,
-      active: form.active,
     }).eq("id", id);
 
     if (error) {
@@ -521,7 +520,7 @@ export default function ProductDetailPage() {
               </div>
               <div>
                 <label className="label">Sichtbarkeit</label>
-                <select className="input-field" value={form.active ? "true" : "false"} onChange={(e) => updateForm("active", e.target.value === "true")}>
+                <select className="input-field" value={form.status === "inaktiv" ? "false" : "true"} onChange={(e) => updateForm("status", e.target.value === "true" ? "verfuegbar" : "inaktiv")}>
                   <option value="true">Online (im Katalog sichtbar)</option>
                   <option value="false">Offline (nicht im Katalog)</option>
                 </select>

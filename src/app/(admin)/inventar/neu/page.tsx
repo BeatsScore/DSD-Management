@@ -39,7 +39,7 @@ export default function NewProductPage() {
     purchasePrice: "",
     weight: "",
     condition: "",
-    active: true,
+    status: "verfuegbar",
   });
 
   useEffect(() => {
@@ -215,7 +215,6 @@ export default function NewProductPage() {
         dimensions: form.dimensions || null,
         description: form.description || null,
         category_id: categoryId,
-        status: "verfuegbar",
         barcode,
         technical_specs: form.technicalSpecs || null,
         rental_price_per_day: safeParseFloat(form.rentalPricePerDay),
@@ -225,7 +224,7 @@ export default function NewProductPage() {
         purchase_price: safeParseFloat(form.purchasePrice),
         weight: safeParseFloat(form.weight),
         condition: form.condition || null,
-        active: form.active,
+        status: form.status,
       })
       .select()
       .single();
@@ -471,9 +470,9 @@ export default function NewProductPage() {
             <label className="label">Sichtbarkeit</label>
             <select
               className="input-field"
-              value={form.active ? "true" : "false"}
+              value={form.status === "inaktiv" ? "false" : "true"}
               onChange={(e) =>
-                setForm({ ...form, active: e.target.value === "true" })
+                setForm({ ...form, status: e.target.value === "true" ? "verfuegbar" : "inaktiv" })
               }
             >
               <option value="true">Online (im Katalog sichtbar)</option>

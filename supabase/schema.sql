@@ -29,7 +29,7 @@ create table if not exists public.products (
   dimensions text,
   description text,
   category_id uuid references public.product_categories(id),
-  status text not null default 'verfuegbar' check (status in ('verfuegbar', 'vermietet', 'reserviert', 'defekt')),
+  status text not null default 'verfuegbar' check (status in ('verfuegbar', 'vermietet', 'reserviert', 'defekt', 'inaktiv')),
   barcode text not null unique,
   barcode_data_url text,
   image_urls text[],
@@ -42,7 +42,6 @@ create table if not exists public.products (
   weight numeric(10,2),
   condition text check (condition in ('neu', 'gut', 'gebraucht', 'defekt')),
   owner_id uuid references public.profiles(id),
-  active boolean not null default true,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

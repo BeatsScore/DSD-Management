@@ -18,7 +18,7 @@ export default function CatalogPage() {
   useEffect(() => {
     async function load() {
       const [{ data: p, error: ep }, { data: c, error: ec }, { data: s, error: es }] = await Promise.all([
-        supabase.from("products").select("*, category:category_id(*)").eq("active", true).order("name", { ascending: true }),
+        supabase.from("products").select("*, category:category_id(*)").not("status", "eq", "inaktiv").order("name", { ascending: true }),
         supabase.from("product_categories").select("*").order("name", { ascending: true }),
         supabase.from("product_sets").select("*, items:set_items(*, product:product_id(id, name))").eq("active", true).order("name", { ascending: true }),
       ]);
