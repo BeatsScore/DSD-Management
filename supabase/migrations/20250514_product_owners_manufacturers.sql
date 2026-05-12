@@ -1,5 +1,15 @@
+-- Ensure is_admin_or_staff function exists (stub for migration compatibility)
+create or replace function public.is_admin_or_staff()
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('admin', 'staff')
+  );
+end;
+$$ language plpgsql security definer;
+
 -- Ensure profiles table exists (stub for foreign key compatibility)
--- The real profiles table is created in schema.sql with auth.users reference
 create table if not exists public.profiles (
   id uuid primary key
 );
