@@ -415,19 +415,25 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: row;
               align-items: center;
-              justify-content: space-between;
+              justify-content: flex-start;
               height: 100%;
               padding: ${s.bodyPadding};
               box-sizing: border-box;
-              gap: 2mm;
+              gap: 3mm;
             }
             .left {
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              gap: 2mm;
+              flex-shrink: 0;
+            }
+            .text-col {
               display: flex;
               flex-direction: column;
               align-items: flex-start;
               justify-content: center;
-              gap: 1mm;
-              flex-shrink: 0;
+              gap: 0.5mm;
             }
             .logo {
               height: ${s.logoHeight};
@@ -449,9 +455,15 @@ export default function ProductDetailPage() {
             .barcode-wrap {
               flex: 1;
               display: flex;
+              flex-direction: column;
               align-items: center;
               justify-content: center;
               min-width: 0;
+            }
+            .barcode-text {
+              font-size: 7px;
+              color: #333;
+              margin-top: 0.5mm;
             }
             svg {
               max-width: ${s.svgMaxWidth};
@@ -465,8 +477,10 @@ export default function ProductDetailPage() {
           <div class="label">
             <div class="left">
               <img src="${window.location.origin}/logo.png" class="logo" alt="" />
-              <div class="serial">${product.product_id}</div>
-              <div class="product-name">${product.name}</div>
+              <div class="text-col">
+                <div class="serial">${product.product_id}</div>
+                <div class="product-name">${product.name}</div>
+              </div>
             </div>
             <div class="barcode-wrap">${svgHtml}</div>
           </div>
@@ -503,19 +517,25 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: row;
               align-items: center;
-              justify-content: space-between;
+              justify-content: flex-start;
               height: 100%;
               padding: ${s.bodyPadding};
               box-sizing: border-box;
-              gap: 2mm;
+              gap: 3mm;
             }
             .left {
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              gap: 2mm;
+              flex-shrink: 0;
+            }
+            .text-col {
               display: flex;
               flex-direction: column;
               align-items: flex-start;
               justify-content: center;
-              gap: 1mm;
-              flex-shrink: 0;
+              gap: 0.5mm;
             }
             .logo {
               height: ${s.logoHeight};
@@ -537,9 +557,15 @@ export default function ProductDetailPage() {
             .barcode-wrap {
               flex: 1;
               display: flex;
+              flex-direction: column;
               align-items: center;
               justify-content: center;
               min-width: 0;
+            }
+            .barcode-text {
+              font-size: 7px;
+              color: #333;
+              margin-top: 0.5mm;
             }
             svg {
               max-width: ${s.svgMaxWidth};
@@ -553,8 +579,10 @@ export default function ProductDetailPage() {
           <div class="label">
             <div class="left">
               <img src="${window.location.origin}/logo.png" class="logo" alt="" />
-              <div class="serial">${item.serial_number || product.product_id}</div>
-              <div class="product-name">${product.name}</div>
+              <div class="text-col">
+                <div class="serial">${item.serial_number || product.product_id}</div>
+                <div class="product-name">${product.name}</div>
+              </div>
             </div>
             <div class="barcode-wrap">${svgHtml}</div>
           </div>
