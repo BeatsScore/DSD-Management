@@ -363,17 +363,16 @@ export default function ProductDetailPage() {
   const getLabelStyles = (format: "62mm" | "29mm") => {
     if (format === "29mm") {
       return {
-        pageSize: "29mm 90mm",
-        bodyWidth: "29mm",
-        bodyHeight: "86mm",
-        bodyPadding: "2mm 1.5mm",
-        logoHeight: "6mm",
-        serialFont: "7px",
-        idFont: "7px",
-        nameFont: "8px",
-        svgMaxWidth: "26mm",
-        svgHeight: "16mm",
-        rotate: true,
+        pageSize: "90mm 29mm",
+        bodyWidth: "90mm",
+        bodyHeight: "29mm",
+        bodyPadding: "1.5mm 2mm",
+        logoHeight: "8mm",
+        serialFont: "8px",
+        idFont: "8px",
+        nameFont: "9px",
+        svgMaxWidth: "40mm",
+        svgHeight: "22mm",
       };
     }
     return {
@@ -387,7 +386,6 @@ export default function ProductDetailPage() {
       nameFont: "11px",
       svgMaxWidth: "54mm",
       svgHeight: "auto",
-      rotate: false,
     };
   };
 
@@ -412,35 +410,34 @@ export default function ProductDetailPage() {
               overflow: hidden;
               box-sizing: border-box;
               font-family: sans-serif;
-              text-align: center;
             }
             .label {
               display: flex;
-              flex-direction: column;
+              flex-direction: row;
               align-items: center;
               justify-content: space-between;
               height: 100%;
               padding: ${s.bodyPadding};
               box-sizing: border-box;
+              gap: 2mm;
+            }
+            .left {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+              justify-content: center;
+              gap: 1mm;
+              flex-shrink: 0;
             }
             .logo {
               height: ${s.logoHeight};
               width: auto;
               object-fit: contain;
-              flex-shrink: 0;
             }
             .serial {
               font-size: ${s.serialFont};
               font-weight: 600;
               color: #333;
-              flex-shrink: 0;
-              line-height: 1.1;
-            }
-            .product-id {
-              font-size: ${s.idFont};
-              font-weight: 600;
-              color: #333;
-              flex-shrink: 0;
               line-height: 1.1;
             }
             .product-name {
@@ -448,19 +445,13 @@ export default function ProductDetailPage() {
               color: #333;
               word-break: break-word;
               line-height: 1.1;
-              flex-shrink: 0;
             }
             .barcode-wrap {
               flex: 1;
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 100%;
-              min-height: 0;
-            }
-            .barcode-rotated {
-              transform: rotate(-90deg);
-              transform-origin: center center;
+              min-width: 0;
             }
             svg {
               max-width: ${s.svgMaxWidth};
@@ -472,12 +463,12 @@ export default function ProductDetailPage() {
         </head>
         <body>
           <div class="label">
-            <img src="${window.location.origin}/logo.png" class="logo" alt="" />
-            <div class="serial">${product.product_id}</div>
-            <div class="barcode-wrap">
-              <div class="${s.rotate ? 'barcode-rotated' : ''}">${svgHtml}</div>
+            <div class="left">
+              <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+              <div class="serial">${product.product_id}</div>
+              <div class="product-name">${product.name}</div>
             </div>
-            <div class="product-name">${product.name}</div>
+            <div class="barcode-wrap">${svgHtml}</div>
           </div>
         </body>
       </html>
@@ -507,35 +498,34 @@ export default function ProductDetailPage() {
               overflow: hidden;
               box-sizing: border-box;
               font-family: sans-serif;
-              text-align: center;
             }
             .label {
               display: flex;
-              flex-direction: column;
+              flex-direction: row;
               align-items: center;
               justify-content: space-between;
               height: 100%;
               padding: ${s.bodyPadding};
               box-sizing: border-box;
+              gap: 2mm;
+            }
+            .left {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+              justify-content: center;
+              gap: 1mm;
+              flex-shrink: 0;
             }
             .logo {
               height: ${s.logoHeight};
               width: auto;
               object-fit: contain;
-              flex-shrink: 0;
             }
             .serial {
               font-size: ${s.serialFont};
               font-weight: 600;
               color: #333;
-              flex-shrink: 0;
-              line-height: 1.1;
-            }
-            .product-id {
-              font-size: ${s.idFont};
-              font-weight: 600;
-              color: #333;
-              flex-shrink: 0;
               line-height: 1.1;
             }
             .product-name {
@@ -543,19 +533,13 @@ export default function ProductDetailPage() {
               color: #333;
               word-break: break-word;
               line-height: 1.1;
-              flex-shrink: 0;
             }
             .barcode-wrap {
               flex: 1;
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 100%;
-              min-height: 0;
-            }
-            .barcode-rotated {
-              transform: rotate(-90deg);
-              transform-origin: center center;
+              min-width: 0;
             }
             svg {
               max-width: ${s.svgMaxWidth};
@@ -567,12 +551,12 @@ export default function ProductDetailPage() {
         </head>
         <body>
           <div class="label">
-            <img src="${window.location.origin}/logo.png" class="logo" alt="" />
-            <div class="serial">${item.serial_number || product.product_id}</div>
-            <div class="barcode-wrap">
-              <div class="${s.rotate ? 'barcode-rotated' : ''}">${svgHtml}</div>
+            <div class="left">
+              <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+              <div class="serial">${item.serial_number || product.product_id}</div>
+              <div class="product-name">${product.name}</div>
             </div>
-            <div class="product-name">${product.name}</div>
+            <div class="barcode-wrap">${svgHtml}</div>
           </div>
         </body>
       </html>
