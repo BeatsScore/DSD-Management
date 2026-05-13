@@ -45,6 +45,7 @@ export default function ProductDetailPage() {
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<"catalog" | "internal" | "barcode" | "maintenance">("catalog");
+  const [labelFormat, setLabelFormat] = useState<"62mm" | "29mm">("62mm");
   const [isNewManufacturer, setIsNewManufacturer] = useState(false);
   const [newManufacturerName, setNewManufacturerName] = useState("");
 
@@ -359,10 +360,38 @@ export default function ProductDetailPage() {
     setMaintenanceLogs(logs || []);
   };
 
+  const getLabelStyles = (format: "62mm" | "29mm") => {
+    if (format === "29mm") {
+      return {
+        pageSize: "29mm 90mm",
+        bodyWidth: "29mm",
+        bodyPadding: "2mm 1.5mm",
+        logoHeight: "6mm",
+        serialFont: "7px",
+        idFont: "7px",
+        nameFont: "8px",
+        svgMaxWidth: "26mm",
+        svgHeight: "22mm",
+      };
+    }
+    return {
+      pageSize: "62mm auto",
+      bodyWidth: "62mm",
+      bodyPadding: "3mm",
+      logoHeight: "10mm",
+      serialFont: "9px",
+      idFont: "9px",
+      nameFont: "11px",
+      svgMaxWidth: "54mm",
+      svgHeight: "auto",
+    };
+  };
+
   const printBarcode = () => {
     const svgEl = document.getElementById("barcode-svg");
     if (!svgEl || !product) return;
     const svgHtml = svgEl.outerHTML;
+    const s = getLabelStyles(labelFormat);
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`
@@ -370,11 +399,11 @@ export default function ProductDetailPage() {
         <head>
           <title>Barcode</title>
           <style>
-            @page { margin: 0; size: 62mm auto; }
+            @page { margin: 0; size: ${s.pageSize}; }
             body {
               margin: 0;
-              padding: 4mm;
-              width: 62mm;
+              padding: ${s.bodyPadding};
+              width: ${s.bodyWidth};
               box-sizing: border-box;
               font-family: sans-serif;
               text-align: center;
@@ -383,27 +412,39 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 2mm;
+              gap: 1mm;
+            }
+            .logo {
+              height: ${s.logoHeight};
+              width: auto;
+              object-fit: contain;
+            }
+            .serial {
+              font-size: ${s.serialFont};
+              font-weight: 600;
+              color: #333;
             }
             .product-id {
-              font-size: 10px;
+              font-size: ${s.idFont};
               font-weight: 600;
               color: #333;
             }
             .product-name {
-              font-size: 11px;
+              font-size: ${s.nameFont};
               color: #333;
               word-break: break-word;
+              line-height: 1.2;
             }
             svg {
-              max-width: 54mm;
-              height: auto;
+              max-width: ${s.svgMaxWidth};
+              height: ${s.svgHeight};
             }
           </style>
         </head>
         <body>
           <div class="label">
-            <div class="product-id">${product.product_id}</div>
+            <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+            <div class="serial">${product.product_id}</div>
             <div>${svgHtml}</div>
             <div class="product-name">${product.name}</div>
           </div>
@@ -418,6 +459,7 @@ export default function ProductDetailPage() {
     const svgEl = document.getElementById(`barcode-svg-${item.id}`);
     if (!svgEl || !product) return;
     const svgHtml = svgEl.outerHTML;
+    const s = getLabelStyles(labelFormat);
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`
@@ -425,11 +467,11 @@ export default function ProductDetailPage() {
         <head>
           <title>Barcode</title>
           <style>
-            @page { margin: 0; size: 62mm auto; }
+            @page { margin: 0; size: ${s.pageSize}; }
             body {
               margin: 0;
-              padding: 4mm;
-              width: 62mm;
+              padding: ${s.bodyPadding};
+              width: ${s.bodyWidth};
               box-sizing: border-box;
               font-family: sans-serif;
               text-align: center;
@@ -438,30 +480,41 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 2mm;
+              gap: 1mm;
+            }
+            .logo {
+              height: ${s.logoHeight};
+              width: auto;
+              object-fit: contain;
+            }
+            .serial {
+              font-size: ${s.serialFont};
+              font-weight: 600;
+              color: #333;
             }
             .product-id {
-              font-size: 10px;
+              font-size: ${s.idFont};
               font-weight: 600;
               color: #333;
             }
             .product-name {
-              font-size: 11px;
+              font-size: ${s.nameFont};
               color: #333;
               word-break: break-word;
+              line-height: 1.2;
             }
             svg {
-              max-width: 54mm;
-              height: auto;
+              max-width: ${s.svgMaxWidth};
+              height: ${s.svgHeight};
             }
           </style>
         </head>
         <body>
           <div class="label">
-            <div class="product-id">${product.product_id}</div>
+            <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+            <div class="serial">${item.serial_number || product.product_id}</div>
             <div>${svgHtml}</div>
             <div class="product-name">${product.name}</div>
-            ${item.serial_number ? `<div class="product-id">SN: ${item.serial_number}</div>` : ""}
           </div>
         </body>
       </html>
@@ -766,16 +819,23 @@ export default function ProductDetailPage() {
 
         {activeTab === "barcode" && (
           <div className="card space-y-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-left">
-                <div className="text-xs text-gray-500 mb-1">Produkt-ID</div>
-                <div className="font-mono text-sm">{product.product_id}</div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <label className="label text-xs mb-1">Etikettenformat</label>
+                <select
+                  className="input-field text-sm py-1.5"
+                  value={labelFormat}
+                  onChange={(e) => setLabelFormat(e.target.value as "62mm" | "29mm")}
+                >
+                  <option value="62mm">62mm Endlos (62 x variabel)</option>
+                  <option value="29mm">29mm Standard (29 x 90mm)</option>
+                </select>
               </div>
               <button onClick={printBarcode} className="btn-secondary py-2 px-4 text-sm">
                 <Printer className="w-4 h-4 mr-2 inline" /> Haupt-Barcode drucken
               </button>
             </div>
-            <div className="flex justify-center py-4">
+            <div className="flex justify-center py-2 bg-gray-50 rounded-lg">
               <div id="barcode-svg">
                 <Barcode value={product.barcode} format="CODE128" width={2} height={80} fontSize={14} margin={0} />
               </div>
