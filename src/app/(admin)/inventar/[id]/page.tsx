@@ -365,14 +365,14 @@ export default function ProductDetailPage() {
       return {
         pageSize: "29mm 90mm",
         bodyWidth: "29mm",
-        bodyHeight: "90mm",
+        bodyHeight: "86mm",
         bodyPadding: "2mm 1.5mm",
         logoHeight: "6mm",
         serialFont: "7px",
         idFont: "7px",
         nameFont: "8px",
         svgMaxWidth: "26mm",
-        svgHeight: "18mm",
+        svgHeight: "16mm",
       };
     }
     return {
@@ -402,10 +402,12 @@ export default function ProductDetailPage() {
           <title>Barcode</title>
           <style>
             @page { margin: 0; size: ${s.pageSize}; }
-            body {
+            html, body {
               margin: 0;
-              padding: ${s.bodyPadding};
+              padding: 0;
               width: ${s.bodyWidth};
+              height: ${s.bodyHeight};
+              overflow: hidden;
               box-sizing: border-box;
               font-family: sans-serif;
               text-align: center;
@@ -415,7 +417,8 @@ export default function ProductDetailPage() {
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              height: ${s.bodyHeight};
+              height: 100%;
+              padding: ${s.bodyPadding};
               box-sizing: border-box;
             }
             .logo {
@@ -429,18 +432,20 @@ export default function ProductDetailPage() {
               font-weight: 600;
               color: #333;
               flex-shrink: 0;
+              line-height: 1.1;
             }
             .product-id {
               font-size: ${s.idFont};
               font-weight: 600;
               color: #333;
               flex-shrink: 0;
+              line-height: 1.1;
             }
             .product-name {
               font-size: ${s.nameFont};
               color: #333;
               word-break: break-word;
-              line-height: 1.2;
+              line-height: 1.1;
               flex-shrink: 0;
             }
             .barcode-wrap {
@@ -449,10 +454,13 @@ export default function ProductDetailPage() {
               align-items: center;
               justify-content: center;
               width: 100%;
+              min-height: 0;
             }
             svg {
               max-width: ${s.svgMaxWidth};
-              height: ${s.svgHeight};
+              max-height: ${s.svgHeight};
+              width: 100%;
+              height: auto;
             }
           </style>
         </head>
@@ -483,10 +491,12 @@ export default function ProductDetailPage() {
           <title>Barcode</title>
           <style>
             @page { margin: 0; size: ${s.pageSize}; }
-            body {
+            html, body {
               margin: 0;
-              padding: ${s.bodyPadding};
+              padding: 0;
               width: ${s.bodyWidth};
+              height: ${s.bodyHeight};
+              overflow: hidden;
               box-sizing: border-box;
               font-family: sans-serif;
               text-align: center;
@@ -496,7 +506,8 @@ export default function ProductDetailPage() {
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              height: ${s.bodyHeight};
+              height: 100%;
+              padding: ${s.bodyPadding};
               box-sizing: border-box;
             }
             .logo {
@@ -510,18 +521,20 @@ export default function ProductDetailPage() {
               font-weight: 600;
               color: #333;
               flex-shrink: 0;
+              line-height: 1.1;
             }
             .product-id {
               font-size: ${s.idFont};
               font-weight: 600;
               color: #333;
               flex-shrink: 0;
+              line-height: 1.1;
             }
             .product-name {
               font-size: ${s.nameFont};
               color: #333;
               word-break: break-word;
-              line-height: 1.2;
+              line-height: 1.1;
               flex-shrink: 0;
             }
             .barcode-wrap {
@@ -530,10 +543,13 @@ export default function ProductDetailPage() {
               align-items: center;
               justify-content: center;
               width: 100%;
+              min-height: 0;
             }
             svg {
               max-width: ${s.svgMaxWidth};
-              height: ${s.svgHeight};
+              max-height: ${s.svgHeight};
+              width: 100%;
+              height: auto;
             }
           </style>
         </head>
