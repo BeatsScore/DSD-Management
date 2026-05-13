@@ -265,7 +265,7 @@ export default function PlannerPage() {
     setScanInput("");
     const { data: items } = await supabase
       .from("order_items")
-      .select("*, product:product_id(*)")
+      .select("*, product:product_id(*), product_item:product_item_id(*)")
       .eq("order_id", orderId);
     setOrderItems(items || []);
   };
@@ -279,7 +279,7 @@ export default function PlannerPage() {
     setScanInput("");
     const { data: items } = await supabase
       .from("order_items")
-      .select("*, product:product_id(*)")
+      .select("*, product:product_id(*), product_item:product_item_id(*)")
       .eq("order_id", orderId);
     setOrderItems(items || []);
   };
@@ -288,20 +288,23 @@ export default function PlannerPage() {
     if (!barcode || !scanningOrderId) return;
 
     const trimmed = barcode.trim();
+
+    // Match by product_item barcode
     const matchedItem = orderItems.find(
-      (item) => item.product?.barcode === trimmed && !scannedItems.includes(item.product?.id)
+      (item) => item.product_item?.barcode === trimmed && !scannedItems.includes(item.product_item?.id)
     );
 
     if (matchedItem) {
-      setScannedItems((prev) => [...prev, matchedItem.product.id]);
-      toast.success(`${matchedItem.product.name} gescannt`);
+      setScannedItems((prev) => [...prev, matchedItem.product_item.id]);
+      toast.success(`${matchedItem.product?.name} gescannt`);
     } else {
-      const matchedById = orderItems.find(
-        (item) => item.product?.product_id === trimmed && !scannedItems.includes(item.product?.id)
+      // Fallback: match by product barcode (for backwards compatibility)
+      const matchedByProduct = orderItems.find(
+        (item) => item.product?.barcode === trimmed && !scannedItems.includes(item.product?.id)
       );
-      if (matchedById) {
-        setScannedItems((prev) => [...prev, matchedById.product.id]);
-        toast.success(`${matchedById.product.name} gescannt`);
+      if (matchedByProduct) {
+        setScannedItems((prev) => [...prev, matchedByProduct.product.id]);
+        toast.success(`${matchedByProduct.product?.name} gescannt`);
       } else {
         toast.error("Artikel nicht in diesem Auftrag gefunden oder bereits gescannt.");
       }
@@ -350,6 +353,8 @@ export default function PlannerPage() {
 
   const confirmPickup = async () => {
     if (!scanningOrderId) return;
+
+    // Update order status
     const { error } = await supabase
       .from("orders")
       .update({ status: "abgeholt" })
@@ -358,6 +363,17 @@ export default function PlannerPage() {
       toast.error("Fehler: " + error.message);
       return;
     }
+
+    // Update scanned product_items status to "vermietet"
+    const scannedProductItemIds = orderItems
+      .filter((item) => scannedItems.includes(item.product_item?.id))
+      .map((item) => item.product_item.id)
+      .filter(Boolean);
+
+    if (scannedProductItemIds.length > 0) {
+      await supabase.from("product_items").update({ status: "vermietet" }).in("id", scannedProductItemIds);
+    }
+
     toast.success("Abholung bestätigt.");
     setScanningOrderId(null);
     setScanningOrder(null);
@@ -366,6 +382,7 @@ export default function PlannerPage() {
 
   const confirmReturn = async () => {
     if (!scanningOrderId) return;
+
     const { error } = await supabase
       .from("orders")
       .update({ status: "zurueckgebracht" })
@@ -374,6 +391,17 @@ export default function PlannerPage() {
       toast.error("Fehler: " + error.message);
       return;
     }
+
+    // Update scanned product_items status to "verfuegbar"
+    const scannedProductItemIds = orderItems
+      .filter((item) => scannedItems.includes(item.product_item?.id))
+      .map((item) => item.product_item.id)
+      .filter(Boolean);
+
+    if (scannedProductItemIds.length > 0) {
+      await supabase.from("product_items").update({ status: "verfuegbar" }).in("id", scannedProductItemIds);
+    }
+
     toast.success("Rückgabe bestätigt.");
     // Open damage capture
     setDamageOrderId(scanningOrderId);
@@ -655,7 +683,9 @@ export default function PlannerPage() {
   if (scanningOrderId) {
     const totalItems = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
     const scannedCount = scannedItems.length;
-    const allScanned = scannedCount >= totalItems && totalItems > 0;
+    const allScanned = orderItems.length > 0 && orderItems.every((item) =>
+      scannedItems.includes(item.product_item?.id) || scannedItems.includes(item.product?.id)
+    );
     const isPickup = scanMode === "pickup";
 
     return (
@@ -716,7 +746,7 @@ export default function PlannerPage() {
 
         <div className="space-y-2 mb-8">
           {orderItems.map((item) => {
-            const isScanned = scannedItems.includes(item.product?.id);
+            const isScanned = scannedItems.includes(item.product_item?.id) || scannedItems.includes(item.product?.id);
             return (
               <div
                 key={item.id}

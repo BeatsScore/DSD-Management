@@ -100,6 +100,7 @@ export interface OrderItem {
   id: string;
   order_id: string;
   product_id: string;
+  product_item_id?: string | null;
   product?: Product;
   quantity: number;
   price_per_day: number | null;
