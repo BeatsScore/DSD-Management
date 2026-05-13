@@ -365,18 +365,20 @@ export default function ProductDetailPage() {
       return {
         pageSize: "29mm 90mm",
         bodyWidth: "29mm",
+        bodyHeight: "90mm",
         bodyPadding: "2mm 1.5mm",
         logoHeight: "6mm",
         serialFont: "7px",
         idFont: "7px",
         nameFont: "8px",
         svgMaxWidth: "26mm",
-        svgHeight: "22mm",
+        svgHeight: "18mm",
       };
     }
     return {
       pageSize: "62mm auto",
       bodyWidth: "62mm",
+      bodyHeight: "auto",
       bodyPadding: "3mm",
       logoHeight: "10mm",
       serialFont: "9px",
@@ -412,28 +414,41 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 1mm;
+              justify-content: space-between;
+              height: ${s.bodyHeight};
+              box-sizing: border-box;
             }
             .logo {
               height: ${s.logoHeight};
               width: auto;
               object-fit: contain;
+              flex-shrink: 0;
             }
             .serial {
               font-size: ${s.serialFont};
               font-weight: 600;
               color: #333;
+              flex-shrink: 0;
             }
             .product-id {
               font-size: ${s.idFont};
               font-weight: 600;
               color: #333;
+              flex-shrink: 0;
             }
             .product-name {
               font-size: ${s.nameFont};
               color: #333;
               word-break: break-word;
               line-height: 1.2;
+              flex-shrink: 0;
+            }
+            .barcode-wrap {
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
             }
             svg {
               max-width: ${s.svgMaxWidth};
@@ -445,7 +460,7 @@ export default function ProductDetailPage() {
           <div class="label">
             <img src="${window.location.origin}/logo.png" class="logo" alt="" />
             <div class="serial">${product.product_id}</div>
-            <div>${svgHtml}</div>
+            <div class="barcode-wrap">${svgHtml}</div>
             <div class="product-name">${product.name}</div>
           </div>
         </body>
@@ -480,28 +495,41 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 1mm;
+              justify-content: space-between;
+              height: ${s.bodyHeight};
+              box-sizing: border-box;
             }
             .logo {
               height: ${s.logoHeight};
               width: auto;
               object-fit: contain;
+              flex-shrink: 0;
             }
             .serial {
               font-size: ${s.serialFont};
               font-weight: 600;
               color: #333;
+              flex-shrink: 0;
             }
             .product-id {
               font-size: ${s.idFont};
               font-weight: 600;
               color: #333;
+              flex-shrink: 0;
             }
             .product-name {
               font-size: ${s.nameFont};
               color: #333;
               word-break: break-word;
               line-height: 1.2;
+              flex-shrink: 0;
+            }
+            .barcode-wrap {
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
             }
             svg {
               max-width: ${s.svgMaxWidth};
@@ -513,7 +541,7 @@ export default function ProductDetailPage() {
           <div class="label">
             <img src="${window.location.origin}/logo.png" class="logo" alt="" />
             <div class="serial">${item.serial_number || product.product_id}</div>
-            <div>${svgHtml}</div>
+            <div class="barcode-wrap">${svgHtml}</div>
             <div class="product-name">${product.name}</div>
           </div>
         </body>
