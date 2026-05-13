@@ -459,7 +459,7 @@ export default function ProductDetailPage() {
               min-height: 0;
             }
             .barcode-rotated {
-              transform: rotate(90deg);
+              transform: rotate(-90deg);
               transform-origin: center center;
             }
             svg {
@@ -554,7 +554,7 @@ export default function ProductDetailPage() {
               min-height: 0;
             }
             .barcode-rotated {
-              transform: rotate(90deg);
+              transform: rotate(-90deg);
               transform-origin: center center;
             }
             svg {
