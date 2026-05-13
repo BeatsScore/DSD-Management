@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Package, Filter, Layers } from "lucide-react";
-import { getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
+import { getStatusColor, getStatusLabel, formatCurrency, sortCategoriesHierarchical } from "@/lib/utils";
 
 export default function CatalogPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -135,7 +135,7 @@ export default function CatalogPage() {
               >
                 Alle Kategorien
               </button>
-              {categories.map((cat) => (
+              {sortCategoriesHierarchical(categories).map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
@@ -143,7 +143,7 @@ export default function CatalogPage() {
                     activeCategory === cat.id ? "bg-gray-100 font-medium" : "text-gray-600 hover:bg-gray-50"
                   }`}
                 >
-                  {cat.name}
+                  {cat.level === 1 ? "\u00A0\u00A0\u2014 " : ""}{cat.name}
                 </button>
               ))}
             </div>

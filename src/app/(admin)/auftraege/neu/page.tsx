@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Loader2, ArrowLeft, Plus, X, UserPlus } from "lucide-react";
+import { Loader2, ArrowLeft, Plus, X, UserPlus, Search } from "lucide-react";
 import { generateOrderNumber, getRentalDays } from "@/lib/utils";
 
 export default function NewOrderPage() {
@@ -27,6 +27,7 @@ export default function NewOrderPage() {
   const [selectedProducts, setSelectedProducts] = useState<
     { productId: string; quantity: number; pricePerDay: number }[]
   >([]);
+  const [productSearch, setProductSearch] = useState("");
 
   // New customer modal state
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -268,6 +269,16 @@ export default function NewOrderPage() {
           <h2 className="section-header">Produkte</h2>
           <div>
             <label className="label">Produkt hinzufuegen</label>
+            <div className="relative mb-2">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Produkte suchen..."
+                className="input-field pl-9 w-full"
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+              />
+            </div>
             <select
               className="input-field"
               onChange={(e) => {
@@ -279,7 +290,16 @@ export default function NewOrderPage() {
             >
               <option value="">Bitte wählen</option>
               {products
-                .filter((p) => !selectedProducts.find((sp) => sp.productId === p.id))
+                .filter((p) => {
+                  if (selectedProducts.find((sp) => sp.productId === p.id)) return false;
+                  if (!productSearch.trim()) return true;
+                  const term = productSearch.toLowerCase();
+                  return (
+                    p.name?.toLowerCase().includes(term) ||
+                    p.manufacturer?.toLowerCase().includes(term) ||
+                    p.product_id?.toLowerCase().includes(term)
+                  );
+                })
                 .map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} ({p.manufacturer})

@@ -21,7 +21,7 @@ import {
   Plus,
 } from "lucide-react";
 import Barcode from "react-barcode";
-import { formatDate, formatCurrency, safeParseFloat, safeParseInt, generateBarcode, generateSerialNumber } from "@/lib/utils";
+import { formatDate, formatCurrency, safeParseFloat, safeParseInt, generateBarcode, generateSerialNumber, sortCategoriesHierarchical } from "@/lib/utils";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { ManualQrCode } from "@/components/ManualQrCode";
@@ -835,7 +835,11 @@ export default function ProductDetailPage() {
                 <label className="label">Kategorie *</label>
                 <select className="input-field" value={form.categoryId} onChange={(e) => updateForm("categoryId", e.target.value)} required>
                   <option value="">Bitte wählen</option>
-                  {categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
+                  {sortCategoriesHierarchical(categories).map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.level === 1 ? "\u00A0\u00A0\u2014 " : ""}{cat.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

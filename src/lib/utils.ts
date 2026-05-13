@@ -91,6 +91,27 @@ export function getStatusColor(status: string): string {
   return colors[status] || "bg-gray-100 text-gray-800";
 }
 
+export function sortCategoriesHierarchical(categories: { id: string; name: string; parent_id: string | null }[]) {
+  const map = new Map<string, { id: string; name: string; parent_id: string | null }>();
+  categories.forEach((c) => map.set(c.id, c));
+
+  const mains = categories
+    .filter((c) => !c.parent_id)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const result: { id: string; name: string; parent_id: string | null; level: number }[] = [];
+
+  mains.forEach((main) => {
+    result.push({ ...main, level: 0 });
+    const subs = categories
+      .filter((c) => c.parent_id === main.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    subs.forEach((sub) => result.push({ ...sub, level: 1 }));
+  });
+
+  return result;
+}
+
 export function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     verfuegbar: "Verfügbar",

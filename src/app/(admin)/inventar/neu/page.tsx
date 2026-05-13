@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Loader2, ArrowLeft, Plus, ImageIcon, X, FileText } from "lucide-react";
-import { generateBarcode, generateProductId, generateSerialNumber, safeParseFloat, safeParseInt } from "@/lib/utils";
+import { generateBarcode, generateProductId, generateSerialNumber, safeParseFloat, safeParseInt, sortCategoriesHierarchical } from "@/lib/utils";
 
 export default function NewProductPage() {
   const [categories, setCategories] = useState<any[]>([]);
