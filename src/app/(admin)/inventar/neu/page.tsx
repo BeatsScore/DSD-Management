@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Loader2, ArrowLeft, Plus, ImageIcon, X, FileText } from "lucide-react";
-import { generateBarcode, generateProductId, safeParseFloat, safeParseInt } from "@/lib/utils";
+import { generateBarcode, generateProductId, generateSerialNumber, safeParseFloat, safeParseInt } from "@/lib/utils";
 
 export default function NewProductPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -248,6 +248,15 @@ export default function NewProductPage() {
         console.error("Fehler beim Speichern der Besitzer:", ownerError);
       }
     }
+
+    // Generate product_items based on quantity
+    const itemRows = Array.from({ length: productQty }, (_, i) => ({
+      product_id: inserted.id,
+      serial_number: generateSerialNumber(productIdStr, i + 1),
+      barcode: generateBarcode(),
+      status: form.status,
+    }));
+    await supabase.from("product_items").insert(itemRows);
 
     // Upload images if present
     let updateData: any = {};

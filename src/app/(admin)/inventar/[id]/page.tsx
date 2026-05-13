@@ -21,7 +21,7 @@ import {
   Plus,
 } from "lucide-react";
 import Barcode from "react-barcode";
-import { formatDate, formatCurrency, safeParseFloat, safeParseInt } from "@/lib/utils";
+import { formatDate, formatCurrency, safeParseFloat, safeParseInt, generateBarcode, generateSerialNumber } from "@/lib/utils";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { ManualQrCode } from "@/components/ManualQrCode";
@@ -59,18 +59,20 @@ export default function ProductDetailPage() {
 
   const [form, setForm] = useState<any>({});
   const [owners, setOwners] = useState<{ ownerId: string; quantity: string }[]>([]);
+  const [productItems, setProductItems] = useState<{ id?: string; serial_number: string; barcode: string; status: string; notes: string }[]>([]);
 
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: cats }, { data: staffList }, { data: logs }, { data: mfrs }, { data: po }] = await Promise.all([
+      const [{ data: p }, { data: cats }, { data: staffList }, { data: logs }, { data: mfrs }, { data: po }, { data: items }] = await Promise.all([
         supabase.from("products").select("*, category:category_id(*)").eq("id", id).single(),
         supabase.from("product_categories").select("*").order("name"),
         supabase.from("profiles").select("*").in("role", ["admin", "staff"]).order("full_name"),
         supabase.from("maintenance_logs").select("*, performed_by_profile:performed_by(full_name)").eq("product_id", id).order("maintenance_date", { ascending: false }),
         supabase.from("manufacturers").select("*").order("name"),
         supabase.from("product_owners").select("*, owner:owner_id(full_name, email)").eq("product_id", id),
+        supabase.from("product_items").select("*").eq("product_id", id).order("created_at"),
       ]);
       if (p) {
         setProduct(p);
@@ -98,6 +100,9 @@ export default function ProductDetailPage() {
       if (po && po.length > 0) {
         setOwners(po.map((o: any) => ({ ownerId: o.owner_id, quantity: String(o.quantity) })));
         setProductOwners(po);
+      }
+      if (items && items.length > 0) {
+        setProductItems(items.map((it: any) => ({ id: it.id, serial_number: it.serial_number || "", barcode: it.barcode, status: it.status, notes: it.notes || "" })));
       }
       setCategories(cats || []);
       setStaff(staffList || []);
@@ -254,6 +259,45 @@ export default function ProductDetailPage() {
       await supabase.from("product_owners").insert(ownerRows);
     }
 
+    // Sync product items with quantity
+    const currentQty = productItems.length;
+    if (productQty > currentQty) {
+      const newItems = [];
+      for (let i = currentQty; i < productQty; i++) {
+        newItems.push({
+          product_id: id,
+          serial_number: "",
+          barcode: generateBarcode(),
+          status: "verfuegbar",
+          notes: "",
+        });
+      }
+      const { data: inserted, error: insertError } = await supabase.from("product_items").insert(newItems).select();
+      if (insertError) {
+        toast.error("Fehler beim Erstellen der Produkt-Items: " + insertError.message);
+      } else if (inserted) {
+        setProductItems((prev) => [...prev, ...inserted.map((it: any) => ({ id: it.id, serial_number: it.serial_number || "", barcode: it.barcode, status: it.status, notes: it.notes || "" }))]);
+      }
+    } else if (productQty < currentQty) {
+      const toDelete = productItems.slice(productQty);
+      for (const item of toDelete) {
+        if (item.id) {
+          await supabase.from("product_items").delete().eq("id", item.id);
+        }
+      }
+      setProductItems((prev) => prev.slice(0, productQty));
+    } else {
+      for (const item of productItems) {
+        if (item.id) {
+          await supabase.from("product_items").update({
+            serial_number: item.serial_number,
+            notes: item.notes,
+            status: item.status,
+          }).eq("id", item.id);
+        }
+      }
+    }
+
     setSaving(false);
     toast.success("Artikel aktualisiert.");
     setExistingImageUrls(allUrls);
@@ -362,6 +406,62 @@ export default function ProductDetailPage() {
             <div class="product-id">${product.product_id}</div>
             <div>${svgHtml}</div>
             <div class="product-name">${product.name}</div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const printItemBarcode = (item: any) => {
+    const svgEl = document.getElementById(`barcode-svg-${item.id}`);
+    if (!svgEl || !product) return;
+    const svgHtml = svgEl.outerHTML;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Barcode</title>
+          <style>
+            @page { margin: 0; size: 62mm auto; }
+            body {
+              margin: 0;
+              padding: 4mm;
+              width: 62mm;
+              box-sizing: border-box;
+              font-family: sans-serif;
+              text-align: center;
+            }
+            .label {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 2mm;
+            }
+            .product-id {
+              font-size: 10px;
+              font-weight: 600;
+              color: #333;
+            }
+            .product-name {
+              font-size: 11px;
+              color: #333;
+              word-break: break-word;
+            }
+            svg {
+              max-width: 54mm;
+              height: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="product-id">${product.product_id}</div>
+            <div>${svgHtml}</div>
+            <div class="product-name">${product.name}</div>
+            ${item.serial_number ? `<div class="product-id">SN: ${item.serial_number}</div>` : ""}
           </div>
         </body>
       </html>
@@ -665,25 +765,100 @@ export default function ProductDetailPage() {
         )}
 
         {activeTab === "barcode" && (
-          <div className="card space-y-6 text-center">
-            <div className="flex items-center justify-center gap-8 mb-2">
+          <div className="card space-y-6">
+            <div className="flex items-center justify-between mb-2">
               <div className="text-left">
                 <div className="text-xs text-gray-500 mb-1">Produkt-ID</div>
                 <div className="font-mono text-sm">{product.product_id}</div>
               </div>
-              <div className="text-left">
-                <div className="text-xs text-gray-500 mb-1">Barcode</div>
-                <div className="font-mono text-sm">{product.barcode}</div>
-              </div>
+              <button onClick={printBarcode} className="btn-secondary py-2 px-4 text-sm">
+                <Printer className="w-4 h-4 mr-2 inline" /> Haupt-Barcode drucken
+              </button>
             </div>
             <div className="flex justify-center py-4">
               <div id="barcode-svg">
                 <Barcode value={product.barcode} format="CODE128" width={2} height={80} fontSize={14} margin={0} />
               </div>
             </div>
-            <button onClick={printBarcode} className="btn-secondary py-2 px-4">
-              <Printer className="w-4 h-4 mr-2 inline" /> Barcode drucken
-            </button>
+
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-sm font-medium text-gray-900 mb-4">Produkt-Items ({productItems.length})</h3>
+              <div className="space-y-4">
+                {productItems.map((item, index) => (
+                  <div key={item.id || index} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500">Item #{index + 1}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="label text-xs">Seriennummer</label>
+                        <div className="flex gap-2">
+                          <input
+                            className="input-field text-sm"
+                            value={item.serial_number}
+                            onChange={(e) => {
+                              const newItems = [...productItems];
+                              newItems[index].serial_number = e.target.value;
+                              setProductItems(newItems);
+                            }}
+                            placeholder="Seriennummer"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newItems = [...productItems];
+                              newItems[index].serial_number = generateSerialNumber(product.product_id, index + 1);
+                              setProductItems(newItems);
+                            }}
+                            className="btn-secondary text-xs px-2 py-1 whitespace-nowrap"
+                            title="Seriennummer generieren"
+                          >
+                            Generieren
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label text-xs">Notizen</label>
+                        <input
+                          className="input-field text-sm"
+                          value={item.notes}
+                          onChange={(e) => {
+                            const newItems = [...productItems];
+                            newItems[index].notes = e.target.value;
+                            setProductItems(newItems);
+                          }}
+                          placeholder="Notizen"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-500 mb-1">Barcode</div>
+                        <div className="font-mono text-sm">{item.barcode}</div>
+                      </div>
+                      <div id={`barcode-svg-${item.id}`}>
+                        <Barcode value={item.barcode} format="CODE128" width={1.5} height={60} fontSize={12} margin={0} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => printItemBarcode(item)}
+                        className="btn-secondary py-2 px-3 text-sm"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {productItems.length === 0 && (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500 text-sm">Keine Produkt-Items vorhanden. Speichern Sie das Produkt, um Items basierend auf der Anzahl zu generieren.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

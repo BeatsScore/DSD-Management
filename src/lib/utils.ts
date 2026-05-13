@@ -39,6 +39,11 @@ export function generateBarcode(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
+export function generateSerialNumber(productId: string, index: number): string {
+  const padded = String(index).padStart(3, "0");
+  return `${productId}-${padded}`;
+}
+
 export function safeParseFloat(value: string | number | null | undefined): number | null {
   if (value == null) return null;
   const str = String(value).trim();
