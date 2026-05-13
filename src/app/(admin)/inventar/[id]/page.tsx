@@ -367,7 +367,7 @@ export default function ProductDetailPage() {
         bodyWidth: "90mm",
         bodyHeight: "29mm",
         bodyPadding: "1.5mm 2mm",
-        logoHeight: "18mm",
+        logoHeight: "27mm",
         serialFont: "9px",
         idFont: "9px",
         nameFont: "10px",
