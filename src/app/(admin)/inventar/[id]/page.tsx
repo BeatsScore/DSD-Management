@@ -373,6 +373,7 @@ export default function ProductDetailPage() {
         nameFont: "8px",
         svgMaxWidth: "26mm",
         svgHeight: "16mm",
+        rotate: true,
       };
     }
     return {
@@ -386,6 +387,7 @@ export default function ProductDetailPage() {
       nameFont: "11px",
       svgMaxWidth: "54mm",
       svgHeight: "auto",
+      rotate: false,
     };
   };
 
@@ -456,6 +458,10 @@ export default function ProductDetailPage() {
               width: 100%;
               min-height: 0;
             }
+            .barcode-rotated {
+              transform: rotate(90deg);
+              transform-origin: center center;
+            }
             svg {
               max-width: ${s.svgMaxWidth};
               max-height: ${s.svgHeight};
@@ -468,7 +474,9 @@ export default function ProductDetailPage() {
           <div class="label">
             <img src="${window.location.origin}/logo.png" class="logo" alt="" />
             <div class="serial">${product.product_id}</div>
-            <div class="barcode-wrap">${svgHtml}</div>
+            <div class="barcode-wrap">
+              <div class="${s.rotate ? 'barcode-rotated' : ''}">${svgHtml}</div>
+            </div>
             <div class="product-name">${product.name}</div>
           </div>
         </body>
@@ -545,6 +553,10 @@ export default function ProductDetailPage() {
               width: 100%;
               min-height: 0;
             }
+            .barcode-rotated {
+              transform: rotate(90deg);
+              transform-origin: center center;
+            }
             svg {
               max-width: ${s.svgMaxWidth};
               max-height: ${s.svgHeight};
@@ -557,7 +569,9 @@ export default function ProductDetailPage() {
           <div class="label">
             <img src="${window.location.origin}/logo.png" class="logo" alt="" />
             <div class="serial">${item.serial_number || product.product_id}</div>
-            <div class="barcode-wrap">${svgHtml}</div>
+            <div class="barcode-wrap">
+              <div class="${s.rotate ? 'barcode-rotated' : ''}">${svgHtml}</div>
+            </div>
             <div class="product-name">${product.name}</div>
           </div>
         </body>
