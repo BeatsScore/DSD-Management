@@ -367,7 +367,7 @@ export default function ProductDetailPage() {
         bodyWidth: "90mm",
         bodyHeight: "29mm",
         bodyPadding: "1.5mm 2mm",
-        logoHeight: "12mm",
+        logoHeight: "18mm",
         serialFont: "9px",
         idFont: "9px",
         nameFont: "10px",
@@ -467,6 +467,9 @@ export default function ProductDetailPage() {
               max-height: 100%;
               width: 100%;
               height: auto;
+            }
+            svg text {
+              display: none;
             }
           </style>
         </head>
@@ -569,6 +572,9 @@ export default function ProductDetailPage() {
               max-height: 100%;
               width: 100%;
               height: auto;
+            }
+            svg text {
+              display: none;
             }
           </style>
         </head>
