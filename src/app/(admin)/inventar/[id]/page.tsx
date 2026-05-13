@@ -322,14 +322,49 @@ export default function ProductDetailPage() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`
-      <html><head><title>Barcode</title></head>
-      <body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
-        <div style="text-align:center;">
-          <div style="font-size:12px;margin-bottom:8px;font-weight:600;">${product.product_id}</div>
-          <div>${svgHtml}</div>
-          <div style="font-size:14px;margin-top:8px;">${product.name}</div>
-        </div>
-      </body></html>
+      <html>
+        <head>
+          <title>Barcode</title>
+          <style>
+            @page { margin: 0; size: 62mm auto; }
+            body {
+              margin: 0;
+              padding: 4mm;
+              width: 62mm;
+              box-sizing: border-box;
+              font-family: sans-serif;
+              text-align: center;
+            }
+            .label {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 2mm;
+            }
+            .product-id {
+              font-size: 10px;
+              font-weight: 600;
+              color: #333;
+            }
+            .product-name {
+              font-size: 11px;
+              color: #333;
+              word-break: break-word;
+            }
+            svg {
+              max-width: 54mm;
+              height: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="product-id">${product.product_id}</div>
+            <div>${svgHtml}</div>
+            <div class="product-name">${product.name}</div>
+          </div>
+        </body>
+      </html>
     `);
     printWindow.document.close();
     printWindow.print();
