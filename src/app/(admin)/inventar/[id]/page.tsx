@@ -413,20 +413,17 @@ export default function ProductDetailPage() {
             }
             .label {
               display: flex;
-              flex-direction: row;
-              align-items: center;
-              justify-content: flex-start;
+              flex-direction: column;
               height: 100%;
               padding: ${s.bodyPadding};
               box-sizing: border-box;
-              gap: 3mm;
             }
-            .left {
+            .top {
               display: flex;
               flex-direction: row;
               align-items: center;
               gap: 2mm;
-              flex-shrink: 0;
+              height: 50%;
             }
             .text-col {
               display: flex;
@@ -453,21 +450,15 @@ export default function ProductDetailPage() {
               line-height: 1.1;
             }
             .barcode-wrap {
-              flex: 1;
+              height: 50%;
               display: flex;
-              flex-direction: column;
               align-items: center;
               justify-content: center;
-              min-width: 0;
-            }
-            .barcode-text {
-              font-size: 7px;
-              color: #333;
-              margin-top: 0.5mm;
+              width: 100%;
             }
             svg {
-              max-width: ${s.svgMaxWidth};
-              max-height: ${s.svgHeight};
+              max-width: 100%;
+              max-height: 100%;
               width: 100%;
               height: auto;
             }
@@ -475,7 +466,7 @@ export default function ProductDetailPage() {
         </head>
         <body>
           <div class="label">
-            <div class="left">
+            <div class="top">
               <img src="${window.location.origin}/logo.png" class="logo" alt="" />
               <div class="text-col">
                 <div class="serial">${product.product_id}</div>
@@ -515,20 +506,17 @@ export default function ProductDetailPage() {
             }
             .label {
               display: flex;
-              flex-direction: row;
-              align-items: center;
-              justify-content: flex-start;
+              flex-direction: column;
               height: 100%;
               padding: ${s.bodyPadding};
               box-sizing: border-box;
-              gap: 3mm;
             }
-            .left {
+            .top {
               display: flex;
               flex-direction: row;
               align-items: center;
               gap: 2mm;
-              flex-shrink: 0;
+              height: 50%;
             }
             .text-col {
               display: flex;
@@ -555,21 +543,15 @@ export default function ProductDetailPage() {
               line-height: 1.1;
             }
             .barcode-wrap {
-              flex: 1;
+              height: 50%;
               display: flex;
-              flex-direction: column;
               align-items: center;
               justify-content: center;
-              min-width: 0;
-            }
-            .barcode-text {
-              font-size: 7px;
-              color: #333;
-              margin-top: 0.5mm;
+              width: 100%;
             }
             svg {
-              max-width: ${s.svgMaxWidth};
-              max-height: ${s.svgHeight};
+              max-width: 100%;
+              max-height: 100%;
               width: 100%;
               height: auto;
             }
@@ -577,7 +559,7 @@ export default function ProductDetailPage() {
         </head>
         <body>
           <div class="label">
-            <div class="left">
+            <div class="top">
               <img src="${window.location.origin}/logo.png" class="logo" alt="" />
               <div class="text-col">
                 <div class="serial">${item.serial_number || product.product_id}</div>
