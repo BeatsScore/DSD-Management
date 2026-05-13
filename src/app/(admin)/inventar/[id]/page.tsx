@@ -367,12 +367,12 @@ export default function ProductDetailPage() {
         bodyWidth: "90mm",
         bodyHeight: "29mm",
         bodyPadding: "1.5mm 2mm",
-        logoHeight: "8mm",
-        serialFont: "8px",
-        idFont: "8px",
-        nameFont: "9px",
-        svgMaxWidth: "40mm",
-        svgHeight: "22mm",
+        logoHeight: "12mm",
+        serialFont: "9px",
+        idFont: "9px",
+        nameFont: "10px",
+        svgMaxWidth: "100%",
+        svgHeight: "100%",
       };
     }
     return {
@@ -452,9 +452,15 @@ export default function ProductDetailPage() {
             .barcode-wrap {
               height: 50%;
               display: flex;
+              flex-direction: column;
               align-items: center;
               justify-content: center;
               width: 100%;
+            }
+            .barcode-text {
+              font-size: 7px;
+              color: #333;
+              margin-bottom: 0.5mm;
             }
             svg {
               max-width: 100%;
@@ -473,7 +479,10 @@ export default function ProductDetailPage() {
                 <div class="product-name">${product.name}</div>
               </div>
             </div>
-            <div class="barcode-wrap">${svgHtml}</div>
+            <div class="barcode-wrap">
+              <div class="barcode-text">${product.barcode}</div>
+              ${svgHtml}
+            </div>
           </div>
         </body>
       </html>
@@ -545,9 +554,15 @@ export default function ProductDetailPage() {
             .barcode-wrap {
               height: 50%;
               display: flex;
+              flex-direction: column;
               align-items: center;
               justify-content: center;
               width: 100%;
+            }
+            .barcode-text {
+              font-size: 7px;
+              color: #333;
+              margin-bottom: 0.5mm;
             }
             svg {
               max-width: 100%;
@@ -566,7 +581,10 @@ export default function ProductDetailPage() {
                 <div class="product-name">${product.name}</div>
               </div>
             </div>
-            <div class="barcode-wrap">${svgHtml}</div>
+            <div class="barcode-wrap">
+              <div class="barcode-text">${item.barcode}</div>
+              ${svgHtml}
+            </div>
           </div>
         </body>
       </html>
