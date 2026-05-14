@@ -462,6 +462,16 @@ export default function ProductDetailPage() {
               color: #333;
               margin-bottom: 0.5mm;
             }
+            .barcode-inner {
+              width: 100%;
+              display: flex;
+              justify-content: center;
+            }
+            .barcode-inner svg {
+              width: 100% !important;
+              height: auto !important;
+              max-width: 100%;
+            }
             svg {
               max-width: 100%;
               max-height: 100%;
@@ -484,7 +494,7 @@ export default function ProductDetailPage() {
             </div>
             <div class="barcode-wrap">
               <div class="barcode-text">${product.barcode}</div>
-              ${svgHtml}
+              <div class="barcode-inner">${svgHtml}</div>
             </div>
           </div>
         </body>
@@ -567,6 +577,16 @@ export default function ProductDetailPage() {
               color: #333;
               margin-bottom: 0.5mm;
             }
+            .barcode-inner {
+              width: 100%;
+              display: flex;
+              justify-content: center;
+            }
+            .barcode-inner svg {
+              width: 100% !important;
+              height: auto !important;
+              max-width: 100%;
+            }
             svg {
               max-width: 100%;
               max-height: 100%;
@@ -589,7 +609,7 @@ export default function ProductDetailPage() {
             </div>
             <div class="barcode-wrap">
               <div class="barcode-text">${item.barcode}</div>
-              ${svgHtml}
+              <div class="barcode-inner">${svgHtml}</div>
             </div>
           </div>
         </body>
