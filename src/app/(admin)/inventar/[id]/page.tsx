@@ -28,7 +28,7 @@ import { formatDate, formatCurrency, safeParseFloat, safeParseInt, generateBarco
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { ManualQrCode } from "@/components/ManualQrCode";
-import { loadLabelFormats, getLabelFormat, LabelFormat, LabelElement } from "@/lib/labelFormats";
+import { loadLabelFormats, loadLabelFormatsFromDb, getLabelFormat, LabelFormat, LabelElement } from "@/lib/labelFormats";
 import { generateBarcodeSvgSync } from "@/lib/barcodeGenerator";
 import LabelFormatEditor from "@/components/LabelFormatEditor";
 
@@ -119,7 +119,7 @@ export default function ProductDetailPage() {
       setStaff(staffList || []);
       setManufacturers(mfrs || []);
       setMaintenanceLogs(logs || []);
-      setLabelFormats(loadLabelFormats());
+      loadLabelFormatsFromDb().then((formats) => setLabelFormats(formats));
       setLoading(false);
     }
     load();
@@ -1404,11 +1404,13 @@ export default function ProductDetailPage() {
         productId={product?.product_id || ""}
         productName={product?.name || ""}
         onFormatSaved={() => {
-          setLabelFormats(loadLabelFormats());
-          const currentExists = loadLabelFormats().find((f) => f.id === labelFormat);
-          if (!currentExists && loadLabelFormats().length > 0) {
-            setLabelFormat(loadLabelFormats()[0].id);
-          }
+          loadLabelFormatsFromDb().then((formats) => {
+            setLabelFormats(formats);
+            const currentExists = formats.find((f) => f.id === labelFormat);
+            if (!currentExists && formats.length > 0) {
+              setLabelFormat(formats[0].id);
+            }
+          });
         }}
       />
     </div>

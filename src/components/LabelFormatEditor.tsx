@@ -18,8 +18,9 @@ import {
   LabelFormat,
   LabelElement,
   loadLabelFormats,
-  saveLabelFormats,
-  deleteLabelFormat,
+  loadLabelFormatsFromDb,
+  saveLabelFormatToDb,
+  deleteLabelFormatFromDb,
   createNewLabelFormat,
   createLabelElement,
   isDefaultFormat,
@@ -55,14 +56,16 @@ export default function LabelFormatEditor({
 
   useEffect(() => {
     if (!open) return;
-    const loaded = loadLabelFormats();
-    setFormats(loaded);
-    const id = initialFormatId && loaded.find((f) => f.id === initialFormatId)
-      ? initialFormatId
-      : loaded[0]?.id || null;
-    setSelectedFormatId(id);
-    const fmt = loaded.find((f) => f.id === id);
-    setEditingFormat(fmt ? { ...fmt } : null);
+    // Load from DB first, fallback to cache
+    loadLabelFormatsFromDb().then((loaded) => {
+      setFormats(loaded);
+      const id = initialFormatId && loaded.find((f) => f.id === initialFormatId)
+        ? initialFormatId
+        : loaded[0]?.id || null;
+      setSelectedFormatId(id);
+      const fmt = loaded.find((f) => f.id === id);
+      setEditingFormat(fmt ? { ...fmt } : null);
+    });
   }, [open, initialFormatId]);
 
   const selectFormat = useCallback(
@@ -148,33 +151,32 @@ export default function LabelFormatEditor({
     []
   );
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!editingFormat) return;
     if (!editingFormat.name.trim()) {
       toast.error("Bitte einen Formatnamen eingeben.");
       return;
     }
-    const all = loadLabelFormats();
-    const idx = all.findIndex((f) => f.id === editingFormat.id);
-    if (idx >= 0) {
-      all[idx] = editingFormat;
+    const success = await saveLabelFormatToDb(editingFormat);
+    if (success) {
+      toast.success("Format gespeichert (global für alle Benutzer).");
     } else {
-      all.push(editingFormat);
+      toast.success("Format lokal gespeichert (DB nicht verfügbar).");
     }
-    saveLabelFormats(all);
+    // Refresh from DB
+    const all = await loadLabelFormatsFromDb();
     setFormats(all);
-    toast.success("Format gespeichert.");
     onFormatSaved?.();
   }, [editingFormat, onFormatSaved]);
 
-  const handleDeleteFormat = useCallback(() => {
+  const handleDeleteFormat = useCallback(async () => {
     if (!editingFormat) return;
     if (isDefaultFormat(editingFormat.id)) {
       toast.error("Standard-Formate können nicht gelöscht werden.");
       return;
     }
-    deleteLabelFormat(editingFormat.id);
-    const all = loadLabelFormats();
+    await deleteLabelFormatFromDb(editingFormat.id);
+    const all = await loadLabelFormatsFromDb();
     setFormats(all);
     setSelectedFormatId(all[0]?.id || null);
     setEditingFormat(all[0] ? { ...all[0] } : null);

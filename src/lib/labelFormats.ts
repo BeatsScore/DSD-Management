@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase/client";
+
 export type LabelElementType = "logo" | "barcode" | "text";
 
 export type TextContent =
@@ -40,9 +42,10 @@ export interface LabelFormat {
     left: number;
   };
   elements: LabelElement[];
+  is_default?: boolean;
 }
 
-const STORAGE_KEY = "dsd-label-formats";
+const STORAGE_KEY = "dsd-label-formats-cache";
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 10);
@@ -55,9 +58,10 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
     width: 62,
     height: 30,
     padding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
+    is_default: true,
     elements: [
       {
-        id: generateId(),
+        id: "el1",
         type: "logo",
         x: 2,
         y: 3,
@@ -65,7 +69,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         height: 10,
       },
       {
-        id: generateId(),
+        id: "el2",
         type: "text",
         x: 24,
         y: 4,
@@ -77,7 +81,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         align: "left",
       },
       {
-        id: generateId(),
+        id: "el3",
         type: "text",
         x: 24,
         y: 10,
@@ -89,7 +93,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         align: "left",
       },
       {
-        id: generateId(),
+        id: "el4",
         type: "barcode",
         x: 2,
         y: 16,
@@ -101,7 +105,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         barcodeShorten: true,
       },
       {
-        id: generateId(),
+        id: "el5",
         type: "text",
         x: 2,
         y: 26.5,
@@ -120,9 +124,10 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
     width: 90,
     height: 29,
     padding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
+    is_default: true,
     elements: [
       {
-        id: generateId(),
+        id: "el1",
         type: "logo",
         x: 2,
         y: 1,
@@ -130,7 +135,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         height: 25,
       },
       {
-        id: generateId(),
+        id: "el2",
         type: "text",
         x: 30,
         y: 3,
@@ -142,7 +147,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         align: "left",
       },
       {
-        id: generateId(),
+        id: "el3",
         type: "text",
         x: 30,
         y: 8,
@@ -154,7 +159,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         align: "left",
       },
       {
-        id: generateId(),
+        id: "el4",
         type: "barcode",
         x: 58,
         y: 1.5,
@@ -166,7 +171,7 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         barcodeShorten: true,
       },
       {
-        id: generateId(),
+        id: "el5",
         type: "text",
         x: 58,
         y: 24,
@@ -181,35 +186,97 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
   },
 ];
 
+function dbRowToFormat(row: any): LabelFormat {
+  return {
+    id: row.id,
+    name: row.name,
+    width: row.width,
+    height: row.height,
+    padding: typeof row.padding === "string" ? JSON.parse(row.padding) : row.padding,
+    elements: Array.isArray(row.elements) ? row.elements : JSON.parse(row.elements || "[]"),
+    is_default: row.is_default,
+  };
+}
+
+function formatToDbRow(format: LabelFormat): any {
+  return {
+    id: format.id,
+    name: format.name,
+    width: format.width,
+    height: format.height,
+    padding: format.padding,
+    elements: format.elements,
+    is_default: format.is_default ?? false,
+  };
+}
+
+// Load from Supabase (primary) or fallback to localStorage cache
+export async function loadLabelFormatsFromDb(): Promise<LabelFormat[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("label_formats")
+    .select("*")
+    .order("name");
+
+  if (error) {
+    console.error("Error loading label formats from DB:", error);
+    // Fallback to localStorage cache
+    return loadLabelFormatsFromCache();
+  }
+
+  if (data && data.length > 0) {
+    const formats = data.map(dbRowToFormat);
+    // Update cache
+    saveLabelFormatsToCache(formats);
+    return formats;
+  }
+
+  // No data in DB yet — insert defaults
+  for (const fmt of DEFAULT_FORMATS) {
+    await supabase.from("label_formats").insert(formatToDbRow(fmt));
+  }
+  saveLabelFormatsToCache(DEFAULT_FORMATS);
+  return DEFAULT_FORMATS;
+}
+
+// Synchronous version that reads from cache (for initial render)
 export function loadLabelFormats(): LabelFormat[] {
   if (typeof window === "undefined") return DEFAULT_FORMATS;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_FORMATS));
-      return DEFAULT_FORMATS;
-    }
+    if (!raw) return DEFAULT_FORMATS;
     const parsed = JSON.parse(raw) as LabelFormat[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_FORMATS));
-      return DEFAULT_FORMATS;
-    }
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_FORMATS;
     return parsed;
   } catch {
     return DEFAULT_FORMATS;
   }
 }
 
-export function saveLabelFormats(formats: LabelFormat[]): void {
+function loadLabelFormatsFromCache(): LabelFormat[] {
+  return loadLabelFormats();
+}
+
+function saveLabelFormatsToCache(formats: LabelFormat[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(formats));
 }
 
-export function getLabelFormat(id: string): LabelFormat | undefined {
-  return loadLabelFormats().find((f) => f.id === id);
-}
+// Save to Supabase (admin only)
+export async function saveLabelFormatToDb(format: LabelFormat): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("label_formats")
+    .upsert(formatToDbRow(format), { onConflict: "id" });
 
-export function saveLabelFormat(format: LabelFormat): void {
+  if (error) {
+    console.error("Error saving label format to DB:", error);
+    // Fallback: save to cache only
+    saveLabelFormatToCache(format);
+    return false;
+  }
+
+  // Update cache
   const formats = loadLabelFormats();
   const idx = formats.findIndex((f) => f.id === format.id);
   if (idx >= 0) {
@@ -217,12 +284,60 @@ export function saveLabelFormat(format: LabelFormat): void {
   } else {
     formats.push(format);
   }
-  saveLabelFormats(formats);
+  saveLabelFormatsToCache(formats);
+  return true;
 }
 
-export function deleteLabelFormat(id: string): void {
+function saveLabelFormatToCache(format: LabelFormat): void {
+  const formats = loadLabelFormats();
+  const idx = formats.findIndex((f) => f.id === format.id);
+  if (idx >= 0) {
+    formats[idx] = format;
+  } else {
+    formats.push(format);
+  }
+  saveLabelFormatsToCache(formats);
+}
+
+export async function deleteLabelFormatFromDb(id: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase.from("label_formats").delete().eq("id", id);
+
+  if (error) {
+    console.error("Error deleting label format from DB:", error);
+    // Fallback: delete from cache only
+    deleteLabelFormatFromCache(id);
+    return false;
+  }
+
+  // Update cache
   const formats = loadLabelFormats().filter((f) => f.id !== id);
-  saveLabelFormats(formats);
+  saveLabelFormatsToCache(formats);
+  return true;
+}
+
+function deleteLabelFormatFromCache(id: string): void {
+  const formats = loadLabelFormats().filter((f) => f.id !== id);
+  saveLabelFormatsToCache(formats);
+}
+
+export function getLabelFormat(id: string): LabelFormat | undefined {
+  return loadLabelFormats().find((f) => f.id === id);
+}
+
+export async function getLabelFormatFromDb(id: string): Promise<LabelFormat | undefined> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("label_formats")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error || !data) {
+    return getLabelFormat(id); // fallback to cache
+  }
+
+  return dbRowToFormat(data);
 }
 
 export function createNewLabelFormat(): LabelFormat {
@@ -244,7 +359,7 @@ export function createLabelElement(type: LabelElementType, formatWidth: number, 
     case "logo":
       return { id, type, x: centerX, y: centerY, width: 15, height: 10 };
     case "barcode":
-      return { id, type, x: centerX, y: centerY, width: 30, height: 10 };
+      return { id, type, x: centerX, y: centerY, width: 30, height: 10, barcodeLineWidth: 3, barcodeHeight: 80, barcodeDisplayValue: false, barcodeShorten: true };
     case "text":
       return {
         id,
