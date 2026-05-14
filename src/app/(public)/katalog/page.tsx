@@ -74,11 +74,11 @@ export default function CatalogPage() {
                 className="card hover:shadow-md transition-shadow group relative overflow-hidden"
               >
                 {set.image_url ? (
-                  <div className="h-52 -mx-5 -mt-5 mb-4 overflow-hidden">
+                  <div className="h-52 -mx-5 -mt-5 mb-4 bg-gray-50 flex items-center justify-center p-4">
                     <img
                       src={set.image_url}
                       alt={set.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
                       loading="lazy"
                       decoding="async"
                     />
