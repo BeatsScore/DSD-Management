@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download, ShieldCheck } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat } from "@/lib/utils";
 import { generateDocument, printDocument } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -56,6 +56,12 @@ export default function OrderDetailPage() {
   const [paidAmount, setPaidAmount] = useState("");
   const [savingPayment, setSavingPayment] = useState(false);
 
+  // Deposit state
+  const [depositStatus, setDepositStatus] = useState("");
+  const [depositMethod, setDepositMethod] = useState("");
+  const [depositPaidAmount, setDepositPaidAmount] = useState("");
+  const [savingDeposit, setSavingDeposit] = useState(false);
+
   // Damage protocol modal state
   const [showDamageModal, setShowDamageModal] = useState(false);
   const [damageProductIds, setDamageProductIds] = useState<string[]>([]);
@@ -83,6 +89,9 @@ export default function OrderDetailPage() {
         setPaymentStatus(o.payment_status || "offen");
         setPaymentMethod(o.payment_method || "");
         setPaidAmount(o.paid_amount != null ? String(o.paid_amount) : "");
+        setDepositStatus(o.deposit_status || "offen");
+        setDepositMethod(o.deposit_method || "");
+        setDepositPaidAmount(o.deposit_paid_amount != null ? String(o.deposit_paid_amount) : "");
       }
       setLoading(false);
     }
@@ -212,6 +221,25 @@ export default function OrderDetailPage() {
     }
 
     toast.success("Zahlungsinformationen gespeichert.");
+    setOrder(data);
+  };
+
+  const saveDeposit = async () => {
+    setSavingDeposit(true);
+    const { data, error } = await supabase.from("orders").update({
+      deposit_status: depositStatus || null,
+      deposit_method: depositMethod || null,
+      deposit_paid_amount: safeParseFloat(depositPaidAmount) || 0,
+    }).eq("id", id).select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").single();
+
+    setSavingDeposit(false);
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    toast.success("Kaution gespeichert.");
     setOrder(data);
   };
 
@@ -467,6 +495,60 @@ export default function OrderDetailPage() {
           <div className="mt-4">
             <button onClick={savePayment} disabled={savingPayment} className="btn-primary text-sm py-2 px-4">
               {savingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Zahlung speichern"}
+            </button>
+          </div>
+        </div>
+
+        {/* Deposit Tracking */}
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck className="w-5 h-5 text-amber-600" />
+            <h2 className="section-header">Kaution</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Kaution (25% Netto)</div>
+              <div className="text-lg font-semibold">{formatCurrency(order.deposit_amount || (order.total_amount / 1.077 * 0.25))}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Status</div>
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                order.deposit_status === "erhalten" ? "bg-green-100 text-green-800" :
+                order.deposit_status === "zurueckerstattet" ? "bg-blue-100 text-blue-800" :
+                "bg-red-100 text-red-800"
+              }`}>
+                {order.deposit_status === "erhalten" ? "Erhalten" :
+                 order.deposit_status === "zurueckerstattet" ? "Zurückerstattet" : "Offen"}
+              </div>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Kautionsstatus</label>
+              <select value={depositStatus} onChange={(e) => setDepositStatus(e.target.value)} className="input-field w-full">
+                <option value="offen">Offen</option>
+                <option value="erhalten">Erhalten</option>
+                <option value="zurueckerstattet">Zurückerstattet</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zahlungsart</label>
+              <select value={depositMethod} onChange={(e) => setDepositMethod(e.target.value)} className="input-field w-full">
+                <option value="">Bitte wählen</option>
+                <option value="bar">Bar</option>
+                <option value="ueberweisung">Überweisung</option>
+                <option value="karte">Karte</option>
+                <option value="paypal">PayPal</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Eingangener Betrag (CHF)</label>
+              <input type="number" step="0.01" min="0" value={depositPaidAmount} onChange={(e) => setDepositPaidAmount(e.target.value)} className="input-field w-full" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <button onClick={saveDeposit} disabled={savingDeposit} className="btn-primary text-sm py-2 px-4">
+              {savingDeposit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Kaution speichern"}
             </button>
           </div>
         </div>
