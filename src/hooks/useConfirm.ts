@@ -9,6 +9,9 @@ interface ConfirmState {
   confirmLabel: string;
   cancelLabel: string;
   variant: "danger" | "default";
+  confirmText?: string;
+  confirmTextPlaceholder?: string;
+  confirmTextLabel?: string;
 }
 
 let resolveFn: ((value: boolean) => void) | null = null;
@@ -23,14 +26,24 @@ export function useConfirm() {
     variant: "default",
   });
 
+  const [confirmTextValue, setConfirmTextValue] = useState("");
+
   const confirm = useCallback(
     (
       title: string,
       description: string,
-      options?: { confirmLabel?: string; cancelLabel?: string; variant?: "danger" | "default" }
+      options?: {
+        confirmLabel?: string;
+        cancelLabel?: string;
+        variant?: "danger" | "default";
+        confirmText?: string;
+        confirmTextPlaceholder?: string;
+        confirmTextLabel?: string;
+      }
     ): Promise<boolean> => {
       return new Promise((resolve) => {
         resolveFn = resolve;
+        setConfirmTextValue("");
         setState({
           open: true,
           title,
@@ -38,6 +51,9 @@ export function useConfirm() {
           confirmLabel: options?.confirmLabel || "Bestätigen",
           cancelLabel: options?.cancelLabel || "Abbrechen",
           variant: options?.variant || "default",
+          confirmText: options?.confirmText,
+          confirmTextPlaceholder: options?.confirmTextPlaceholder,
+          confirmTextLabel: options?.confirmTextLabel,
         });
       });
     },
@@ -56,5 +72,17 @@ export function useConfirm() {
     resolveFn = null;
   }, []);
 
-  return { confirm, state, handleConfirm, handleCancel };
+  const canConfirm = state.confirmText
+    ? confirmTextValue.trim() === state.confirmText.trim()
+    : true;
+
+  return {
+    confirm,
+    state,
+    handleConfirm,
+    handleCancel,
+    confirmTextValue,
+    setConfirmTextValue,
+    canConfirm,
+  };
 }

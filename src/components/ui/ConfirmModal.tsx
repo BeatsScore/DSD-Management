@@ -11,6 +11,12 @@ interface ConfirmModalProps {
   variant: "danger" | "default";
   onConfirm: () => void;
   onCancel: () => void;
+  confirmText?: string;
+  confirmTextValue?: string;
+  onConfirmTextChange?: (value: string) => void;
+  confirmTextPlaceholder?: string;
+  confirmTextLabel?: string;
+  canConfirm?: boolean;
 }
 
 export function ConfirmModal({
@@ -22,6 +28,12 @@ export function ConfirmModal({
   variant,
   onConfirm,
   onCancel,
+  confirmText,
+  confirmTextValue,
+  onConfirmTextChange,
+  confirmTextPlaceholder,
+  confirmTextLabel,
+  canConfirm = true,
 }: ConfirmModalProps) {
   if (!open) return null;
 
@@ -39,7 +51,7 @@ export function ConfirmModal({
               className={`w-5 h-5 ${variant === "danger" ? "text-red-600" : "text-amber-600"}`}
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
             <p className="text-sm text-gray-600 mt-1 leading-relaxed">{description}</p>
           </div>
@@ -50,6 +62,23 @@ export function ConfirmModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {confirmText && onConfirmTextChange && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {confirmTextLabel || `Zur Bestätigung "${confirmText}" eingeben`}
+            </label>
+            <input
+              type="text"
+              value={confirmTextValue || ""}
+              onChange={(e) => onConfirmTextChange(e.target.value)}
+              placeholder={confirmTextPlaceholder || confirmText}
+              className="input-field w-full"
+              autoFocus
+            />
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-3 mt-6">
           <button
             onClick={onCancel}
@@ -59,7 +88,8 @@ export function ConfirmModal({
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+            disabled={!canConfirm}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               variant === "danger"
                 ? "bg-red-600 hover:bg-red-700"
                 : "bg-gray-900 hover:bg-gray-800"

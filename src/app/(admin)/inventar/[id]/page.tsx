@@ -71,7 +71,7 @@ export default function ProductDetailPage() {
   const [owners, setOwners] = useState<{ ownerId: string; quantity: string }[]>([]);
   const [productItems, setProductItems] = useState<{ id?: string; serial_number: string; barcode: string; status: string; notes: string; condition: string }[]>([]);
 
-  const { confirm, state, handleConfirm, handleCancel } = useConfirm();
+  const { confirm, state, handleConfirm, handleCancel, confirmTextValue, setConfirmTextValue, canConfirm } = useConfirm();
 
   useEffect(() => {
     async function load() {
@@ -325,7 +325,18 @@ export default function ProductDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!(await confirm("Artikel löschen?", "Dieser Artikel wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
+    if (!(await confirm(
+      "Artikel löschen?",
+      `Dieser Artikel wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.`,
+      {
+        confirmLabel: "Löschen",
+        cancelLabel: "Abbrechen",
+        variant: "danger",
+        confirmText: product?.name || "",
+        confirmTextLabel: `Zur Bestätigung den Produktnamen eingeben`,
+        confirmTextPlaceholder: product?.name || "Produktname",
+      }
+    ))) return;
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
       toast.error("Fehler: " + error.message);
@@ -1394,6 +1405,12 @@ export default function ProductDetailPage() {
         variant={state.variant}
         onConfirm={handleConfirm}
         onCancel={handleCancel}
+        confirmText={state.confirmText}
+        confirmTextValue={confirmTextValue}
+        onConfirmTextChange={setConfirmTextValue}
+        confirmTextPlaceholder={state.confirmTextPlaceholder}
+        confirmTextLabel={state.confirmTextLabel}
+        canConfirm={canConfirm}
       />
 
       <LabelFormatEditor
