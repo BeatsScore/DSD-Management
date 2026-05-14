@@ -81,6 +81,7 @@ export default function ProductDetailPage() {
       ]);
       if (p) {
         setProduct(p);
+        const ownerQty = po && po.length > 0 ? po.reduce((sum: number, o: any) => sum + (o.quantity || 0), 0) : (p.quantity || 1);
         setForm({
           name: p.name,
           manufacturer: p.manufacturer,
@@ -91,7 +92,7 @@ export default function ProductDetailPage() {
           status: p.status,
           technicalSpecs: p.technical_specs || "",
           rentalPricePerDay: p.rental_price_per_day != null ? String(p.rental_price_per_day) : "",
-          quantity: p.quantity != null ? String(p.quantity) : "1",
+          quantity: String(ownerQty),
           manualUrl: p.manual_url || "",
           purchaseDate: p.purchase_date || "",
           purchasePrice: p.purchase_price != null ? String(p.purchase_price) : "",
@@ -186,11 +187,7 @@ export default function ProductDetailPage() {
     e.preventDefault();
 
     const totalOwnerQty = owners.reduce((sum, o) => sum + safeParseInt(o.quantity, 0), 0);
-    const productQty = safeParseInt(form.quantity, 1);
-    if (totalOwnerQty > productQty) {
-      toast.error(`Die Summe der Besitzer-Anteile (${totalOwnerQty}) darf nicht grösser als die Gesamtanzahl (${productQty}) sein.`);
-      return;
-    }
+    const productQty = totalOwnerQty > 0 ? totalOwnerQty : 1;
 
     setSaving(true);
 
@@ -909,8 +906,10 @@ export default function ProductDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="label">Anzahl</label>
-                  <input type="number" min="1" step="1" className="input-field" value={form.quantity} onChange={(e) => updateForm("quantity", e.target.value)} />
+                  <label className="label">Anzahl (aus Besitzern)</label>
+                  <div className="input-field bg-gray-50 text-gray-600 flex items-center">
+                    {owners.reduce((sum, o) => sum + safeParseInt(o.quantity, 0), 0)}
+                  </div>
                 </div>
               </div>
 
@@ -1277,7 +1276,7 @@ export default function ProductDetailPage() {
 
               <div className="grid sm:grid-cols-3 gap-4">
                 <InfoRow label="Status" value={statusLabel(product.status)} />
-                <InfoRow label="Anzahl" value={String(product.quantity || 1)} />
+                <InfoRow label="Anzahl" value={String(productOwners.reduce((sum: number, o: any) => sum + (o.quantity || 0), 0) || product.quantity || 1)} />
                 <InfoRow label="Sichtbarkeit" value={product.status === "inaktiv" ? "Offline" : "Online"} />
               </div>
 
