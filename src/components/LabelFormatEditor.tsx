@@ -677,6 +677,22 @@ export default function LabelFormatEditor({
                                   Barcode-Text unter den Strichen anzeigen
                                 </label>
                               </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id={`shorten-${el.id}`}
+                                  checked={el.barcodeShorten ?? false}
+                                  onChange={(e) =>
+                                    updateElement(el.id, {
+                                      barcodeShorten: e.target.checked,
+                                    })
+                                  }
+                                  className="w-4 h-4 rounded border-gray-300"
+                                />
+                                <label htmlFor={`shorten-${el.id}`} className="text-xs text-gray-700">
+                                  Barcode kürzen (letzte 6 Zeichen — halbe Breite)
+                                </label>
+                              </div>
                             </div>
                           )}
 

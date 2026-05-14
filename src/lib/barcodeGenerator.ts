@@ -18,6 +18,7 @@ export interface BarcodeOptions {
   displayValue?: boolean;
   fontSize?: number;
   margin?: number;
+  shorten?: boolean; // use last 6 chars to reduce barcode width
 }
 
 export async function generateBarcodeSvg(options: BarcodeOptions): Promise<string> {
@@ -27,7 +28,11 @@ export async function generateBarcodeSvg(options: BarcodeOptions): Promise<strin
   const svgNs = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNs, "svg");
 
-  JsBarcode(svg, options.value, {
+  const value = options.shorten
+    ? options.value.slice(-6)
+    : options.value;
+
+  JsBarcode(svg, value, {
     format: options.format || "CODE128",
     width: options.width || 2,
     height: options.height || 80,
@@ -54,7 +59,11 @@ export function generateBarcodeSvgSync(
   const svgNs = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNs, "svg");
 
-  JsBarcode(svg, options.value, {
+  const value = options.shorten
+    ? options.value.slice(-6)
+    : options.value;
+
+  JsBarcode(svg, value, {
     format: options.format || "CODE128",
     width: options.width || 2,
     height: options.height || 80,

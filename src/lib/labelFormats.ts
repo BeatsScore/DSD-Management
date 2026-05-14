@@ -19,6 +19,7 @@ export interface LabelElement {
   barcodeLineWidth?: number; // px, default 2
   barcodeHeight?: number; // px, default 80
   barcodeDisplayValue?: boolean; // show text under bars, default false
+  barcodeShorten?: boolean; // use shortened value (last 6 chars), default false
   // text-specific
   content?: TextContent;
   customText?: string;
@@ -94,9 +95,10 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         y: 16,
         width: 58,
         height: 10,
-        barcodeLineWidth: 2,
+        barcodeLineWidth: 3,
         barcodeHeight: 80,
         barcodeDisplayValue: false,
+        barcodeShorten: true,
       },
       {
         id: generateId(),
@@ -158,9 +160,10 @@ export const DEFAULT_FORMATS: LabelFormat[] = [
         y: 1.5,
         width: 28,
         height: 22,
-        barcodeLineWidth: 2,
+        barcodeLineWidth: 3,
         barcodeHeight: 80,
         barcodeDisplayValue: false,
+        barcodeShorten: true,
       },
       {
         id: generateId(),

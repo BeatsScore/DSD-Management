@@ -469,6 +469,7 @@ export default function ProductDetailPage() {
           width: el.barcodeLineWidth || 2,
           height: el.barcodeHeight || 80,
           displayValue: el.barcodeDisplayValue ?? false,
+          shorten: el.barcodeShorten ?? false,
           fontSize: 14,
           margin: 0,
         });
