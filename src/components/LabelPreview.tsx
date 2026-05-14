@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import Barcode from "react-barcode";
 import { LabelFormat, LabelElement, mmToPx, MM_TO_PX } from "@/lib/labelFormats";
+import { generateBarcodeSvgSync } from "@/lib/barcodeGenerator";
 
 interface LabelPreviewProps {
   format: LabelFormat;
@@ -35,9 +35,9 @@ export default function LabelPreview({
     origX: number;
     origY: number;
   } | null>(null);
+  const [barcodeSvgs, setBarcodeSvgs] = useState<Map<string, string>>(new Map());
 
   // Compute a dynamic scale so the label fits within available viewport
-  // We use a ref to measure the parent container and compute scale
   const [containerSize, setContainerSize] = useState({ w: 800, h: 600 });
 
   useEffect(() => {
@@ -52,6 +52,27 @@ export default function LabelPreview({
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, []);
+
+  // Generate high-res barcode SVGs whenever format or barcode value changes
+  useEffect(() => {
+    const JsBarcode = require("jsbarcode");
+    const map = new Map<string, string>();
+    format.elements.forEach((el) => {
+      if (el.type === "barcode") {
+        const svg = generateBarcodeSvgSync(JsBarcode, {
+          value: barcodeValue || "00000000",
+          format: "CODE128",
+          width: el.barcodeLineWidth || 2,
+          height: el.barcodeHeight || 80,
+          displayValue: el.barcodeDisplayValue ?? false,
+          fontSize: 14,
+          margin: 0,
+        });
+        map.set(el.id, svg);
+      }
+    });
+    setBarcodeSvgs(map);
+  }, [format, barcodeValue]);
 
   const baseWidthPx = mmToPx(format.width);
   const baseHeightPx = mmToPx(format.height);
@@ -202,16 +223,10 @@ export default function LabelPreview({
                 />
               )}
               {el.type === "barcode" && (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Barcode
-                    value={barcodeValue || "00000000"}
-                    format="CODE128"
-                    width={Math.max(1, Math.floor(w / 100))}
-                    height={Math.max(20, h - 4)}
-                    fontSize={Math.max(8, Math.floor(h * 0.12))}
-                    margin={0}
-                  />
-                </div>
+                <div
+                  className="w-full h-full flex items-center justify-center"
+                  dangerouslySetInnerHTML={{ __html: barcodeSvgs.get(el.id) || "" }}
+                />
               )}
               {el.type === "text" && (
                 <div

@@ -29,6 +29,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { ManualQrCode } from "@/components/ManualQrCode";
 import { loadLabelFormats, getLabelFormat, LabelFormat, LabelElement } from "@/lib/labelFormats";
+import { generateBarcodeSvgSync } from "@/lib/barcodeGenerator";
 import LabelFormatEditor from "@/components/LabelFormatEditor";
 
 export default function ProductDetailPage() {
@@ -393,7 +394,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  const generatePrintHtml = (format: LabelFormat, svgHtml: string, item?: any): string => {
+  const generatePrintHtml = (format: LabelFormat, barcodeSvgMap: Map<string, string>, item?: any): string => {
     const elementsHtml = format.elements.map((el) => {
       const rotation = el.rotation || 0;
       const rotateStyle = rotation !== 0 ? `transform:rotate(${rotation}deg);transform-origin:center center;` : "";
@@ -402,7 +403,8 @@ export default function ProductDetailPage() {
         return `<div style="${style}"><img src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" style="width:100%;height:100%;object-fit:contain;" alt="" /></div>`;
       }
       if (el.type === "barcode") {
-        return `<div style="${style}display:flex;align-items:center;justify-content:center;">${svgHtml}</div>`;
+        const svg = barcodeSvgMap.get(el.id) || "";
+        return `<div style="${style}display:flex;align-items:center;justify-content:center;">${svg}</div>`;
       }
       // text
       const align = el.align === "center" ? "center" : el.align === "right" ? "right" : "left";
@@ -442,9 +444,6 @@ export default function ProductDetailPage() {
               width: 100%;
               height: auto;
             }
-            svg text {
-              display: none;
-            }
           </style>
         </head>
         <body>
@@ -458,34 +457,53 @@ export default function ProductDetailPage() {
     `;
   };
 
+  const generateBarcodeSvgsForFormat = (format: LabelFormat, barcodeValue: string): Map<string, string> => {
+    const map = new Map<string, string>();
+    // Dynamically import jsbarcode
+    const JsBarcode = require("jsbarcode");
+    format.elements.forEach((el) => {
+      if (el.type === "barcode") {
+        const svg = generateBarcodeSvgSync(JsBarcode, {
+          value: barcodeValue,
+          format: "CODE128",
+          width: el.barcodeLineWidth || 2,
+          height: el.barcodeHeight || 80,
+          displayValue: el.barcodeDisplayValue ?? false,
+          fontSize: 14,
+          margin: 0,
+        });
+        map.set(el.id, svg);
+      }
+    });
+    return map;
+  };
+
   const printBarcode = () => {
-    const svgEl = document.getElementById("barcode-svg");
-    if (!svgEl || !product) return;
-    const svgHtml = svgEl.outerHTML;
+    if (!product) return;
     const format = getLabelFormat(labelFormat);
     if (!format) {
       toast.error("Format nicht gefunden.");
       return;
     }
+    const barcodeSvgMap = generateBarcodeSvgsForFormat(format, product.barcode);
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(generatePrintHtml(format, svgHtml));
+    printWindow.document.write(generatePrintHtml(format, barcodeSvgMap));
     printWindow.document.close();
     printWindow.print();
   };
 
   const printItemBarcode = (item: any) => {
-    const svgEl = document.getElementById(`barcode-svg-${item.id}`);
-    if (!svgEl || !product) return;
-    const svgHtml = svgEl.outerHTML;
+    if (!product) return;
     const format = getLabelFormat(labelFormat);
     if (!format) {
       toast.error("Format nicht gefunden.");
       return;
     }
+    const barcodeSvgMap = generateBarcodeSvgsForFormat(format, item.barcode);
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(generatePrintHtml(format, svgHtml, item));
+    printWindow.document.write(generatePrintHtml(format, barcodeSvgMap, item));
     printWindow.document.close();
     printWindow.print();
   };

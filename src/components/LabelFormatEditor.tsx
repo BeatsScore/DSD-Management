@@ -623,6 +623,63 @@ export default function LabelFormatEditor({
                             </div>
                           )}
 
+                          {/* Barcode-specific settings */}
+                          {el.type === "barcode" && (
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="label text-xs">Strichbreite (px)</label>
+                                  <select
+                                    className="input-field text-sm"
+                                    value={el.barcodeLineWidth || 2}
+                                    onChange={(e) =>
+                                      updateElement(el.id, {
+                                        barcodeLineWidth: Number(e.target.value),
+                                      })
+                                    }
+                                  >
+                                    <option value={1}>1 px (fein)</option>
+                                    <option value={2}>2 px (Standard)</option>
+                                    <option value={3}>3 px (breit)</option>
+                                    <option value={4}>4 px (extra breit)</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="label text-xs">Barcode-Höhe (px)</label>
+                                  <input
+                                    type="number"
+                                    step="10"
+                                    min="20"
+                                    max="200"
+                                    className="input-field text-sm"
+                                    value={el.barcodeHeight || 80}
+                                    onChange={(e) =>
+                                      updateElement(el.id, {
+                                        barcodeHeight: Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id={`display-value-${el.id}`}
+                                  checked={el.barcodeDisplayValue ?? false}
+                                  onChange={(e) =>
+                                    updateElement(el.id, {
+                                      barcodeDisplayValue: e.target.checked,
+                                    })
+                                  }
+                                  className="w-4 h-4 rounded border-gray-300"
+                                />
+                                <label htmlFor={`display-value-${el.id}`} className="text-xs text-gray-700">
+                                  Barcode-Text unter den Strichen anzeigen
+                                </label>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Rotation — for all element types */}
                           <div>
                             <label className="label text-xs">Rotation</label>
