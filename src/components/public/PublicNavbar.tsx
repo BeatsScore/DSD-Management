@@ -16,8 +16,8 @@ export function PublicNavbar() {
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
-          <Link href="/" className="flex items-end gap-2 h-20 pb-2">
-            <img src="/logo.png" alt="DSD Management" className="h-24 w-auto object-contain" />
+          <Link href="/" className="flex items-end gap-2 h-20 pb-1">
+            <img src="/logo.png" alt="DSD Management" className="h-24 w-auto object-contain translate-y-5" />
           </Link>
           <nav className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (

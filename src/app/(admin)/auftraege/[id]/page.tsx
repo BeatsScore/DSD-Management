@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download, ShieldCheck, History, Pencil, Plus, Search, Layers } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat } from "@/lib/utils";
 import { generateDocument, printDocument } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -40,8 +40,22 @@ export default function OrderDetailPage() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [damageLogs, setDamageLogs] = useState<any[]>([]);
+  const [changeLogs, setChangeLogs] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
+
+  // Change log modal state
+  const [showChangeModal, setShowChangeModal] = useState<"datum" | "tagessaetze" | "produkte" | "mitarbeiter" | null>(null);
+  const [changeForm, setChangeForm] = useState({
+    startDate: "",
+    endDate: "",
+    dayRates: 1,
+    assignedTo: "",
+  });
+  const [editProducts, setEditProducts] = useState<{ productId: string; quantity: number; pricePerDay: number }[]>([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [savingChange, setSavingChange] = useState(false);
 
   // Planning modal state
   const [planType, setPlanType] = useState<PlanType>(null);
@@ -73,18 +87,22 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }] = await Promise.all([
+      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }] = await Promise.all([
         supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
         supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "staff"]).order("full_name", { ascending: true }),
         supabase.from("damage_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
+        supabase.from("order_change_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
+        supabase.from("products").select("id, name, manufacturer, product_id").eq("status", "verfuegbar").order("name"),
       ]);
       setOrder(o);
       setItems(i || []);
       setDocuments(d || []);
       setProfiles(p || []);
       setDamageLogs(dl || []);
+      setChangeLogs(cl || []);
+      setAllProducts(ap || []);
       if (o) {
         setPaymentStatus(o.payment_status || "offen");
         setPaymentMethod(o.payment_method || "");
@@ -92,6 +110,15 @@ export default function OrderDetailPage() {
         setDepositStatus(o.deposit_status || "offen");
         setDepositMethod(o.deposit_method || "");
         setDepositPaidAmount(o.deposit_paid_amount != null ? String(o.deposit_paid_amount) : "");
+        setChangeForm({
+          startDate: o.start_date || "",
+          endDate: o.end_date || "",
+          dayRates: o.day_rates || 1,
+          assignedTo: o.assigned_to || "",
+        });
+      }
+      if (i) {
+        setEditProducts(i.map((it: any) => ({ productId: it.product_id, quantity: it.quantity, pricePerDay: it.price_per_day || 0 })));
       }
       setLoading(false);
     }
@@ -343,6 +370,153 @@ export default function OrderDetailPage() {
       ablehnung: "Ablehnung",
     };
     return map[type] || type;
+  };
+
+  const changeTypeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      datum: "Datum überarbeitet",
+      tagessaetze: "Tagessätze überarbeitet",
+      produkte: "Produkte überarbeitet",
+      mitarbeiter: "Mitarbeiter geändert",
+    };
+    return map[type] || type;
+  };
+
+  const changeTypeIcon = (type: string) => {
+    switch (type) {
+      case "datum": return <Calendar className="w-4 h-4" />;
+      case "tagessaetze": return <Clock className="w-4 h-4" />;
+      case "produkte": return <Layers className="w-4 h-4" />;
+      case "mitarbeiter": return <User className="w-4 h-4" />;
+      default: return <Pencil className="w-4 h-4" />;
+    }
+  };
+
+  // Change log handlers
+  const openChangeModal = (type: "datum" | "tagessaetze" | "produkte" | "mitarbeiter") => {
+    setShowChangeModal(type);
+    if (order) {
+      setChangeForm({
+        startDate: order.start_date || "",
+        endDate: order.end_date || "",
+        dayRates: order.day_rates || 1,
+        assignedTo: order.assigned_to || "",
+      });
+    }
+    if (items) {
+      setEditProducts(items.map((it: any) => ({ productId: it.product_id, quantity: it.quantity, pricePerDay: it.price_per_day || 0 })));
+    }
+    setProductSearch("");
+  };
+
+  const closeChangeModal = () => {
+    setShowChangeModal(null);
+    setSavingChange(false);
+  };
+
+  const saveChange = async () => {
+    if (!showChangeModal) return;
+    setSavingChange(true);
+
+    let updates: any = {};
+    let logDescription = "";
+    let oldValue = "";
+    let newValue = "";
+
+    switch (showChangeModal) {
+      case "datum":
+        updates = { start_date: changeForm.startDate, end_date: changeForm.endDate };
+        logDescription = `Zeitraum geändert`;
+        oldValue = `${formatDate(order.start_date)} - ${formatDate(order.end_date)}`;
+        newValue = `${formatDate(changeForm.startDate)} - ${formatDate(changeForm.endDate)}`;
+        break;
+      case "tagessaetze":
+        updates = { day_rates: changeForm.dayRates };
+        logDescription = `Tagessätze geändert`;
+        oldValue = String(order.day_rates || 1);
+        newValue = String(changeForm.dayRates);
+        break;
+      case "mitarbeiter":
+        updates = { assigned_to: changeForm.assignedTo || null };
+        logDescription = `Mitarbeiter geändert`;
+        const oldStaff = profiles.find((p) => p.id === order.assigned_to);
+        const newStaff = profiles.find((p) => p.id === changeForm.assignedTo);
+        oldValue = oldStaff?.full_name || oldStaff?.email || "Nicht zugewiesen";
+        newValue = newStaff?.full_name || newStaff?.email || "Nicht zugewiesen";
+        break;
+      case "produkte":
+        // Delete existing items and insert new ones
+        await supabase.from("order_items").delete().eq("order_id", id);
+        if (editProducts.length > 0) {
+          const newItems = editProducts.map((ep) => ({
+            order_id: id,
+            product_id: ep.productId,
+            quantity: ep.quantity,
+            price_per_day: ep.pricePerDay || null,
+          }));
+          await supabase.from("order_items").insert(newItems);
+        }
+        logDescription = `Produkte überarbeitet`;
+        oldValue = items.map((it: any) => `${it.product?.name} (${it.quantity}x)`).join(", ");
+        newValue = editProducts.map((ep) => {
+          const p = allProducts.find((ap) => ap.id === ep.productId);
+          return `${p?.name || "?"} (${ep.quantity}x)`;
+        }).join(", ");
+        break;
+    }
+
+    // Update order if needed
+    if (showChangeModal !== "produkte") {
+      const { error } = await supabase.from("orders").update(updates).eq("id", id);
+      if (error) {
+        setSavingChange(false);
+        toast.error("Fehler: " + error.message);
+        return;
+      }
+    }
+
+    // Recalculate total amount for product changes
+    if (showChangeModal === "produkte") {
+      const dayRates = order.day_rates || 1;
+      const totalAmount = editProducts.reduce((sum, ep) => sum + (ep.pricePerDay || 0) * ep.quantity * dayRates, 0);
+      await supabase.from("orders").update({ total_amount: totalAmount > 0 ? totalAmount : null }).eq("id", id);
+    }
+
+    // Insert change log
+    await supabase.from("order_change_logs").insert({
+      order_id: id,
+      change_type: showChangeModal,
+      description: logDescription,
+      old_value: oldValue,
+      new_value: newValue,
+    });
+
+    // Refresh data
+    const { data: o } = await supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single();
+    const { data: i } = await supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id);
+    const { data: cl } = await supabase.from("order_change_logs").select("*").eq("order_id", id).order("created_at", { ascending: false });
+
+    setOrder(o);
+    setItems(i || []);
+    setChangeLogs(cl || []);
+
+    setSavingChange(false);
+    closeChangeModal();
+    toast.success("Änderung gespeichert.");
+  };
+
+  // Product editing helpers
+  const addEditProduct = (productId: string) => {
+    if (editProducts.find((ep) => ep.productId === productId)) return;
+    setEditProducts([...editProducts, { productId, quantity: 1, pricePerDay: 0 }]);
+  };
+
+  const removeEditProduct = (productId: string) => {
+    setEditProducts(editProducts.filter((ep) => ep.productId !== productId));
+  };
+
+  const updateEditProduct = (productId: string, field: string, value: number) => {
+    setEditProducts(editProducts.map((ep) => (ep.productId === productId ? { ...ep, [field]: value } : ep)));
   };
 
   const remainingAmount = (order?.total_amount || 0) - (order?.paid_amount || 0);
@@ -737,6 +911,62 @@ export default function OrderDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Change Log Module */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-gray-600" />
+              <h2 className="section-header">Änderungsverlauf</h2>
+            </div>
+          </div>
+
+          {/* New Entry Buttons */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button onClick={() => openChangeModal("datum")} className="btn-secondary text-xs py-2 px-3">
+              <Calendar className="w-3.5 h-3.5 mr-1" /> Datum überarbeiten
+            </button>
+            <button onClick={() => openChangeModal("tagessaetze")} className="btn-secondary text-xs py-2 px-3">
+              <Clock className="w-3.5 h-3.5 mr-1" /> Tagessätze überarbeiten
+            </button>
+            <button onClick={() => openChangeModal("produkte")} className="btn-secondary text-xs py-2 px-3">
+              <Layers className="w-3.5 h-3.5 mr-1" /> Produkte überarbeiten
+            </button>
+            <button onClick={() => openChangeModal("mitarbeiter")} className="btn-secondary text-xs py-2 px-3">
+              <User className="w-3.5 h-3.5 mr-1" /> Mitarbeiter ändern
+            </button>
+          </div>
+
+          {/* History List */}
+          {changeLogs.length > 0 ? (
+            <div className="space-y-2">
+              {changeLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white"
+                >
+                  <div className="shrink-0 mt-0.5 text-gray-400">
+                    {changeTypeIcon(log.change_type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">{changeTypeLabel(log.change_type)}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{log.description}</div>
+                    <div className="text-xs text-gray-400 mt-1 flex items-center gap-2">
+                      <span className="line-through">{log.old_value}</span>
+                      <span>→</span>
+                      <span className="font-medium text-gray-600">{log.new_value}</span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {formatDate(log.created_at)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Noch keine Änderungen eingetragen.</p>
+          )}
+        </div>
       </div>
 
       {/* Plan Modal */}
@@ -914,6 +1144,164 @@ export default function OrderDetailPage() {
                 className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {savingDamage ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Log Modal */}
+      {showChangeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                {showChangeModal === "datum" && "Datum überarbeiten"}
+                {showChangeModal === "tagessaetze" && "Tagessätze überarbeiten"}
+                {showChangeModal === "produkte" && "Produkte überarbeiten"}
+                {showChangeModal === "mitarbeiter" && "Mitarbeiter ändern"}
+              </h3>
+              <button onClick={closeChangeModal} className="p-2 text-gray-400 hover:text-black">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Datum Form */}
+            {showChangeModal === "datum" && (
+              <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Startdatum</label>
+                    <input type="date" className="input-field w-full" value={changeForm.startDate} onChange={(e) => setChangeForm({ ...changeForm, startDate: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Enddatum</label>
+                    <input type="date" className="input-field w-full" value={changeForm.endDate} onChange={(e) => setChangeForm({ ...changeForm, endDate: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tagessätze Form */}
+            {showChangeModal === "tagessaetze" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tagessätze</label>
+                  <input type="number" min={1} className="input-field w-full" value={changeForm.dayRates} onChange={(e) => setChangeForm({ ...changeForm, dayRates: parseInt(e.target.value) || 1 })} />
+                </div>
+              </div>
+            )}
+
+            {/* Mitarbeiter Form */}
+            {showChangeModal === "mitarbeiter" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Zugewiesen an</label>
+                  <select className="input-field w-full" value={changeForm.assignedTo} onChange={(e) => setChangeForm({ ...changeForm, assignedTo: e.target.value })}>
+                    <option value="">Nicht zugewiesen</option>
+                    {profiles.map((p) => (
+                      <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Produkte Form */}
+            {showChangeModal === "produkte" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Produkt hinzufügen</label>
+                  <div className="relative mb-2">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Produkte suchen..."
+                      className="input-field pl-9 w-full"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                    />
+                  </div>
+                  <select
+                    className="input-field w-full"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        addEditProduct(e.target.value);
+                        e.target.value = "";
+                      }
+                    }}
+                  >
+                    <option value="">Bitte wählen</option>
+                    {allProducts
+                      .filter((p) => {
+                        if (editProducts.find((ep) => ep.productId === p.id)) return false;
+                        if (!productSearch.trim()) return true;
+                        const term = productSearch.toLowerCase();
+                        return (
+                          p.name?.toLowerCase().includes(term) ||
+                          p.manufacturer?.toLowerCase().includes(term) ||
+                          p.product_id?.toLowerCase().includes(term)
+                        );
+                      })
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.manufacturer})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {editProducts.length > 0 && (
+                  <div className="space-y-2">
+                    {editProducts.map((ep) => {
+                      const product = allProducts.find((p) => p.id === ep.productId);
+                      return (
+                        <div key={ep.productId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium">{product?.name}</div>
+                            <div className="text-xs text-gray-500">{product?.manufacturer}</div>
+                          </div>
+                          <input
+                            type="number"
+                            min={1}
+                            className="w-20 input-field py-1.5 text-sm"
+                            value={ep.quantity}
+                            onChange={(e) => updateEditProduct(ep.productId, "quantity", parseInt(e.target.value) || 1)}
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-28 input-field py-1.5 text-sm"
+                            placeholder="CHF/Tag"
+                            value={ep.pricePerDay || ""}
+                            onChange={(e) => updateEditProduct(ep.productId, "pricePerDay", parseFloat(e.target.value) || 0)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeEditProduct(ep.productId)}
+                            className="p-1.5 text-gray-400 hover:text-red-600"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={closeChangeModal} className="flex-1 btn-secondary py-2.5">
+                Abbrechen
+              </button>
+              <button
+                onClick={saveChange}
+                disabled={savingChange}
+                className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {savingChange ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 Speichern
               </button>
             </div>
