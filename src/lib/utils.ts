@@ -36,7 +36,13 @@ export function generateProductId(categoryPrefix: string, index: number): string
 }
 
 export function generateBarcode(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  // 8-character alphanumeric barcode (uppercase + digits)
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 export function generateSerialNumber(productId: string, index: number): string {
