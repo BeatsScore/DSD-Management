@@ -262,8 +262,8 @@ function saveLabelFormatsToCache(formats: LabelFormat[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(formats));
 }
 
-// Save to Supabase (admin only)
-export async function saveLabelFormatToDb(format: LabelFormat): Promise<boolean> {
+// Save to Supabase (admin and staff)
+export async function saveLabelFormatToDb(format: LabelFormat): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient();
   const { error } = await supabase
     .from("label_formats")
@@ -273,7 +273,7 @@ export async function saveLabelFormatToDb(format: LabelFormat): Promise<boolean>
     console.error("Error saving label format to DB:", error);
     // Fallback: save to cache only
     saveLabelFormatToCache(format);
-    return false;
+    return { success: false, error: error.message };
   }
 
   // Update cache
@@ -285,7 +285,7 @@ export async function saveLabelFormatToDb(format: LabelFormat): Promise<boolean>
     formats.push(format);
   }
   saveLabelFormatsToCache(formats);
-  return true;
+  return { success: true };
 }
 
 function saveLabelFormatToCache(format: LabelFormat): void {

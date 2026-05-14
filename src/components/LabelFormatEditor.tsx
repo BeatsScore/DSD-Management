@@ -157,11 +157,11 @@ export default function LabelFormatEditor({
       toast.error("Bitte einen Formatnamen eingeben.");
       return;
     }
-    const success = await saveLabelFormatToDb(editingFormat);
-    if (success) {
+    const result = await saveLabelFormatToDb(editingFormat);
+    if (result.success) {
       toast.success("Format gespeichert (global für alle Benutzer).");
     } else {
-      toast.success("Format lokal gespeichert (DB nicht verfügbar).");
+      toast.error("DB-Fehler: " + (result.error || "Unbekannter Fehler"));
     }
     // Refresh from DB
     const all = await loadLabelFormatsFromDb();

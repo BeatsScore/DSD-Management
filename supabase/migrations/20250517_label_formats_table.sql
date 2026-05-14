@@ -23,25 +23,13 @@ CREATE POLICY "Label formats are readable by all authenticated users"
   TO authenticated
   USING (true);
 
--- Allow only admins to modify label formats
-CREATE POLICY "Label formats are editable by admins only"
+-- Allow admin and staff to modify label formats
+CREATE POLICY "Label formats are editable by admin and staff"
   ON public.label_formats
   FOR ALL
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
-    )
-  );
+  USING (public.is_admin_or_staff())
+  WITH CHECK (public.is_admin_or_staff());
 
 -- Insert default formats
 INSERT INTO public.label_formats (id, name, width, height, padding, elements, is_default)
