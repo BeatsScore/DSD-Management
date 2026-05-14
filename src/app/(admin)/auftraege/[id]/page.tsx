@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat } from "@/lib/utils";
-import { generateDocument } from "@/lib/documents";
+import { generateDocument, printDocument } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
@@ -112,9 +112,9 @@ export default function OrderDetailPage() {
   };
 
   const generatePDF = async (type: string) => {
-    const success = generateDocument(type, order, items, window);
+    const success = await generateDocument(type, order, items, window);
     if (!success) {
-      toast.error("Popup wurde blockiert. Bitte erlauben Sie Popups für diese Seite.");
+      toast.error("PDF konnte nicht generiert werden.");
       return;
     }
 
@@ -128,6 +128,20 @@ export default function OrderDetailPage() {
     if (!error) {
       const { data: d } = await supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false });
       setDocuments(d || []);
+    }
+  };
+
+  const handlePrint = (type: string) => {
+    const success = printDocument(type, order, items, window);
+    if (!success) {
+      toast.error("Druckvorschau konnte nicht geöffnet werden.");
+    }
+  };
+
+  const handleDownload = async (type: string) => {
+    const success = await generateDocument(type, order, items, window);
+    if (!success) {
+      toast.error("PDF konnte nicht generiert werden.");
     }
   };
 
@@ -616,11 +630,18 @@ export default function OrderDetailPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => generatePDF(doc.type)}
+                    onClick={() => handlePrint(doc.type)}
                     className="p-2 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors shrink-0"
-                    title="Erneut generieren"
+                    title="Drucken"
                   >
                     <Printer className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDownload(doc.type)}
+                    className="p-2 text-gray-400 hover:text-green-600 rounded-md hover:bg-green-50 transition-colors shrink-0"
+                    title="Herunterladen"
+                  >
+                    <Download className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => deleteDocument(doc.id)}

@@ -9,7 +9,7 @@ import {
   CalendarDays,
   CalendarRange,
   Users,
-
+  UserCog,
   LogOut,
   Menu,
   X,
@@ -36,6 +36,7 @@ export function AdminSidebar({ role }: { role: string }) {
     { href: "/auftraege/", label: "Aufträge", icon: ClipboardList },
     { href: "/planer/", label: "Planer", icon: CalendarDays },
     { href: "/kunden/", label: "Kunden", icon: Users },
+    ...(role === "admin" ? [{ href: "/mitarbeiter/", label: "Mitarbeiter", icon: UserCog }] : []),
   ];
 
   const closeMobile = () => setMobileOpen(false);
