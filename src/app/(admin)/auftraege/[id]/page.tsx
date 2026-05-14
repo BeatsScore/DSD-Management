@@ -431,10 +431,11 @@ export default function OrderDetailPage() {
         newValue = `${formatDate(changeForm.startDate)} - ${formatDate(changeForm.endDate)}`;
         break;
       case "tagessaetze":
-        updates = { day_rates: changeForm.dayRates };
+        const newTotal = items.reduce((sum: number, it: any) => sum + (it.price_per_day || 0) * it.quantity * changeForm.dayRates, 0);
+        updates = { day_rates: changeForm.dayRates, total_amount: newTotal > 0 ? newTotal : null };
         logDescription = `Tagessätze geändert`;
-        oldValue = String(order.day_rates || 1);
-        newValue = String(changeForm.dayRates);
+        oldValue = `${order.day_rates || 1} Tagessätze (${formatCurrency(order.total_amount)})`;
+        newValue = `${changeForm.dayRates} Tagessätze (${formatCurrency(newTotal)})`;
         break;
       case "mitarbeiter":
         updates = { assigned_to: changeForm.assignedTo || null };
@@ -585,6 +586,9 @@ export default function OrderDetailPage() {
           <div>
             <div className="text-xs text-gray-500 mb-1">Gesamtbetrag</div>
             <div className="font-medium">{formatCurrency(order.total_amount)}</div>
+            <div className="text-xs text-gray-400">
+              {order.day_rates || 1} Tagessatz{order.day_rates > 1 ? "e" : ""} × {formatCurrency((order.total_amount || 0) / (order.day_rates || 1))}/Tag
+            </div>
           </div>
 
           {/* Pickup info */}
