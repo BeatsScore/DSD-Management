@@ -377,14 +377,14 @@ export default function ProductDetailPage() {
       };
     }
     return {
-      pageSize: "62mm auto",
+      pageSize: "62mm 30mm",
       bodyWidth: "62mm",
-      bodyHeight: "auto",
-      bodyPadding: "3mm",
-      logoHeight: "10mm",
-      serialFont: "9px",
-      idFont: "9px",
-      nameFont: "11px",
+      bodyHeight: "30mm",
+      bodyPadding: "2mm 3mm",
+      logoHeight: "12mm",
+      serialFont: "10px",
+      idFont: "10px",
+      nameFont: "12px",
       svgMaxWidth: "100%",
       svgHeight: "auto",
     };
