@@ -10,7 +10,6 @@ import {
   Image,
   Barcode as BarcodeIcon,
   Type,
-  GripVertical,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -102,7 +101,6 @@ export default function LabelFormatEditor({
         const newEl = createLabelElement(type, prev.width, prev.height);
         return { ...prev, elements: [...prev.elements, newEl] };
       });
-      // Auto-select the new element (last one)
       setTimeout(() => {
         setEditingFormat((prev) => {
           if (!prev) return null;
@@ -226,9 +224,9 @@ export default function LabelFormatEditor({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">
             Etikettenformat-Editor
           </h2>
@@ -240,43 +238,37 @@ export default function LabelFormatEditor({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left sidebar: Format list */}
-          <div className="w-56 border-r border-gray-200 flex flex-col bg-gray-50">
-            <div className="p-3 border-b border-gray-200">
-              <button
-                onClick={handleNewFormat}
-                className="w-full inline-flex items-center justify-center gap-1.5 text-sm bg-black text-white hover:bg-gray-800 rounded-lg px-3 py-2 transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Neues Format
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {formats.map((fmt) => (
-                <button
-                  key={fmt.id}
-                  onClick={() => selectFormat(fmt.id)}
-                  className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors ${
-                    selectedFormatId === fmt.id
-                      ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="font-medium truncate">{fmt.name}</div>
-                  <div className="text-xs text-gray-400">
-                    {fmt.width}×{fmt.height} mm · {fmt.elements.length} Elemente
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Top bar: Format list + New Format */}
+        <div className="flex items-center gap-2 px-5 py-2 border-b border-gray-200 bg-gray-50 shrink-0 overflow-x-auto">
+          <button
+            onClick={handleNewFormat}
+            className="shrink-0 inline-flex items-center gap-1.5 text-sm bg-black text-white hover:bg-gray-800 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Neues Format
+          </button>
+          <div className="w-px h-6 bg-gray-300 mx-1 shrink-0" />
+          {formats.map((fmt) => (
+            <button
+              key={fmt.id}
+              onClick={() => selectFormat(fmt.id)}
+              className={`shrink-0 text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                selectedFormatId === fmt.id
+                  ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                  : "text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <span className="font-medium">{fmt.name}</span>
+            </button>
+          ))}
+        </div>
 
-          {/* Middle: Editor panel */}
-          <div className="w-80 border-r border-gray-200 flex flex-col overflow-hidden">
+        {/* Body: horizontal split */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left: Settings + Elements */}
+          <div className="w-80 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Format settings */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-gray-900">
                   Format-Einstellungen
                 </h3>
@@ -316,14 +308,14 @@ export default function LabelFormatEditor({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   <div>
-                    <label className="label text-xs">Padding oben (mm)</label>
+                    <label className="label text-xs">Pad. oben</label>
                     <input
                       type="number"
                       step="0.5"
                       min="0"
-                      className="input-field text-sm"
+                      className="input-field text-sm px-1.5"
                       value={editingFormat.padding.top}
                       onChange={(e) =>
                         updateFormat({
@@ -336,12 +328,12 @@ export default function LabelFormatEditor({
                     />
                   </div>
                   <div>
-                    <label className="label text-xs">Padding unten (mm)</label>
+                    <label className="label text-xs">Pad. unten</label>
                     <input
                       type="number"
                       step="0.5"
                       min="0"
-                      className="input-field text-sm"
+                      className="input-field text-sm px-1.5"
                       value={editingFormat.padding.bottom}
                       onChange={(e) =>
                         updateFormat({
@@ -354,12 +346,12 @@ export default function LabelFormatEditor({
                     />
                   </div>
                   <div>
-                    <label className="label text-xs">Padding links (mm)</label>
+                    <label className="label text-xs">Pad. links</label>
                     <input
                       type="number"
                       step="0.5"
                       min="0"
-                      className="input-field text-sm"
+                      className="input-field text-sm px-1.5"
                       value={editingFormat.padding.left}
                       onChange={(e) =>
                         updateFormat({
@@ -372,12 +364,12 @@ export default function LabelFormatEditor({
                     />
                   </div>
                   <div>
-                    <label className="label text-xs">Padding rechts (mm)</label>
+                    <label className="label text-xs">Pad. rechts</label>
                     <input
                       type="number"
                       step="0.5"
                       min="0"
-                      className="input-field text-sm"
+                      className="input-field text-sm px-1.5"
                       value={editingFormat.padding.right}
                       onChange={(e) =>
                         updateFormat({
@@ -655,9 +647,9 @@ export default function LabelFormatEditor({
             </div>
           </div>
 
-          {/* Right: Preview */}
+          {/* Right: Large Preview */}
           <div className="flex-1 flex flex-col bg-gray-100 overflow-hidden">
-            <div className="flex-1 flex items-center justify-center overflow-auto p-6">
+            <div className="flex-1 flex items-center justify-center overflow-auto p-8">
               <LabelPreview
                 format={editingFormat}
                 barcodeValue={barcodeValue}
@@ -671,7 +663,7 @@ export default function LabelFormatEditor({
             </div>
             {/* Selected element quick info */}
             {selectedElement && (
-              <div className="bg-white border-t border-gray-200 px-4 py-2 text-xs text-gray-500 flex items-center gap-4">
+              <div className="bg-white border-t border-gray-200 px-4 py-2 text-xs text-gray-500 flex items-center gap-4 shrink-0">
                 <span className="font-medium text-gray-700">
                   {selectedElement.type === "logo"
                     ? "Logo"
@@ -691,7 +683,7 @@ export default function LabelFormatEditor({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={handleDuplicateFormat}
