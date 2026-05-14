@@ -384,7 +384,7 @@ export default function ProductDetailPage() {
       serialFont: "9px",
       idFont: "9px",
       nameFont: "11px",
-      svgMaxWidth: "54mm",
+      svgMaxWidth: "100%",
       svgHeight: "auto",
     };
   };
