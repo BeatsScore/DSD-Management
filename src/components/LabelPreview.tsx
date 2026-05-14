@@ -202,13 +202,13 @@ export default function LabelPreview({
                 />
               )}
               {el.type === "barcode" && (
-                <div className="w-full h-full flex flex-col items-center justify-center">
+                <div className="w-full h-full flex items-center justify-center">
                   <Barcode
                     value={barcodeValue || "00000000"}
                     format="CODE128"
                     width={Math.max(1, Math.floor(w / 100))}
-                    height={Math.max(20, h - 16)}
-                    fontSize={Math.max(8, Math.floor(h * 0.15))}
+                    height={Math.max(20, h - 4)}
+                    fontSize={Math.max(8, Math.floor(h * 0.12))}
                     margin={0}
                   />
                 </div>

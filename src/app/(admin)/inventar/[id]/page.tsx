@@ -402,7 +402,7 @@ export default function ProductDetailPage() {
         return `<div style="${style}"><img src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" style="width:100%;height:100%;object-fit:contain;" alt="" /></div>`;
       }
       if (el.type === "barcode") {
-        return `<div style="${style}display:flex;flex-direction:column;align-items:center;justify-content:center;"><div style="font-size:7px;color:#333;margin-bottom:0.5mm;text-align:center;">${item?.barcode || product?.barcode || ""}</div><div style="width:100%;display:flex;justify-content:center;">${svgHtml}</div></div>`;
+        return `<div style="${style}display:flex;align-items:center;justify-content:center;">${svgHtml}</div>`;
       }
       // text
       const align = el.align === "center" ? "center" : el.align === "right" ? "right" : "left";
