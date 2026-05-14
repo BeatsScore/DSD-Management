@@ -395,7 +395,9 @@ export default function ProductDetailPage() {
 
   const generatePrintHtml = (format: LabelFormat, svgHtml: string, item?: any): string => {
     const elementsHtml = format.elements.map((el) => {
-      const style = `position:absolute;left:${el.x}mm;top:${el.y}mm;width:${el.width}mm;height:${el.height}mm;overflow:hidden;`;
+      const rotation = el.rotation || 0;
+      const rotateStyle = rotation !== 0 ? `transform:rotate(${rotation}deg);transform-origin:center center;` : "";
+      const style = `position:absolute;left:${el.x}mm;top:${el.y}mm;width:${el.width}mm;height:${el.height}mm;overflow:hidden;${rotateStyle}`;
       if (el.type === "logo") {
         return `<div style="${style}"><img src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" style="width:100%;height:100%;object-fit:contain;" alt="" /></div>`;
       }

@@ -147,6 +147,8 @@ export default function LabelPreview({
           const top = mmToPx(el.y) * scale;
           const w = mmToPx(el.width) * scale;
           const h = mmToPx(el.height) * scale;
+          const rotation = el.rotation || 0;
+          const transformOrigin = "center center";
 
           return (
             <div
@@ -161,6 +163,8 @@ export default function LabelPreview({
                 top,
                 width: w,
                 height: h,
+                transform: `rotate(${rotation}deg)`,
+                transformOrigin,
               }}
               onMouseDown={(e) => handleMouseDown(e, el.id)}
               onClick={(e) => {

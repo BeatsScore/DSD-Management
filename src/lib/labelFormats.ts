@@ -14,6 +14,7 @@ export interface LabelElement {
   y: number; // mm from top
   width: number; // mm
   height: number; // mm
+  rotation?: number; // degrees: 0, 45, 90, 180, 270
   // text-specific
   content?: TextContent;
   customText?: string;

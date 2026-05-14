@@ -623,6 +623,28 @@ export default function LabelFormatEditor({
                             </div>
                           )}
 
+                          {/* Rotation — for all element types */}
+                          <div>
+                            <label className="label text-xs">Rotation</label>
+                            <div className="flex gap-1">
+                              {[0, 45, 90, 180, 270].map((deg) => (
+                                <button
+                                  key={deg}
+                                  onClick={() =>
+                                    updateElement(el.id, { rotation: deg })
+                                  }
+                                  className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${
+                                    (el.rotation || 0) === deg
+                                      ? "bg-black text-white"
+                                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                  }`}
+                                >
+                                  {deg}°
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
                           {/* Actions */}
                           <div className="flex gap-2 pt-1">
                             <button
