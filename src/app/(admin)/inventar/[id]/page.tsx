@@ -60,7 +60,7 @@ export default function ProductDetailPage() {
 
   const [form, setForm] = useState<any>({});
   const [owners, setOwners] = useState<{ ownerId: string; quantity: string }[]>([]);
-  const [productItems, setProductItems] = useState<{ id?: string; serial_number: string; barcode: string; status: string; notes: string }[]>([]);
+  const [productItems, setProductItems] = useState<{ id?: string; serial_number: string; barcode: string; status: string; notes: string; condition: string }[]>([]);
 
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
@@ -103,7 +103,7 @@ export default function ProductDetailPage() {
         setProductOwners(po);
       }
       if (items && items.length > 0) {
-        setProductItems(items.map((it: any) => ({ id: it.id, serial_number: it.serial_number || "", barcode: it.barcode, status: it.status, notes: it.notes || "" })));
+        setProductItems(items.map((it: any) => ({ id: it.id, serial_number: it.serial_number || "", barcode: it.barcode, status: it.status, notes: it.notes || "", condition: it.condition || "" })));
       }
       setCategories(cats || []);
       setStaff(staffList || []);
@@ -239,7 +239,7 @@ export default function ProductDetailPage() {
       purchase_date: form.purchaseDate || null,
       purchase_price: safeParseFloat(form.purchasePrice),
       weight: safeParseFloat(form.weight),
-      condition: form.condition || null,
+
     }).eq("id", id);
 
     if (error) {
@@ -277,7 +277,7 @@ export default function ProductDetailPage() {
       if (insertError) {
         toast.error("Fehler beim Erstellen der Produkt-Items: " + insertError.message);
       } else if (inserted) {
-        setProductItems((prev) => [...prev, ...inserted.map((it: any) => ({ id: it.id, serial_number: it.serial_number || "", barcode: it.barcode, status: it.status, notes: it.notes || "" }))]);
+        setProductItems((prev) => [...prev, ...inserted.map((it: any) => ({ id: it.id, serial_number: it.serial_number || "", barcode: it.barcode, status: it.status, notes: it.notes || "", condition: it.condition || "" }))]);
       }
     } else if (productQty < currentQty) {
       const toDelete = productItems.slice(productQty);
@@ -294,6 +294,7 @@ export default function ProductDetailPage() {
             serial_number: item.serial_number,
             notes: item.notes,
             status: item.status,
+            condition: item.condition || null,
           }).eq("id", item.id);
         }
       }
@@ -756,6 +757,18 @@ export default function ProductDetailPage() {
             </div>
 
             <div>
+              <label className="label">Kategorie *</label>
+              <select className="input-field" value={form.categoryId} onChange={(e) => updateForm("categoryId", e.target.value)} required>
+                <option value="">Bitte wählen</option>
+                {sortCategoriesHierarchical(categories).map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.level === 1 ? "\u00A0\u00A0\u2014 " : ""}{cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="label">Bedienungsanleitung</label>
               <div className="space-y-3">
                 <div className="relative">
@@ -819,16 +832,6 @@ export default function ProductDetailPage() {
 
             <div className="grid sm:grid-cols-3 gap-4">
               <div>
-                <label className="label">Zustand</label>
-                <select className="input-field" value={form.condition} onChange={(e) => updateForm("condition", e.target.value)}>
-                  <option value="">Bitte wählen</option>
-                  <option value="neu">Neu</option>
-                  <option value="gut">Gut</option>
-                  <option value="gebraucht">Gebraucht</option>
-                  <option value="defekt">Defekt</option>
-                </select>
-              </div>
-              <div>
                 <label className="label">Status</label>
                 <select className="input-field" value={form.status} onChange={(e) => updateForm("status", e.target.value)}>
                   <option value="verfuegbar">Verfügbar</option>
@@ -844,23 +847,9 @@ export default function ProductDetailPage() {
                   <option value="false">Offline (nicht im Katalog)</option>
                 </select>
               </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Anzahl</label>
                 <input type="number" min="1" step="1" className="input-field" value={form.quantity} onChange={(e) => updateForm("quantity", e.target.value)} />
-              </div>
-              <div>
-                <label className="label">Kategorie *</label>
-                <select className="input-field" value={form.categoryId} onChange={(e) => updateForm("categoryId", e.target.value)} required>
-                  <option value="">Bitte wählen</option>
-                  {sortCategoriesHierarchical(categories).map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.level === 1 ? "\u00A0\u00A0\u2014 " : ""}{cat.name}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
 
@@ -952,7 +941,7 @@ export default function ProductDetailPage() {
                         {item.status}
                       </span>
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="grid sm:grid-cols-3 gap-3">
                       <div>
                         <label className="label text-xs">Seriennummer</label>
                         <div className="flex gap-2">
@@ -979,6 +968,24 @@ export default function ProductDetailPage() {
                             Generieren
                           </button>
                         </div>
+                      </div>
+                      <div>
+                        <label className="label text-xs">Zustand</label>
+                        <select
+                          className="input-field text-sm"
+                          value={item.condition}
+                          onChange={(e) => {
+                            const newItems = [...productItems];
+                            newItems[index].condition = e.target.value;
+                            setProductItems(newItems);
+                          }}
+                        >
+                          <option value="">Bitte wählen</option>
+                          <option value="neu">Neu</option>
+                          <option value="gut">Gut</option>
+                          <option value="gebraucht">Gebraucht</option>
+                          <option value="defekt">Defekt</option>
+                        </select>
                       </div>
                       <div>
                         <label className="label text-xs">Notizen</label>
