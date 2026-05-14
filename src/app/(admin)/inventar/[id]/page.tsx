@@ -941,7 +941,7 @@ export default function ProductDetailPage() {
                         {item.status}
                       </span>
                     </div>
-                    <div className="grid sm:grid-cols-3 gap-3">
+                    <div className="grid sm:grid-cols-2 gap-3">
                       <div>
                         <label className="label text-xs">Seriennummer</label>
                         <div className="flex gap-2">
@@ -970,6 +970,21 @@ export default function ProductDetailPage() {
                         </div>
                       </div>
                       <div>
+                        <label className="label text-xs">Notizen</label>
+                        <input
+                          className="input-field text-sm"
+                          value={item.notes}
+                          onChange={(e) => {
+                            const newItems = [...productItems];
+                            newItems[index].notes = e.target.value;
+                            setProductItems(newItems);
+                          }}
+                          placeholder="Notizen"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid sm:grid-cols-3 gap-3 items-end">
+                      <div>
                         <label className="label text-xs">Zustand</label>
                         <select
                           className="input-field text-sm"
@@ -987,35 +1002,22 @@ export default function ProductDetailPage() {
                           <option value="defekt">Defekt</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="label text-xs">Notizen</label>
-                        <input
-                          className="input-field text-sm"
-                          value={item.notes}
-                          onChange={(e) => {
-                            const newItems = [...productItems];
-                            newItems[index].notes = e.target.value;
-                            setProductItems(newItems);
-                          }}
-                          placeholder="Notizen"
-                        />
+                      <div className="sm:col-span-2 flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-500 mb-1">Barcode</div>
+                          <div className="font-mono text-sm">{item.barcode}</div>
+                        </div>
+                        <div id={`barcode-svg-${item.id}`}>
+                          <Barcode value={item.barcode} format="CODE128" width={1.5} height={60} fontSize={12} margin={0} />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => printItemBarcode(item)}
+                          className="btn-secondary py-2 px-3 text-sm"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-500 mb-1">Barcode</div>
-                        <div className="font-mono text-sm">{item.barcode}</div>
-                      </div>
-                      <div id={`barcode-svg-${item.id}`}>
-                        <Barcode value={item.barcode} format="CODE128" width={1.5} height={60} fontSize={12} margin={0} />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => printItemBarcode(item)}
-                        className="btn-secondary py-2 px-3 text-sm"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
                 ))}
