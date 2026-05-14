@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Inbox,
+  Wrench,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -38,6 +39,7 @@ export function AdminSidebar({ role }: { role: string }) {
     { href: "/auftraege/", label: "Aufträge", icon: ClipboardList },
     { href: "/planer/", label: "Planer", icon: CalendarDays },
     { href: "/kunden/", label: "Kunden", icon: Users },
+    { href: "/wartung/", label: "Wartung", icon: Wrench },
     ...(role === "admin" ? [{ href: "/mitarbeiter/", label: "Mitarbeiter", icon: UserCog }] : []),
   ];
 
