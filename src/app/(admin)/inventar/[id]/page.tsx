@@ -711,33 +711,35 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg">
-        <button
-          onClick={() => setActiveTab("catalog")}
-          className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "catalog" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Katalog
-        </button>
-        <button
-          onClick={() => setActiveTab("internal")}
-          className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "internal" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Intern
-        </button>
-        <button
-          onClick={() => setActiveTab("barcode")}
-          className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "barcode" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Barcode
-        </button>
-        <button
-          onClick={() => setActiveTab("maintenance")}
-          className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "maintenance" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Wartung
-        </button>
-      </div>
+      {/* Tabs — only visible in edit mode */}
+      {isEditing && (
+        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab("catalog")}
+            className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "catalog" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            Katalog
+          </button>
+          <button
+            onClick={() => setActiveTab("internal")}
+            className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "internal" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            Intern
+          </button>
+          <button
+            onClick={() => setActiveTab("barcode")}
+            className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "barcode" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            Barcode
+          </button>
+          <button
+            onClick={() => setActiveTab("maintenance")}
+            className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === "maintenance" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            Wartung
+          </button>
+        </div>
+      )}
 
       {isEditing ? (
         <form onSubmit={handleSave} className="space-y-6">
@@ -1193,9 +1195,11 @@ export default function ProductDetailPage() {
           )}
         </form>
       ) : (
-        /* READ-ONLY OVERVIEW */
-        <div className="space-y-6">
-          {activeTab === "catalog" && (
+        /* READ-ONLY OVERVIEW — all tabs on one page */
+        <div className="space-y-8">
+          {/* === KATALOG === */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Katalog</h2>
             <div className="card space-y-6">
               {/* Product Images */}
               {existingImageUrls.length > 0 && (
@@ -1259,9 +1263,11 @@ export default function ProductDetailPage() {
                 </div>
               )}
             </div>
-          )}
+          </section>
 
-          {activeTab === "internal" && (
+          {/* === INTERN === */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Intern</h2>
             <div className="card space-y-6">
               <div className="grid sm:grid-cols-3 gap-4">
                 <InfoRow label="Mietpreis pro Tag" value={product.rental_price_per_day != null ? formatCurrency(product.rental_price_per_day) : "—"} />
@@ -1318,9 +1324,11 @@ export default function ProductDetailPage() {
                 )}
               </div>
             </div>
-          )}
+          </section>
 
-          {activeTab === "barcode" && (
+          {/* === BARCODE === */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Barcode</h2>
             <div className="card space-y-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1382,9 +1390,11 @@ export default function ProductDetailPage() {
                 </div>
               </div>
             </div>
-          )}
+          </section>
 
-          {activeTab === "maintenance" && (
+          {/* === WARTUNG === */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Wartung</h2>
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="section-header">Wartungshistorie</h2>
@@ -1475,7 +1485,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
             </div>
-          )}
+          </section>
         </div>
       )}
 
