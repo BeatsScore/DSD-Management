@@ -36,7 +36,7 @@ export default function LabelPreview({
     origY: number;
   } | null>(null);
 
-  const scale = 3.5; // preview scale factor
+  const scale = 5.5; // preview scale factor
   const widthPx = mmToPx(format.width) * scale;
   const heightPx = mmToPx(format.height) * scale;
 
