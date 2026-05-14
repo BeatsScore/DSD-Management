@@ -13,5 +13,20 @@ create table if not exists public.order_change_logs (
 -- RLS
 alter table public.order_change_logs enable row level security;
 
+-- Ensure is_admin_or_staff exists (safe fallback)
+create or replace function public.is_admin_or_staff()
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('admin', 'staff')
+  );
+end;
+$$ language plpgsql security definer;
+
 drop policy if exists "Admin and staff full access on order_change_logs" on public.order_change_logs;
-create policy "Admin and staff full access on order_change_logs" on public.order_change_logs for all to authenticated using (public.is_admin_or_staff()) with check (public.is_admin_or_staff());
+create policy "Admin and staff full access on order_change_logs" 
+  on public.order_change_logs 
+  for all to authenticated 
+  using (public.is_admin_or_staff()) 
+  with check (public.is_admin_or_staff());
