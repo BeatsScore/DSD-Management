@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Loader2, ArrowLeft, Plus, X, UserPlus, Search } from "lucide-react";
-import { generateOrderNumber, getRentalDays } from "@/lib/utils";
+import { generateOrderNumber } from "@/lib/utils";
 
 export default function NewOrderPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -22,6 +22,7 @@ export default function NewOrderPage() {
     startDate: "",
     endDate: "",
     notes: "",
+    dayRates: 1,
   });
 
   const [selectedProducts, setSelectedProducts] = useState<
@@ -80,14 +81,17 @@ export default function NewOrderPage() {
       toast.error("Das Startdatum darf nicht nach dem Enddatum liegen.");
       return;
     }
+    if (form.dayRates < 1) {
+      toast.error("Tagessätze müssen mindestens 1 betragen.");
+      return;
+    }
 
     setLoading(true);
     const orderNumber = generateOrderNumber();
 
     // Calculate total amount from line items
-    const days = getRentalDays(form.startDate, form.endDate);
     const totalAmount = selectedProducts.reduce(
-      (sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * days,
+      (sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * form.dayRates,
       0
     );
 
@@ -252,6 +256,24 @@ export default function NewOrderPage() {
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                 required
               />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Tagessätze *</label>
+              <input
+                type="number"
+                min={1}
+                className="input-field"
+                value={form.dayRates}
+                onChange={(e) => setForm({ ...form, dayRates: parseInt(e.target.value) || 1 })}
+                required
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                {selectedProducts.length > 0
+                  ? `Gesamtbetrag: ${selectedProducts.reduce((sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity, 0).toFixed(2)} CHF × ${form.dayRates} = ${(selectedProducts.reduce((sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity, 0) * form.dayRates).toFixed(2)} CHF`
+                  : "Produkte hinzufügen, um den Gesamtbetrag zu sehen"}
+              </p>
             </div>
           </div>
           <div>
