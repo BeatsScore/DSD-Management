@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import Barcode from "react-barcode";
 import { LabelFormat, LabelElement, mmToPx, MM_TO_PX } from "@/lib/labelFormats";
 
@@ -36,9 +36,30 @@ export default function LabelPreview({
     origY: number;
   } | null>(null);
 
-  const scale = 5.5; // preview scale factor
-  const widthPx = mmToPx(format.width) * scale;
-  const heightPx = mmToPx(format.height) * scale;
+  // Compute a dynamic scale so the label fits within available viewport
+  // We use a ref to measure the parent container and compute scale
+  const [containerSize, setContainerSize] = useState({ w: 800, h: 600 });
+
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current?.parentElement) {
+        const rect = containerRef.current.parentElement.getBoundingClientRect();
+        // Leave some padding
+        setContainerSize({ w: rect.width - 64, h: rect.height - 64 });
+      }
+    };
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  const baseWidthPx = mmToPx(format.width);
+  const baseHeightPx = mmToPx(format.height);
+  const scaleX = containerSize.w / baseWidthPx;
+  const scaleY = containerSize.h / baseHeightPx;
+  const scale = Math.min(scaleX, scaleY, 8); // cap at 8x so it's not too huge
+  const widthPx = baseWidthPx * scale;
+  const heightPx = baseHeightPx * scale;
 
   const getTextValue = (el: LabelElement): string => {
     switch (el.content) {
