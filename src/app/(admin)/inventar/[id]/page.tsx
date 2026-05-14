@@ -957,13 +957,14 @@ export default function ProductDetailPage() {
                           />
                           <button
                             type="button"
+                            disabled={!!item.serial_number}
                             onClick={() => {
                               const newItems = [...productItems];
                               newItems[index].serial_number = generateSerialNumber(product.product_id, index + 1);
                               setProductItems(newItems);
                             }}
-                            className="btn-secondary text-xs px-2 py-1 whitespace-nowrap"
-                            title="Seriennummer generieren"
+                            className="btn-secondary text-xs px-2 py-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={item.serial_number ? "Seriennummer bereits vorhanden" : "Seriennummer generieren"}
                           >
                             Generieren
                           </button>
