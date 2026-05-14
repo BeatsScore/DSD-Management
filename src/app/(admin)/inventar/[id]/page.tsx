@@ -19,6 +19,9 @@ import {
   Banknote,
   Check,
   Plus,
+  Pencil,
+  Eye,
+  QrCode,
 } from "lucide-react";
 import Barcode from "react-barcode";
 import { formatDate, formatCurrency, safeParseFloat, safeParseInt, generateBarcode, generateSerialNumber, sortCategoriesHierarchical } from "@/lib/utils";
@@ -40,6 +43,7 @@ export default function ProductDetailPage() {
   const [maintenanceLogs, setMaintenanceLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
@@ -306,6 +310,15 @@ export default function ProductDetailPage() {
     setImageFiles([]);
     setImagePreviews([]);
     setManualFile(null);
+    setIsEditing(false);
+
+    // Refresh product data
+    const { data: p } = await supabase.from("products").select("*, category:category_id(*)").eq("id", id).single();
+    if (p) setProduct(p);
+    const { data: po } = await supabase.from("product_owners").select("*, owner:owner_id(full_name, email)").eq("product_id", id);
+    if (po) setProductOwners(po);
+    const { data: items } = await supabase.from("product_items").select("*").eq("product_id", id).order("created_at");
+    if (items) setProductItems(items.map((it: any) => ({ id: it.id, serial_number: it.serial_number || "", barcode: it.barcode, status: it.status, notes: it.notes || "", condition: it.condition || "" })));
   };
 
   const handleDelete = async () => {
@@ -640,6 +653,38 @@ export default function ProductDetailPage() {
     );
   }
 
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "verfuegbar": return "Verfügbar";
+      case "vermietet": return "Vermietet";
+      case "reserviert": return "Reserviert";
+      case "defekt": return "Defekt";
+      case "inaktiv": return "Inaktiv";
+      default: return status;
+    }
+  };
+
+  const statusBadgeClass = (status: string) => {
+    switch (status) {
+      case "verfuegbar": return "bg-green-100 text-green-700";
+      case "vermietet": return "bg-blue-100 text-blue-700";
+      case "reserviert": return "bg-yellow-100 text-yellow-700";
+      case "defekt": return "bg-red-100 text-red-700";
+      case "inaktiv": return "bg-gray-100 text-gray-700";
+      default: return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const conditionLabel = (condition: string) => {
+    switch (condition) {
+      case "neu": return "Neu";
+      case "gut": return "Gut";
+      case "gebraucht": return "Gebraucht";
+      case "defekt": return "Defekt";
+      default: return condition || "—";
+    }
+  };
+
   return (
     <div className="max-w-3xl">
       <Link href="/inventar/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-black mb-6">
@@ -647,10 +692,23 @@ export default function ProductDetailPage() {
       </Link>
 
       <div className="flex items-center justify-between mb-6">
-        <h1 className="page-header">Artikel bearbeiten</h1>
-        <button onClick={handleDelete} className="text-red-600 hover:text-red-700 p-2">
-          <Trash2 className="w-5 h-5" />
-        </button>
+        <h1 className="page-header">{isEditing ? "Artikel bearbeiten" : product.name}</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              isEditing
+                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-black text-white hover:bg-gray-800"
+            }`}
+          >
+            {isEditing ? <Eye className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
+            {isEditing ? "Übersicht" : "Bearbeiten"}
+          </button>
+          <button onClick={handleDelete} className="text-red-600 hover:text-red-700 p-2">
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -681,458 +739,745 @@ export default function ProductDetailPage() {
         </button>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {activeTab === "catalog" && (
-          <div className="card space-y-5">
-            <div>
-              <label className="label">Produktbilder</label>
-              <div className="mt-2 flex flex-wrap gap-3">
-                {existingImageUrls.map((url, index) => (
-                  <div key={`existing-${index}`} className="relative inline-block">
-                    <img src={url} alt={`Bild ${index + 1}`} className="w-32 h-32 object-cover rounded-lg border border-gray-200" loading="lazy" decoding="async" />
-                    <button type="button" onClick={() => removeExistingImage(index)} className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"><X className="w-3.5 h-3.5" /></button>
-                  </div>
-                ))}
-                {imagePreviews.map((preview, index) => (
-                  <div key={`new-${index}`} className="relative inline-block">
-                    <img src={preview} alt={`Neu ${index + 1}`} className="w-32 h-32 object-cover rounded-lg border border-gray-200" loading="lazy" decoding="async" />
-                    <button type="button" onClick={() => removeNewImage(index)} className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"><X className="w-3.5 h-3.5" /></button>
-                  </div>
-                ))}
-                <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
-                  <Upload className="w-6 h-6 text-gray-400 mb-1" />
-                  <span className="text-xs text-gray-500">Hinzufügen</span>
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label className="label">Produktname *</label>
-              <input className="input-field" value={form.name} onChange={(e) => updateForm("name", e.target.value)} required />
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
+      {isEditing ? (
+        <form onSubmit={handleSave} className="space-y-6">
+          {activeTab === "catalog" && (
+            <div className="card space-y-5">
               <div>
-                <label className="label">Herstellername</label>
-                <select
-                  className="input-field"
-                  value={isNewManufacturer ? "__new__" : form.manufacturer}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "__new__") {
-                      setIsNewManufacturer(true);
-                      updateForm("manufacturer", "");
-                    } else {
-                      setIsNewManufacturer(false);
-                      updateForm("manufacturer", value);
-                    }
-                  }}
-                >
-                  <option value="">Bitte wählen</option>
-                  {manufacturers.map((m) => (
-                    <option key={m.id} value={m.name}>{m.name}</option>
+                <label className="label">Produktbilder</label>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  {existingImageUrls.map((url, index) => (
+                    <div key={`existing-${index}`} className="relative inline-block">
+                      <img src={url} alt={`Bild ${index + 1}`} className="w-32 h-32 object-cover rounded-lg border border-gray-200" loading="lazy" decoding="async" />
+                      <button type="button" onClick={() => removeExistingImage(index)} className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"><X className="w-3.5 h-3.5" /></button>
+                    </div>
                   ))}
-                  <option value="__new__">+ Neuer Hersteller</option>
-                </select>
-                {isNewManufacturer && (
-                  <div className="mt-3">
-                    <label className="label">Neuer Hersteller Name *</label>
-                    <input
-                      className="input-field"
-                      placeholder="z. B. Pioneer"
-                      value={newManufacturerName}
-                      onChange={(e) => setNewManufacturerName(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                )}
-              </div>
-              <div><label className="label">Herstellungsdatum</label><input type="date" className="input-field" value={form.manufactureDate} onChange={(e) => updateForm("manufactureDate", e.target.value)} /></div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div><label className="label">Masse</label><input className="input-field" placeholder="z. B. 30 x 40 x 20 cm" value={form.dimensions} onChange={(e) => updateForm("dimensions", e.target.value)} /></div>
-              <div><label className="label">Gewicht (kg)</label><input type="number" step="0.01" min="0" className="input-field" placeholder="0.00" value={form.weight} onChange={(e) => updateForm("weight", e.target.value)} /></div>
-            </div>
-
-            <div>
-              <label className="label">Kategorie *</label>
-              <select className="input-field" value={form.categoryId} onChange={(e) => updateForm("categoryId", e.target.value)} required>
-                <option value="">Bitte wählen</option>
-                {sortCategoriesHierarchical(categories).map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.level === 1 ? "\u00A0\u00A0\u2014 " : ""}{cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="label">Bedienungsanleitung</label>
-              <div className="space-y-3">
-                <div className="relative">
-                  <input type="url" className="input-field pr-10" placeholder="https://..." value={form.manualUrl} onChange={(e) => updateForm("manualUrl", e.target.value)} />
-                  {!form.manualUrl && !manualFile && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Nicht verfügbar</span>}
-                </div>
-
-                {manualFile ? (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
-                    <FileText className="w-5 h-5 text-gray-400" />
-                    <span className="text-sm truncate flex-1">{manualFile.name}</span>
-                    <button type="button" onClick={() => setManualFile(null)} className="p-1 text-gray-400 hover:text-red-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
-                    <FileText className="w-6 h-6 text-gray-400 mb-1" />
-                    <span className="text-xs text-gray-500">PDF hochladen</span>
-                    <input
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        if (file.type !== "application/pdf") {
-                          toast.error("Bitte eine PDF-Datei hochladen.");
-                          return;
-                        }
-                        if (file.size > 20 * 1024 * 1024) {
-                          toast.error("PDF darf maximal 20 MB gross sein.");
-                          return;
-                        }
-                        setManualFile(file);
-                      }}
-                    />
+                  {imagePreviews.map((preview, index) => (
+                    <div key={`new-${index}`} className="relative inline-block">
+                      <img src={preview} alt={`Neu ${index + 1}`} className="w-32 h-32 object-cover rounded-lg border border-gray-200" loading="lazy" decoding="async" />
+                      <button type="button" onClick={() => removeNewImage(index)} className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                  <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                    <Upload className="w-6 h-6 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-500">Hinzufügen</span>
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
                   </label>
-                )}
+                </div>
+              </div>
 
-                {form.manualUrl && (
-                  <div className="pt-2">
-                    <ManualQrCode url={form.manualUrl} productName={form.name || product.name} size={96} />
+              <div>
+                <label className="label">Produktname *</label>
+                <input className="input-field" value={form.name} onChange={(e) => updateForm("name", e.target.value)} required />
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Herstellername</label>
+                  <select
+                    className="input-field"
+                    value={isNewManufacturer ? "__new__" : form.manufacturer}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "__new__") {
+                        setIsNewManufacturer(true);
+                        updateForm("manufacturer", "");
+                      } else {
+                        setIsNewManufacturer(false);
+                        updateForm("manufacturer", value);
+                      }
+                    }}
+                  >
+                    <option value="">Bitte wählen</option>
+                    {manufacturers.map((m) => (
+                      <option key={m.id} value={m.name}>{m.name}</option>
+                    ))}
+                    <option value="__new__">+ Neuer Hersteller</option>
+                  </select>
+                  {isNewManufacturer && (
+                    <div className="mt-3">
+                      <label className="label">Neuer Hersteller Name *</label>
+                      <input
+                        className="input-field"
+                        placeholder="z. B. Pioneer"
+                        value={newManufacturerName}
+                        onChange={(e) => setNewManufacturerName(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+                <div><label className="label">Herstellungsdatum</label><input type="date" className="input-field" value={form.manufactureDate} onChange={(e) => updateForm("manufactureDate", e.target.value)} /></div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div><label className="label">Masse</label><input className="input-field" placeholder="z. B. 30 x 40 x 20 cm" value={form.dimensions} onChange={(e) => updateForm("dimensions", e.target.value)} /></div>
+                <div><label className="label">Gewicht (kg)</label><input type="number" step="0.01" min="0" className="input-field" placeholder="0.00" value={form.weight} onChange={(e) => updateForm("weight", e.target.value)} /></div>
+              </div>
+
+              <div>
+                <label className="label">Kategorie *</label>
+                <select className="input-field" value={form.categoryId} onChange={(e) => updateForm("categoryId", e.target.value)} required>
+                  <option value="">Bitte wählen</option>
+                  {sortCategoriesHierarchical(categories).map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.level === 1 ? "\u00A0\u00A0\u2014 " : ""}{cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Bedienungsanleitung</label>
+                <div className="space-y-3">
+                  <div className="relative">
+                    <input type="url" className="input-field pr-10" placeholder="https://..." value={form.manualUrl} onChange={(e) => updateForm("manualUrl", e.target.value)} />
+                    {!form.manualUrl && !manualFile && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Nicht verfügbar</span>}
                   </div>
-                )}
-              </div>
-            </div>
 
-            <div><label className="label">Technische Daten</label><textarea rows={4} className="input-field" placeholder="Leistung, Anschlüsse, Stromverbrauch, etc." value={form.technicalSpecs} onChange={(e) => updateForm("technicalSpecs", e.target.value)} /></div>
-            <div><label className="label">Beschreibung</label><textarea rows={4} className="input-field" value={form.description} onChange={(e) => updateForm("description", e.target.value)} /></div>
-          </div>
-        )}
-
-        {activeTab === "internal" && (
-          <div className="card space-y-5">
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div><label className="label">Mietpreis pro Tag (CHF)</label><input type="number" step="0.01" min="0" className="input-field" placeholder="0.00" value={form.rentalPricePerDay} onChange={(e) => updateForm("rentalPricePerDay", e.target.value)} /></div>
-              <div><label className="label">Neupreis (CHF)</label><input type="number" step="0.01" min="0" className="input-field" placeholder="0.00" value={form.purchasePrice} onChange={(e) => updateForm("purchasePrice", e.target.value)} /></div>
-              <div><label className="label">Kaufdatum</label><input type="date" className="input-field" value={form.purchaseDate} onChange={(e) => updateForm("purchaseDate", e.target.value)} /></div>
-            </div>
-
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div>
-                <label className="label">Status</label>
-                <select className="input-field" value={form.status} onChange={(e) => updateForm("status", e.target.value)}>
-                  <option value="verfuegbar">Verfügbar</option>
-                  <option value="vermietet">Vermietet</option>
-                  <option value="reserviert">Reserviert</option>
-                  <option value="defekt">Defekt</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Sichtbarkeit</label>
-                <select className="input-field" value={form.status === "inaktiv" ? "false" : "true"} onChange={(e) => updateForm("status", e.target.value === "true" ? "verfuegbar" : "inaktiv")}>
-                  <option value="true">Online (im Katalog sichtbar)</option>
-                  <option value="false">Offline (nicht im Katalog)</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Anzahl</label>
-                <input type="number" min="1" step="1" className="input-field" value={form.quantity} onChange={(e) => updateForm("quantity", e.target.value)} />
-              </div>
-            </div>
-
-            <div>
-              <label className="label">Besitzer</label>
-              <div className="space-y-2">
-                {owners.map((o, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <select
-                      className="input-field flex-1"
-                      value={o.ownerId}
-                      onChange={(e) => {
-                        const newOwners = [...owners];
-                        newOwners[idx].ownerId = e.target.value;
-                        setOwners(newOwners);
-                      }}
-                    >
-                      <option value="">Bitte wählen</option>
-                      {staff.map((s) => (
-                        <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min={1}
-                      className="input-field w-24"
-                      placeholder="Anzahl"
-                      value={o.quantity}
-                      onChange={(e) => {
-                        const newOwners = [...owners];
-                        newOwners[idx].quantity = e.target.value;
-                        setOwners(newOwners);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setOwners((prev) => prev.filter((_, i) => i !== idx))}
-                      className="p-2 text-gray-400 hover:text-red-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setOwners((prev) => [...prev, { ownerId: "", quantity: "1" }])}
-                  className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-md px-3 py-1.5 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Besitzer hinzufügen
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "barcode" && (
-          <div className="card space-y-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <label className="label text-xs mb-1">Etikettenformat</label>
-                <select
-                  className="input-field text-sm py-1.5"
-                  value={labelFormat}
-                  onChange={(e) => setLabelFormat(e.target.value as "62mm" | "29mm")}
-                >
-                  <option value="62mm">62mm Endlos (62 x variabel)</option>
-                  <option value="29mm">29mm Standard (29 x 90mm)</option>
-                </select>
-              </div>
-              <button onClick={printBarcode} className="btn-secondary py-2 px-4 text-sm">
-                <Printer className="w-4 h-4 mr-2 inline" /> Haupt-Barcode drucken
-              </button>
-            </div>
-            <div className="flex justify-center py-2 bg-gray-50 rounded-lg">
-              <div id="barcode-svg">
-                <Barcode value={product.barcode} format="CODE128" width={2} height={80} fontSize={14} margin={0} />
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-4">Produkt-Items ({productItems.length})</h3>
-              <div className="space-y-4">
-                {productItems.map((item, index) => (
-                  <div key={item.id || index} className="border border-gray-200 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-500">Item #{index + 1}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
-                        {item.status}
-                      </span>
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="label text-xs">Seriennummer</label>
-                        <div className="flex gap-2">
-                          <input
-                            className="input-field text-sm"
-                            value={item.serial_number}
-                            onChange={(e) => {
-                              const newItems = [...productItems];
-                              newItems[index].serial_number = e.target.value;
-                              setProductItems(newItems);
-                            }}
-                            placeholder="Seriennummer"
-                          />
-                          <button
-                            type="button"
-                            disabled={!!item.serial_number}
-                            onClick={() => {
-                              const newItems = [...productItems];
-                              newItems[index].serial_number = generateSerialNumber(product.product_id, index + 1);
-                              setProductItems(newItems);
-                            }}
-                            className="btn-secondary text-xs px-2 py-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={item.serial_number ? "Seriennummer bereits vorhanden" : "Seriennummer generieren"}
-                          >
-                            Generieren
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="label text-xs">Notizen</label>
-                        <input
-                          className="input-field text-sm"
-                          value={item.notes}
-                          onChange={(e) => {
-                            const newItems = [...productItems];
-                            newItems[index].notes = e.target.value;
-                            setProductItems(newItems);
-                          }}
-                          placeholder="Notizen"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid sm:grid-cols-3 gap-3 items-end">
-                      <div>
-                        <label className="label text-xs">Zustand</label>
-                        <select
-                          className="input-field text-sm"
-                          value={item.condition}
-                          onChange={(e) => {
-                            const newItems = [...productItems];
-                            newItems[index].condition = e.target.value;
-                            setProductItems(newItems);
-                          }}
-                        >
-                          <option value="">Bitte wählen</option>
-                          <option value="neu">Neu</option>
-                          <option value="gut">Gut</option>
-                          <option value="gebraucht">Gebraucht</option>
-                          <option value="defekt">Defekt</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-500 mb-1">Barcode</div>
-                        <div className="font-mono text-sm">{item.barcode}</div>
-                      </div>
-                      <div id={`barcode-svg-${item.id}`}>
-                        <Barcode value={item.barcode} format="CODE128" width={1.5} height={60} fontSize={12} margin={0} />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => printItemBarcode(item)}
-                        className="btn-secondary py-2 px-3 text-sm"
-                      >
-                        <Printer className="w-4 h-4" />
+                  {manualFile ? (
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                      <FileText className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm truncate flex-1">{manualFile.name}</span>
+                      <button type="button" onClick={() => setManualFile(null)} className="p-1 text-gray-400 hover:text-red-600">
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
-                  </div>
-                ))}
-                {productItems.length === 0 && (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500 text-sm">Keine Produkt-Items vorhanden. Speichern Sie das Produkt, um Items basierend auf der Anzahl zu generieren.</p>
-                  </div>
-                )}
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                      <FileText className="w-6 h-6 text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-500">PDF hochladen</span>
+                      <input
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.type !== "application/pdf") {
+                            toast.error("Bitte eine PDF-Datei hochladen.");
+                            return;
+                          }
+                          if (file.size > 20 * 1024 * 1024) {
+                            toast.error("PDF darf maximal 20 MB gross sein.");
+                            return;
+                          }
+                          setManualFile(file);
+                        }}
+                      />
+                    </label>
+                  )}
+
+                  {form.manualUrl && (
+                    <div className="pt-2">
+                      <ManualQrCode url={form.manualUrl} productName={form.name || product.name} size={96} />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {activeTab === "maintenance" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="section-header">Wartungshistorie</h2>
-              <button onClick={() => setShowMaintForm(!showMaintForm)} className="btn-secondary text-sm py-2 px-3">
-                <Wrench className="w-4 h-4 mr-1" /> {showMaintForm ? "Abbrechen" : "Neuer Eintrag"}
-              </button>
+              <div><label className="label">Technische Daten</label><textarea rows={4} className="input-field" placeholder="Leistung, Anschlüsse, Stromverbrauch, etc." value={form.technicalSpecs} onChange={(e) => updateForm("technicalSpecs", e.target.value)} /></div>
+              <div><label className="label">Beschreibung</label><textarea rows={4} className="input-field" value={form.description} onChange={(e) => updateForm("description", e.target.value)} /></div>
             </div>
+          )}
 
-            {showMaintForm && (
-              <div className="card space-y-4">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Wartungsdatum *</label>
-                    <div className="relative">
-                      <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input type="date" value={maintDate} onChange={(e) => setMaintDate(e.target.value)} className="input-field pl-9 w-full" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="label">Nächster Service</label>
-                    <div className="relative">
-                      <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input type="date" value={maintNext} onChange={(e) => setMaintNext(e.target.value)} className="input-field pl-9 w-full" />
-                    </div>
-                  </div>
+          {activeTab === "internal" && (
+            <div className="card space-y-5">
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div><label className="label">Mietpreis pro Tag (CHF)</label><input type="number" step="0.01" min="0" className="input-field" placeholder="0.00" value={form.rentalPricePerDay} onChange={(e) => updateForm("rentalPricePerDay", e.target.value)} /></div>
+                <div><label className="label">Neupreis (CHF)</label><input type="number" step="0.01" min="0" className="input-field" placeholder="0.00" value={form.purchasePrice} onChange={(e) => updateForm("purchasePrice", e.target.value)} /></div>
+                <div><label className="label">Kaufdatum</label><input type="date" className="input-field" value={form.purchaseDate} onChange={(e) => updateForm("purchaseDate", e.target.value)} /></div>
+              </div>
+
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="label">Status</label>
+                  <select className="input-field" value={form.status} onChange={(e) => updateForm("status", e.target.value)}>
+                    <option value="verfuegbar">Verfügbar</option>
+                    <option value="vermietet">Vermietet</option>
+                    <option value="reserviert">Reserviert</option>
+                    <option value="defekt">Defekt</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="label">Beschreibung *</label>
-                  <textarea rows={3} value={maintDesc} onChange={(e) => setMaintDesc(e.target.value)} placeholder="Was wurde gemacht?" className="input-field w-full" />
+                  <label className="label">Sichtbarkeit</label>
+                  <select className="input-field" value={form.status === "inaktiv" ? "false" : "true"} onChange={(e) => updateForm("status", e.target.value === "true" ? "verfuegbar" : "inaktiv")}>
+                    <option value="true">Online (im Katalog sichtbar)</option>
+                    <option value="false">Offline (nicht im Katalog)</option>
+                  </select>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Kosten (CHF)</label>
-                    <div className="relative">
-                      <Banknote className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input type="number" step="0.01" min="0" value={maintCost} onChange={(e) => setMaintCost(e.target.value)} className="input-field pl-9 w-full" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="label">Durchgeführt von</label>
-                    <div className="relative">
-                      <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <select value={maintStaff} onChange={(e) => setMaintStaff(e.target.value)} className="input-field pl-9 w-full">
+                <div>
+                  <label className="label">Anzahl</label>
+                  <input type="number" min="1" step="1" className="input-field" value={form.quantity} onChange={(e) => updateForm("quantity", e.target.value)} />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Besitzer</label>
+                <div className="space-y-2">
+                  {owners.map((o, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <select
+                        className="input-field flex-1"
+                        value={o.ownerId}
+                        onChange={(e) => {
+                          const newOwners = [...owners];
+                          newOwners[idx].ownerId = e.target.value;
+                          setOwners(newOwners);
+                        }}
+                      >
                         <option value="">Bitte wählen</option>
-                        {staff.map((s) => (<option key={s.id} value={s.id}>{s.full_name || s.email}</option>))}
+                        {staff.map((s) => (
+                          <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                        ))}
                       </select>
+                      <input
+                        type="number"
+                        min={1}
+                        className="input-field w-24"
+                        placeholder="Anzahl"
+                        value={o.quantity}
+                        onChange={(e) => {
+                          const newOwners = [...owners];
+                          newOwners[idx].quantity = e.target.value;
+                          setOwners(newOwners);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOwners((prev) => prev.filter((_, i) => i !== idx))}
+                        className="p-2 text-gray-400 hover:text-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={() => setShowMaintForm(false)} className="flex-1 btn-secondary py-2.5">Abbrechen</button>
-                  <button onClick={saveMaintenance} disabled={savingMaint} className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50">
-                    {savingMaint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                    Speichern
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setOwners((prev) => [...prev, { ownerId: "", quantity: "1" }])}
+                    className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-md px-3 py-1.5 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Besitzer hinzufügen
                   </button>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {maintenanceLogs.length > 0 ? (
-              <div className="space-y-3">
-                {maintenanceLogs.map((log) => (
-                  <div key={log.id} className="card flex flex-col sm:flex-row sm:items-start gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium">{formatDate(log.maintenance_date)}</span>
-                        {log.next_service_date && (
-                          <span className="text-xs text-gray-500">(Nächster: {formatDate(log.next_service_date)})</span>
-                        )}
+          {activeTab === "barcode" && (
+            <div className="card space-y-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <label className="label text-xs mb-1">Etikettenformat</label>
+                  <select
+                    className="input-field text-sm py-1.5"
+                    value={labelFormat}
+                    onChange={(e) => setLabelFormat(e.target.value as "62mm" | "29mm")}
+                  >
+                    <option value="62mm">62mm Endlos (62 x variabel)</option>
+                    <option value="29mm">29mm Standard (29 x 90mm)</option>
+                  </select>
+                </div>
+                <button onClick={printBarcode} className="btn-secondary py-2 px-4 text-sm">
+                  <Printer className="w-4 h-4 mr-2 inline" /> Haupt-Barcode drucken
+                </button>
+              </div>
+              <div className="flex justify-center py-2 bg-gray-50 rounded-lg">
+                <div id="barcode-svg">
+                  <Barcode value={product.barcode} format="CODE128" width={2} height={80} fontSize={14} margin={0} />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-sm font-medium text-gray-900 mb-4">Produkt-Items ({productItems.length})</h3>
+                <div className="space-y-4">
+                  {productItems.map((item, index) => (
+                    <div key={item.id || index} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-500">Item #{index + 1}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
+                          {item.status}
+                        </span>
                       </div>
-                      <p className="text-sm text-gray-700">{log.description}</p>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                        {log.cost != null && <span>Kosten: {formatCurrency(log.cost)}</span>}
-                        {log.performed_by_profile && <span>Durch: {log.performed_by_profile.full_name}</span>}
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="label text-xs">Seriennummer</label>
+                          <div className="flex gap-2">
+                            <input
+                              className="input-field text-sm"
+                              value={item.serial_number}
+                              onChange={(e) => {
+                                const newItems = [...productItems];
+                                newItems[index].serial_number = e.target.value;
+                                setProductItems(newItems);
+                              }}
+                              placeholder="Seriennummer"
+                            />
+                            <button
+                              type="button"
+                              disabled={!!item.serial_number}
+                              onClick={() => {
+                                const newItems = [...productItems];
+                                newItems[index].serial_number = generateSerialNumber(product.product_id, index + 1);
+                                setProductItems(newItems);
+                              }}
+                              className="btn-secondary text-xs px-2 py-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                              title={item.serial_number ? "Seriennummer bereits vorhanden" : "Seriennummer generieren"}
+                            >
+                              Generieren
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="label text-xs">Notizen</label>
+                          <input
+                            className="input-field text-sm"
+                            value={item.notes}
+                            onChange={(e) => {
+                              const newItems = [...productItems];
+                              newItems[index].notes = e.target.value;
+                              setProductItems(newItems);
+                            }}
+                            placeholder="Notizen"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid sm:grid-cols-3 gap-3 items-end">
+                        <div>
+                          <label className="label text-xs">Zustand</label>
+                          <select
+                            className="input-field text-sm"
+                            value={item.condition}
+                            onChange={(e) => {
+                              const newItems = [...productItems];
+                              newItems[index].condition = e.target.value;
+                              setProductItems(newItems);
+                            }}
+                          >
+                            <option value="">Bitte wählen</option>
+                            <option value="neu">Neu</option>
+                            <option value="gut">Gut</option>
+                            <option value="gebraucht">Gebraucht</option>
+                            <option value="defekt">Defekt</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-500 mb-1">Barcode</div>
+                          <div className="font-mono text-sm">{item.barcode}</div>
+                        </div>
+                        <div id={`barcode-svg-${item.id}`}>
+                          <Barcode value={item.barcode} format="CODE128" width={1.5} height={60} fontSize={12} margin={0} />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => printItemBarcode(item)}
+                          className="btn-secondary py-2 px-3 text-sm"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <button onClick={() => deleteMaintenanceLog(log.id)} className="p-2 text-gray-400 hover:text-red-600">
-                      <Trash2 className="w-4 h-4" />
+                  ))}
+                  {productItems.length === 0 && (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <p className="text-gray-500 text-sm">Keine Produkt-Items vorhanden. Speichern Sie das Produkt, um Items basierend auf der Anzahl zu generieren.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "maintenance" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="section-header">Wartungshistorie</h2>
+                <button onClick={() => setShowMaintForm(!showMaintForm)} className="btn-secondary text-sm py-2 px-3">
+                  <Wrench className="w-4 h-4 mr-1" /> {showMaintForm ? "Abbrechen" : "Neuer Eintrag"}
+                </button>
+              </div>
+
+              {showMaintForm && (
+                <div className="card space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Wartungsdatum *</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="date" value={maintDate} onChange={(e) => setMaintDate(e.target.value)} className="input-field pl-9 w-full" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Nächster Service</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="date" value={maintNext} onChange={(e) => setMaintNext(e.target.value)} className="input-field pl-9 w-full" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Beschreibung *</label>
+                    <textarea rows={3} value={maintDesc} onChange={(e) => setMaintDesc(e.target.value)} placeholder="Was wurde gemacht?" className="input-field w-full" />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Kosten (CHF)</label>
+                      <div className="relative">
+                        <Banknote className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="number" step="0.01" min="0" value={maintCost} onChange={(e) => setMaintCost(e.target.value)} className="input-field pl-9 w-full" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Durchgeführt von</label>
+                      <div className="relative">
+                        <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select value={maintStaff} onChange={(e) => setMaintStaff(e.target.value)} className="input-field pl-9 w-full">
+                          <option value="">Bitte wählen</option>
+                          {staff.map((s) => (<option key={s.id} value={s.id}>{s.full_name || s.email}</option>))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowMaintForm(false)} className="flex-1 btn-secondary py-2.5">Abbrechen</button>
+                    <button onClick={saveMaintenance} disabled={savingMaint} className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50">
+                      {savingMaint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      Speichern
                     </button>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10 bg-gray-50 rounded-xl">
-                <Wrench className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">Keine Wartungseinträge vorhanden.</p>
-              </div>
-            )}
-          </div>
-        )}
+                </div>
+              )}
 
-        {(activeTab === "catalog" || activeTab === "internal") && (
-          <div className="pt-2">
-            <button type="submit" disabled={saving} className="btn-primary w-full">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Änderungen speichern"}
-            </button>
-          </div>
-        )}
-      </form>
+              {maintenanceLogs.length > 0 ? (
+                <div className="space-y-3">
+                  {maintenanceLogs.map((log) => (
+                    <div key={log.id} className="card flex flex-col sm:flex-row sm:items-start gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium">{formatDate(log.maintenance_date)}</span>
+                          {log.next_service_date && (
+                            <span className="text-xs text-gray-500">(Nächster: {formatDate(log.next_service_date)})</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700">{log.description}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          {log.cost != null && <span>Kosten: {formatCurrency(log.cost)}</span>}
+                          {log.performed_by_profile && <span>Durch: {log.performed_by_profile.full_name}</span>}
+                        </div>
+                      </div>
+                      <button onClick={() => deleteMaintenanceLog(log.id)} className="p-2 text-gray-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-gray-50 rounded-xl">
+                  <Wrench className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">Keine Wartungseinträge vorhanden.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(activeTab === "catalog" || activeTab === "internal") && (
+            <div className="pt-2">
+              <button type="submit" disabled={saving} className="btn-primary w-full">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Änderungen speichern"}
+              </button>
+            </div>
+          )}
+        </form>
+      ) : (
+        /* READ-ONLY OVERVIEW */
+        <div className="space-y-6">
+          {activeTab === "catalog" && (
+            <div className="card space-y-6">
+              {/* Product Images */}
+              {existingImageUrls.length > 0 && (
+                <div>
+                  <label className="label">Produktbilder</label>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {existingImageUrls.map((url, index) => (
+                      <img key={index} src={url} alt={`Bild ${index + 1}`} className="w-32 h-32 object-cover rounded-lg border border-gray-200" loading="lazy" decoding="async" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Basic Info Grid */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <InfoRow label="Produkt-ID" value={product.product_id} />
+                <InfoRow label="Hersteller" value={product.manufacturer || "—"} />
+                <InfoRow label="Herstellungsdatum" value={product.manufacture_date ? formatDate(product.manufacture_date) : "—"} />
+                <InfoRow label="Kategorie" value={product.category?.name || "—"} />
+                <InfoRow label="Masse" value={product.dimensions || "—"} />
+                <InfoRow label="Gewicht" value={product.weight != null ? `${product.weight} kg` : "—"} />
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-500">Status:</span>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusBadgeClass(product.status)}`}>
+                  {statusLabel(product.status)}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {product.status === "inaktiv" ? "(nicht im Katalog sichtbar)" : "(im Katalog sichtbar)"}
+                </span>
+              </div>
+
+              {/* Manual */}
+              {product.manual_url && (
+                <div>
+                  <label className="label">Bedienungsanleitung</label>
+                  <div className="mt-2 flex items-start gap-4">
+                    <a href={product.manual_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 underline">
+                      <FileText className="w-4 h-4" /> Anleitung öffnen
+                    </a>
+                    <ManualQrCode url={product.manual_url} productName={product.name} size={80} />
+                  </div>
+                </div>
+              )}
+
+              {/* Technical Specs */}
+              {product.technical_specs && (
+                <div>
+                  <label className="label">Technische Daten</label>
+                  <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{product.technical_specs}</div>
+                </div>
+              )}
+
+              {/* Description */}
+              {product.description && (
+                <div>
+                  <label className="label">Beschreibung</label>
+                  <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{product.description}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "internal" && (
+            <div className="card space-y-6">
+              <div className="grid sm:grid-cols-3 gap-4">
+                <InfoRow label="Mietpreis pro Tag" value={product.rental_price_per_day != null ? formatCurrency(product.rental_price_per_day) : "—"} />
+                <InfoRow label="Neupreis" value={product.purchase_price != null ? formatCurrency(product.purchase_price) : "—"} />
+                <InfoRow label="Kaufdatum" value={product.purchase_date ? formatDate(product.purchase_date) : "—"} />
+              </div>
+
+              <div className="grid sm:grid-cols-3 gap-4">
+                <InfoRow label="Status" value={statusLabel(product.status)} />
+                <InfoRow label="Anzahl" value={String(product.quantity || 1)} />
+                <InfoRow label="Sichtbarkeit" value={product.status === "inaktiv" ? "Offline" : "Online"} />
+              </div>
+
+              {/* Owners */}
+              <div>
+                <label className="label">Besitzer</label>
+                {productOwners.length > 0 ? (
+                  <div className="mt-2 space-y-2">
+                    {productOwners.map((po: any) => (
+                      <div key={po.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="text-sm">{po.owner?.full_name || po.owner?.email || "—"}</span>
+                        <span className="text-sm font-medium text-gray-600">{po.quantity} Stk.</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-gray-400">Keine Besitzer zugewiesen.</p>
+                )}
+              </div>
+
+              {/* Product Items Summary */}
+              <div>
+                <label className="label">Produkt-Items ({productItems.length})</label>
+                {productItems.length > 0 ? (
+                  <div className="mt-2 space-y-2">
+                    {productItems.map((item, index) => (
+                      <div key={item.id || index} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-400">#{index + 1}</span>
+                          <span className="text-sm font-mono">{item.barcode}</span>
+                          {item.serial_number && <span className="text-xs text-gray-500">SN: {item.serial_number}</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {item.condition && <span className="text-xs text-gray-500">{conditionLabel(item.condition)}</span>}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-gray-400">Keine Produkt-Items vorhanden.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "barcode" && (
+            <div className="card space-y-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <label className="label text-xs mb-1">Etikettenformat</label>
+                  <select
+                    className="input-field text-sm py-1.5"
+                    value={labelFormat}
+                    onChange={(e) => setLabelFormat(e.target.value as "62mm" | "29mm")}
+                  >
+                    <option value="62mm">62mm Endlos (62 x variabel)</option>
+                    <option value="29mm">29mm Standard (29 x 90mm)</option>
+                  </select>
+                </div>
+                <button onClick={printBarcode} className="btn-secondary py-2 px-4 text-sm">
+                  <Printer className="w-4 h-4 mr-2 inline" /> Haupt-Barcode drucken
+                </button>
+              </div>
+              <div className="flex justify-center py-2 bg-gray-50 rounded-lg">
+                <div id="barcode-svg">
+                  <Barcode value={product.barcode} format="CODE128" width={2} height={80} fontSize={14} margin={0} />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-sm font-medium text-gray-900 mb-4">Produkt-Items ({productItems.length})</h3>
+                <div className="space-y-4">
+                  {productItems.map((item, index) => (
+                    <div key={item.id || index} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-medium text-gray-500">Item #{index + 1}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-500 mb-1">Barcode</div>
+                          <div className="font-mono text-sm">{item.barcode}</div>
+                          {item.serial_number && <div className="text-xs text-gray-400 mt-0.5">SN: {item.serial_number}</div>}
+                        </div>
+                        <div id={`barcode-svg-${item.id}`}>
+                          <Barcode value={item.barcode} format="CODE128" width={1.5} height={60} fontSize={12} margin={0} />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => printItemBarcode(item)}
+                          className="btn-secondary py-2 px-3 text-sm"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {productItems.length === 0 && (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <p className="text-gray-500 text-sm">Keine Produkt-Items vorhanden.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "maintenance" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="section-header">Wartungshistorie</h2>
+                <button onClick={() => setShowMaintForm(!showMaintForm)} className="btn-secondary text-sm py-2 px-3">
+                  <Wrench className="w-4 h-4 mr-1" /> {showMaintForm ? "Abbrechen" : "Neuer Eintrag"}
+                </button>
+              </div>
+
+              {showMaintForm && (
+                <div className="card space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Wartungsdatum *</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="date" value={maintDate} onChange={(e) => setMaintDate(e.target.value)} className="input-field pl-9 w-full" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Nächster Service</label>
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="date" value={maintNext} onChange={(e) => setMaintNext(e.target.value)} className="input-field pl-9 w-full" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Beschreibung *</label>
+                    <textarea rows={3} value={maintDesc} onChange={(e) => setMaintDesc(e.target.value)} placeholder="Was wurde gemacht?" className="input-field w-full" />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Kosten (CHF)</label>
+                      <div className="relative">
+                        <Banknote className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="number" step="0.01" min="0" value={maintCost} onChange={(e) => setMaintCost(e.target.value)} className="input-field pl-9 w-full" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Durchgeführt von</label>
+                      <div className="relative">
+                        <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select value={maintStaff} onChange={(e) => setMaintStaff(e.target.value)} className="input-field pl-9 w-full">
+                          <option value="">Bitte wählen</option>
+                          {staff.map((s) => (<option key={s.id} value={s.id}>{s.full_name || s.email}</option>))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowMaintForm(false)} className="flex-1 btn-secondary py-2.5">Abbrechen</button>
+                    <button onClick={saveMaintenance} disabled={savingMaint} className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2 disabled:opacity-50">
+                      {savingMaint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      Speichern
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {maintenanceLogs.length > 0 ? (
+                <div className="space-y-3">
+                  {maintenanceLogs.map((log) => (
+                    <div key={log.id} className="card flex flex-col sm:flex-row sm:items-start gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium">{formatDate(log.maintenance_date)}</span>
+                          {log.next_service_date && (
+                            <span className="text-xs text-gray-500">(Nächster: {formatDate(log.next_service_date)})</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700">{log.description}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          {log.cost != null && <span>Kosten: {formatCurrency(log.cost)}</span>}
+                          {log.performed_by_profile && <span>Durch: {log.performed_by_profile.full_name}</span>}
+                        </div>
+                      </div>
+                      <button onClick={() => deleteMaintenanceLog(log.id)} className="p-2 text-gray-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-gray-50 rounded-xl">
+                  <Wrench className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">Keine Wartungseinträge vorhanden.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <ConfirmModal
         open={state.open}
@@ -1144,6 +1489,15 @@ export default function ProductDetailPage() {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-gray-400 mb-0.5">{label}</div>
+      <div className="text-sm text-gray-900 font-medium">{value}</div>
     </div>
   );
 }
