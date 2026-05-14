@@ -106,7 +106,7 @@ export default async function DashboardPage() {
     { label: "Produkte", value: productCount || 0, icon: Package, href: "/inventar/" },
     { label: "Aufträge", value: orderCount || 0, icon: ClipboardList, href: "/auftraege/" },
     { label: "Kunden", value: customerCount || 0, icon: Users, href: "/kunden/" },
-    { label: "Offene Anfragen", value: requestCount || 0, icon: TrendingUp, href: "/auftraege/" },
+    { label: "Offene Anfragen", value: requestCount || 0, icon: TrendingUp, href: "/anfragen/" },
   ];
 
   return (

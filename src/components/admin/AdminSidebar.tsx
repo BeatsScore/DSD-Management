@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  Inbox,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ export function AdminSidebar({ role }: { role: string }) {
     { href: "/dashboard/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/inventar/", label: "Inventar", icon: Package },
     { href: "/inventar/kalender/", label: "Kalender", icon: CalendarRange },
+    { href: "/anfragen/", label: "Anfragen", icon: Inbox },
     { href: "/auftraege/", label: "Aufträge", icon: ClipboardList },
     { href: "/planer/", label: "Planer", icon: CalendarDays },
     { href: "/kunden/", label: "Kunden", icon: Users },
