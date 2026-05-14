@@ -390,11 +390,11 @@ export default function ProductDetailPage() {
       pageSize: "62mm 30mm",
       bodyWidth: "62mm",
       bodyHeight: "30mm",
-      bodyPadding: "2mm 3mm",
-      logoHeight: "12mm",
-      serialFont: "10px",
-      idFont: "10px",
-      nameFont: "12px",
+      bodyPadding: "1.5mm 2mm",
+      logoHeight: "10mm",
+      serialFont: "11px",
+      idFont: "11px",
+      nameFont: "13px",
       svgMaxWidth: "100%",
       svgHeight: "auto",
     };
@@ -433,20 +433,32 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: row;
               align-items: center;
-              gap: 2mm;
-              height: 50%;
+              justify-content: space-between;
+              height: 45%;
+              width: 100%;
+            }
+            .logo-wrap {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 35%;
+              height: 100%;
+            }
+            .logo {
+              max-height: ${s.logoHeight};
+              max-width: 100%;
+              width: auto;
+              height: auto;
+              object-fit: contain;
             }
             .text-col {
               display: flex;
               flex-direction: column;
               align-items: flex-start;
               justify-content: center;
+              width: 60%;
+              height: 100%;
               gap: 0.5mm;
-            }
-            .logo {
-              height: ${s.logoHeight};
-              width: auto;
-              object-fit: contain;
             }
             .serial {
               font-size: ${s.serialFont};
@@ -461,17 +473,19 @@ export default function ProductDetailPage() {
               line-height: 1.1;
             }
             .barcode-wrap {
-              height: 50%;
+              height: 55%;
               display: flex;
               flex-direction: column;
               align-items: center;
-              justify-content: center;
+              justify-content: flex-end;
               width: 100%;
+              padding-bottom: 0.5mm;
             }
             .barcode-text {
               font-size: 7px;
               color: #333;
               margin-bottom: 0.5mm;
+              text-align: center;
             }
             .barcode-inner {
               width: 100%;
@@ -497,7 +511,9 @@ export default function ProductDetailPage() {
         <body>
           <div class="label">
             <div class="top">
-              <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+              <div class="logo-wrap">
+                <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+              </div>
               <div class="text-col">
                 <div class="serial">${product.product_id}</div>
                 <div class="product-name">${product.name}</div>
@@ -548,20 +564,32 @@ export default function ProductDetailPage() {
               display: flex;
               flex-direction: row;
               align-items: center;
-              gap: 2mm;
-              height: 50%;
+              justify-content: space-between;
+              height: 45%;
+              width: 100%;
+            }
+            .logo-wrap {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 35%;
+              height: 100%;
+            }
+            .logo {
+              max-height: ${s.logoHeight};
+              max-width: 100%;
+              width: auto;
+              height: auto;
+              object-fit: contain;
             }
             .text-col {
               display: flex;
               flex-direction: column;
               align-items: flex-start;
               justify-content: center;
+              width: 60%;
+              height: 100%;
               gap: 0.5mm;
-            }
-            .logo {
-              height: ${s.logoHeight};
-              width: auto;
-              object-fit: contain;
             }
             .serial {
               font-size: ${s.serialFont};
@@ -576,17 +604,19 @@ export default function ProductDetailPage() {
               line-height: 1.1;
             }
             .barcode-wrap {
-              height: 50%;
+              height: 55%;
               display: flex;
               flex-direction: column;
               align-items: center;
-              justify-content: center;
+              justify-content: flex-end;
               width: 100%;
+              padding-bottom: 0.5mm;
             }
             .barcode-text {
               font-size: 7px;
               color: #333;
               margin-bottom: 0.5mm;
+              text-align: center;
             }
             .barcode-inner {
               width: 100%;
@@ -612,7 +642,9 @@ export default function ProductDetailPage() {
         <body>
           <div class="label">
             <div class="top">
-              <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+              <div class="logo-wrap">
+                <img src="${window.location.origin}/logo.png" class="logo" alt="" />
+              </div>
               <div class="text-col">
                 <div class="serial">${item.serial_number || product.product_id}</div>
                 <div class="product-name">${product.name}</div>
