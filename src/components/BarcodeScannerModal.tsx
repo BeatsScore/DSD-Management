@@ -17,6 +17,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   const [torchOn, setTorchOn] = useState(false);
   const [hasError, setHasError] = useState<string | null>(null);
   const [lastScan, setLastScan] = useState<string | null>(null);
+  const [torchSupported, setTorchSupported] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const beepRef = useRef<HTMLAudioElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -125,6 +126,20 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
       )
       .then(() => {
         setScanning(true);
+        // Check if torch is supported by inspecting the actual video track
+        setTimeout(() => {
+          try {
+            const video = document.querySelector("#barcode-scanner-video video") as HTMLVideoElement;
+            const stream = video?.srcObject as MediaStream;
+            const track = stream?.getVideoTracks()[0];
+            const caps = track?.getCapabilities?.();
+            if (caps && "torch" in caps) {
+              setTorchSupported(true);
+            }
+          } catch {
+            setTorchSupported(false);
+          }
+        }, 500);
       })
       .catch((err) => {
         console.error("Start scanner error:", err);
@@ -156,13 +171,19 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
 
   const toggleTorch = async () => {
     try {
-      const scanner = scannerRef.current as any;
-      if (scanner && typeof scanner.applyVideoConstraints === "function") {
-        await scanner.applyVideoConstraints({ advanced: [{ torch: !torchOn }] });
+      const video = document.querySelector("#barcode-scanner-video video") as HTMLVideoElement;
+      const stream = video?.srcObject as MediaStream;
+      const track = stream?.getVideoTracks()[0];
+      if (track && typeof track.applyConstraints === "function") {
+        // @ts-ignore – torch is a non-standard constraint supported by some mobile browsers
+        await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
         setTorchOn((prev) => !prev);
+      } else {
+        setTorchSupported(false);
       }
-    } catch {
-      // torch not supported
+    } catch (err) {
+      console.error("Torch error:", err);
+      setTorchSupported(false);
     }
   };
 
@@ -186,13 +207,15 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
               <SwitchCamera className="w-5 h-5" />
             </button>
           )}
-          <button
-            onClick={toggleTorch}
-            className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-            title="Taschenlampe"
-          >
-            {torchOn ? <Flashlight className="w-5 h-5" /> : <FlashlightOff className="w-5 h-5" />}
-          </button>
+          {torchSupported && (
+            <button
+              onClick={toggleTorch}
+              className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              title="Taschenlampe"
+            >
+              {torchOn ? <Flashlight className="w-5 h-5" /> : <FlashlightOff className="w-5 h-5" />}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
