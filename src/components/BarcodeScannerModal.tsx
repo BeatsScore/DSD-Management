@@ -93,7 +93,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
                 { focusMode: "continuous" },
                 { exposureMode: "continuous" },
                 { whiteBalanceMode: "continuous" },
-                { exposureCompensation: -1 },
+                { exposureCompensation: 1 },
               ],
             } as any);
           } catch {
