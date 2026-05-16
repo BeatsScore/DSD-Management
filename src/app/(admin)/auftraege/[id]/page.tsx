@@ -846,6 +846,9 @@ export default function OrderDetailPage() {
                 const affectedProducts = (log.product_ids || [])
                   .map((pid: string) => items.find((i) => i.product?.id === pid)?.product?.name)
                   .filter(Boolean);
+                const photoUrl = log.photo_path
+                  ? supabase.storage.from("damage-photos").getPublicUrl(log.photo_path).data.publicUrl
+                  : null;
                 return (
                   <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white">
                     <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${log.severity === 'schwer' ? 'text-red-600' : log.severity === 'mittel' ? 'text-amber-600' : 'text-yellow-500'}`} />
@@ -854,7 +857,17 @@ export default function OrderDetailPage() {
                         {affectedProducts.length > 0 ? affectedProducts.join(", ") : "Allgemein"}
                       </div>
                       <div className="text-sm text-gray-600 mt-0.5">{log.description}</div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                      {photoUrl && (
+                        <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2">
+                          <img
+                            src={photoUrl}
+                            alt="Schadensfoto"
+                            className="w-24 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"
+                            loading="lazy"
+                          />
+                        </a>
+                      )}
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getStatusColor(log.severity === 'schwer' ? 'defekt' : log.severity === 'mittel' ? 'reserviert' : 'verfuegbar')}`}>
                           {log.severity === 'leicht' ? 'Leicht' : log.severity === 'mittel' ? 'Mittel' : 'Schwer'}
                         </span>

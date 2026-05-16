@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { Plus, ClipboardList, Search, Eye } from "lucide-react";
+import { Plus, ClipboardList, Search, Eye, AlertTriangle } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils";
 
 export default function OrdersPage() {
@@ -23,8 +23,13 @@ export default function OrdersPage() {
       if (error) {
         console.error("Failed to load orders:", error);
       }
-      setOrders(data || []);
-      setFiltered(data || []);
+      const orderData = data || [];
+      // Load damage log counts
+      const { data: dl } = await supabase.from("damage_logs").select("order_id");
+      const damageOrderIds = new Set((dl || []).map((d) => d.order_id));
+      const enriched = orderData.map((o) => ({ ...o, hasDamage: damageOrderIds.has(o.id) }));
+      setOrders(enriched);
+      setFiltered(enriched);
       setLoading(false);
     }
     load();
@@ -111,13 +116,20 @@ export default function OrdersPage() {
                         : "-"}
                     </td>
                     <td className="py-3">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          order.status
-                        )}`}
-                      >
-                        {getStatusLabel(order.status)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            order.status
+                          )}`}
+                        >
+                          {getStatusLabel(order.status)}
+                        </span>
+                        {order.hasDamage && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800" title="Schadensprotokoll vorhanden">
+                            <AlertTriangle className="w-3 h-3" /> Schaden
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 text-right">
                       <Link
@@ -152,7 +164,7 @@ export default function OrdersPage() {
                 className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <span className="font-mono text-xs text-gray-500">{order.order_number}</span>
                     <span
                       className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
@@ -161,6 +173,11 @@ export default function OrdersPage() {
                     >
                       {getStatusLabel(order.status)}
                     </span>
+                    {order.hasDamage && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800" title="Schadensprotokoll vorhanden">
+                        <AlertTriangle className="w-3 h-3" /> Schaden
+                      </span>
+                    )}
                   </div>
                   <div className="font-medium text-sm">{order.customer?.name || "-"}</div>
                   <div className="text-xs text-gray-500">

@@ -155,8 +155,7 @@ export interface PickupSession {
 export interface DamageLog {
   id: string;
   order_id: string;
-  product_id: string | null;
-  product?: Product | null;
+  product_ids: string[] | null;
   description: string;
   photo_path: string | null;
   severity: "leicht" | "mittel" | "schwer";

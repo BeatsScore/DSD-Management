@@ -45,6 +45,7 @@ export default function PlannerPage() {
   const [damagePhotoFile, setDamagePhotoFile] = useState<File | null>(null);
   const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
   const [damageProductIds, setDamageProductIds] = useState<string[]>([]);
+  const [damageOrderItems, setDamageOrderItems] = useState<any[]>([]);
   const [damageOrderId, setDamageOrderId] = useState<string | null>(null);
   const [savingDamage, setSavingDamage] = useState(false);
   const [damageCameraActive, setDamageCameraActive] = useState(false);
@@ -370,14 +371,15 @@ export default function PlannerPage() {
     }
 
     toast.success("Rückgabe bestätigt.");
-    // Open damage capture
+    // Open damage capture with current order items
     setDamageOrderId(scanningOrderId);
+    setDamageOrderItems(orderItems);
+    setDamageProductIds(orderItems.map((item) => item.product?.id).filter(Boolean));
+    setShowDamageCapture(true);
     setScanningOrderId(null);
     setScanningOrder(null);
     setScannedItems([]);
     setOrderItems([]);
-    setShowDamageCapture(true);
-    setDamageProductIds(orderItems[0]?.product?.id ? [orderItems[0].product.id] : []);
     loadOrders();
   };
 
@@ -451,6 +453,7 @@ export default function PlannerPage() {
     }
     setDamagePhotoPreview(null);
     setDamageProductIds([]);
+    setDamageOrderItems([]);
     setDamageCameraActive(false);
     stopCamera();
     setDamageOrderId(null);
@@ -785,7 +788,7 @@ export default function PlannerPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Betroffene Artikel</label>
             <div className="space-y-2">
-              {orderItems.map((item) => {
+              {damageOrderItems.map((item) => {
                 const pid = item.product?.id;
                 const checked = pid && damageProductIds.includes(pid);
                 return (
