@@ -11,8 +11,7 @@ interface BarcodeScannerModalProps {
 }
 
 export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerModalProps) {
-  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [cameraReady, setCameraReady] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [hasError, setHasError] = useState<string | null>(null);
@@ -64,35 +63,16 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   const beepFnsRef = useRef({ playBeep, playFallbackBeep });
   beepFnsRef.current = { playBeep, playFallbackBeep };
 
-  // List cameras on open
+  // Start scanner directly on open (no camera listing needed)
   useEffect(() => {
     if (!open) return;
     setHasError(null);
-    setStatusText("Kameras werden gesucht...");
+    setCameraReady(false);
+    setStatusText("Kamera wird gestartet...");
 
-    BrowserMultiFormatReader.listVideoInputDevices()
-      .then((devices) => {
-        if (!isMountedRef.current) return;
-        const videoDevices = devices.filter((d) => d.kind === "videoinput");
-        if (videoDevices.length > 0) {
-          setCameras(videoDevices);
-          // pick back camera if possible
-          const backIdx = videoDevices.findIndex((d) =>
-            /back|rear|environment/i.test(d.label)
-          );
-          setActiveIndex(backIdx >= 0 ? backIdx : 0);
-        } else {
-          setHasError("Keine Kamera gefunden.");
-          setStatusText("");
-        }
-      })
-      .catch((err) => {
-        console.error("Camera error:", err);
-        if (isMountedRef.current) {
-          setHasError("Kamera-Zugriff verweigert oder nicht verfügbar.");
-          setStatusText("");
-        }
-      });
+    const timer = setTimeout(() => startScanner(), 150);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const stopScanner = useCallback(() => {
@@ -104,7 +84,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
     }
   }, []);
 
-  const startScanner = useCallback(async (deviceId: string) => {
+  const startScanner = useCallback(async () => {
     if (!isMountedRef.current) return;
     stopScanner();
 
@@ -115,10 +95,10 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
     try {
       setStatusText("Kamera wird gestartet...");
 
-      const controls = await readerRef.current.decodeFromVideoDevice(
-        deviceId,
+      const controls = await readerRef.current.decodeFromConstraints(
+        { video: { facingMode: "environment" } },
         "scanner-video",
-        (result, err) => {
+        (result) => {
           if (!isMountedRef.current) return;
 
           if (result) {
@@ -141,6 +121,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
 
       controlsRef.current = controls;
       setScanning(true);
+      setCameraReady(true);
       setStatusText("Barcode in den Rahmen halten");
 
       // Check torch support on active track
@@ -167,16 +148,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
     }
   }, [stopScanner]);
 
-  // Auto-start when camera list or active index changes
-  useEffect(() => {
-    if (!open || cameras.length === 0) return;
-    const deviceId = cameras[activeIndex]?.deviceId;
-    if (!deviceId) return;
 
-    const timer = setTimeout(() => startScanner(deviceId), 150);
-    return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, cameras, activeIndex]);
 
   // Stop on close
   useEffect(() => {
@@ -293,10 +265,8 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
                   statusText || (scanning ? "Barcode in den Rahmen halten" : "Kamera wird gestartet...")
                 )}
               </p>
-              {cameras.length > 1 && (
-                <p className="text-white/50 text-xs mt-1">
-                  Kamera {activeIndex + 1} von {cameras.length}
-                </p>
+              {!cameraReady && !lastScan && (
+                <p className="text-white/50 text-xs mt-1">Rückkamera wird initialisiert</p>
               )}
             </div>
           </div>
