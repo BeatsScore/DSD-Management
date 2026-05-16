@@ -44,7 +44,7 @@ export default function PlannerPage() {
   const [damageSeverity, setDamageSeverity] = useState<"leicht" | "mittel" | "schwer">("leicht");
   const [damagePhotoFile, setDamagePhotoFile] = useState<File | null>(null);
   const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
-  const [damageProductIds, setDamageProductIds] = useState<string[]>([]);
+  const [damageProductItemIds, setDamageProductItemIds] = useState<string[]>([]);
   const [damageOrderItems, setDamageOrderItems] = useState<any[]>([]);
   const [damageOrderId, setDamageOrderId] = useState<string | null>(null);
   const [savingDamage, setSavingDamage] = useState(false);
@@ -374,7 +374,7 @@ export default function PlannerPage() {
     // Open damage capture with current order items
     setDamageOrderId(scanningOrderId);
     setDamageOrderItems(orderItems);
-    setDamageProductIds(orderItems.map((item) => item.product?.id).filter(Boolean));
+    setDamageProductItemIds(orderItems.map((item) => item.product_item?.id).filter(Boolean));
     setShowDamageCapture(true);
     setScanningOrderId(null);
     setScanningOrder(null);
@@ -426,7 +426,7 @@ export default function PlannerPage() {
 
     const { error } = await supabase.from("damage_logs").insert({
       order_id: damageOrderId,
-      product_ids: damageProductIds.length > 0 ? damageProductIds : null,
+      product_item_ids: damageProductItemIds.length > 0 ? damageProductItemIds : null,
       description: damageDescription.trim(),
       photo_path: photoPath,
       severity: damageSeverity,
@@ -452,7 +452,7 @@ export default function PlannerPage() {
       URL.revokeObjectURL(damagePhotoPreview);
     }
     setDamagePhotoPreview(null);
-    setDamageProductIds([]);
+    setDamageProductItemIds([]);
     setDamageOrderItems([]);
     setDamageCameraActive(false);
     stopCamera();
@@ -789,23 +789,28 @@ export default function PlannerPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Betroffene Artikel</label>
             <div className="space-y-2">
               {damageOrderItems.map((item) => {
-                const pid = item.product?.id;
-                const checked = pid && damageProductIds.includes(pid);
+                const piid = item.product_item?.id;
+                const checked = piid && damageProductItemIds.includes(piid);
                 return (
                   <label key={item.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       checked={!!checked}
                       onChange={(e) => {
-                        if (!pid) return;
-                        setDamageProductIds((prev) =>
-                          e.target.checked ? [...prev, pid] : prev.filter((id) => id !== pid)
+                        if (!piid) return;
+                        setDamageProductItemIds((prev) =>
+                          e.target.checked ? [...prev, piid] : prev.filter((id) => id !== piid)
                         );
                       }}
                       className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
                     />
-                    <span className="text-sm">{item.product?.name}</span>
-                    <span className="text-xs text-gray-400 ml-auto">{item.product?.product_id}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{item.product?.name}</div>
+                      <div className="text-xs text-gray-400">
+                        {item.product_item?.barcode && <span>Barcode: {item.product_item.barcode}</span>}
+                        {item.product_item?.serial_number && <span> · SN: {item.product_item.serial_number}</span>}
+                      </div>
+                    </div>
                   </label>
                 );
               })}

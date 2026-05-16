@@ -78,7 +78,7 @@ export default function OrderDetailPage() {
 
   // Damage protocol modal state
   const [showDamageModal, setShowDamageModal] = useState(false);
-  const [damageProductIds, setDamageProductIds] = useState<string[]>([]);
+  const [damageProductItemIds, setDamageProductItemIds] = useState<string[]>([]);
   const [damageDescription, setDamageDescription] = useState("");
   const [damageSeverity, setDamageSeverity] = useState<"leicht" | "mittel" | "schwer">("leicht");
   const [damagePhotoFile, setDamagePhotoFile] = useState<File | null>(null);
@@ -89,7 +89,7 @@ export default function OrderDetailPage() {
     async function load() {
       const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }] = await Promise.all([
         supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
-        supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id),
+        supabase.from("order_items").select("*, product:product_id(*), product_item:product_item_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "staff"]).order("full_name", { ascending: true }),
         supabase.from("damage_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
@@ -283,7 +283,7 @@ export default function OrderDetailPage() {
 
   const openDamageModal = () => {
     setShowDamageModal(true);
-    setDamageProductIds([]);
+    setDamageProductItemIds([]);
     setDamageDescription("");
     setDamageSeverity("leicht");
     setDamagePhotoFile(null);
@@ -292,7 +292,7 @@ export default function OrderDetailPage() {
 
   const closeDamageModal = () => {
     setShowDamageModal(false);
-    setDamageProductIds([]);
+    setDamageProductItemIds([]);
     setDamageDescription("");
     setDamageSeverity("leicht");
     setDamagePhotoFile(null);
@@ -341,7 +341,7 @@ export default function OrderDetailPage() {
 
     const { error } = await supabase.from("damage_logs").insert({
       order_id: id,
-      product_ids: damageProductIds.length > 0 ? damageProductIds : null,
+      product_item_ids: damageProductItemIds.length > 0 ? damageProductItemIds : null,
       description: damageDescription.trim(),
       photo_path: photoPath,
       severity: damageSeverity,
@@ -843,8 +843,8 @@ export default function OrderDetailPage() {
             </div>
             <div className="space-y-3">
               {damageLogs.map((log) => {
-                const affectedProducts = (log.product_ids || [])
-                  .map((pid: string) => items.find((i) => i.product?.id === pid)?.product?.name)
+                const affectedItems = (log.product_item_ids || [])
+                  .map((piid: string) => items.find((i) => i.product_item?.id === piid))
                   .filter(Boolean);
                 const photoUrl = log.photo_path
                   ? supabase.storage.from("damage-photos").getPublicUrl(log.photo_path).data.publicUrl
@@ -853,9 +853,23 @@ export default function OrderDetailPage() {
                   <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white">
                     <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${log.severity === 'schwer' ? 'text-red-600' : log.severity === 'mittel' ? 'text-amber-600' : 'text-yellow-500'}`} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">
-                        {affectedProducts.length > 0 ? affectedProducts.join(", ") : "Allgemein"}
-                      </div>
+                      {affectedItems.length > 0 ? (
+                        <div className="space-y-1">
+                          {affectedItems.map((it: any) => (
+                            <Link
+                              key={it.product_item?.id}
+                              href={`/inventar/${it.product?.id}/`}
+                              className="text-sm font-medium hover:underline hover:text-blue-600 block"
+                            >
+                              {it.product?.name}
+                              {it.product_item?.barcode && <span className="text-xs text-gray-400 font-normal"> · {it.product_item.barcode}</span>}
+                              {it.product_item?.serial_number && <span className="text-xs text-gray-400 font-normal"> · SN {it.product_item.serial_number}</span>}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm font-medium">Allgemein</div>
+                      )}
                       <div className="text-sm text-gray-600 mt-0.5">{log.description}</div>
                       {photoUrl && (
                         <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2">
@@ -1062,23 +1076,28 @@ export default function OrderDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Betroffene Artikel</label>
                 <div className="space-y-2">
                   {items.map((item) => {
-                    const pid = item.product?.id;
-                    const checked = pid && damageProductIds.includes(pid);
+                    const piid = item.product_item?.id;
+                    const checked = piid && damageProductItemIds.includes(piid);
                     return (
                       <label key={item.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
                         <input
                           type="checkbox"
                           checked={!!checked}
                           onChange={(e) => {
-                            if (!pid) return;
-                            setDamageProductIds((prev) =>
-                              e.target.checked ? [...prev, pid] : prev.filter((id) => id !== pid)
+                            if (!piid) return;
+                            setDamageProductItemIds((prev) =>
+                              e.target.checked ? [...prev, piid] : prev.filter((id) => id !== piid)
                             );
                           }}
                           className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
                         />
-                        <span className="text-sm">{item.product?.name}</span>
-                        <span className="text-xs text-gray-400 ml-auto">{item.product?.product_id}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">{item.product?.name}</div>
+                          <div className="text-xs text-gray-400">
+                            {item.product_item?.barcode && <span>Barcode: {item.product_item.barcode}</span>}
+                            {item.product_item?.serial_number && <span> · SN: {item.product_item.serial_number}</span>}
+                          </div>
+                        </div>
                       </label>
                     );
                   })}
