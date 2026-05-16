@@ -16,6 +16,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   const [lastScan, setLastScan] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
+  const [focusTap, setFocusTap] = useState<{ x: number; y: number } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -215,7 +216,27 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
           </div>
         </div>
       ) : (
-        <div className="flex-1 relative overflow-hidden">
+        <div
+          className="flex-1 relative overflow-hidden"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            setFocusTap({ x, y });
+            setTimeout(() => setFocusTap(null), 800);
+
+            const track = streamRef.current?.getVideoTracks()[0];
+            if (!track || typeof track.applyConstraints !== "function") return;
+
+            // Trigger single-shot focus then back to continuous
+            // @ts-ignore
+            track.applyConstraints({ advanced: [{ focusMode: "single-shot" }] }).catch(() => {});
+            setTimeout(() => {
+              // @ts-ignore
+              track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+            }, 300);
+          }}
+        >
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover brightness-150 contrast-125 saturate-110"
@@ -243,6 +264,14 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
                 )}
               </div>
             </div>
+
+            {/* Tap-to-focus indicator */}
+            {focusTap && (
+              <div
+                className="absolute w-14 h-14 -ml-7 -mt-7 border-2 border-yellow-400 rounded-full animate-ping pointer-events-none"
+                style={{ left: `${focusTap.x}%`, top: `${focusTap.y}%` }}
+              />
+            )}
 
             <div className="absolute bottom-24 left-0 right-0 text-center">
               <p className="text-white/80 text-sm font-medium">
