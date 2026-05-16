@@ -24,8 +24,8 @@ import {
   AlertTriangle,
   ImageIcon,
 } from "lucide-react";
-import { Html5QrcodeScanner } from "html5-qrcode";
 import { formatDate, getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
+import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
 
 export default function PlannerPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -61,7 +61,6 @@ export default function PlannerPage() {
 
   // Barcode scanner states
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -312,39 +311,7 @@ export default function PlannerPage() {
     setScanInput("");
   }, [scanningOrderId, orderItems, scannedItems]);
 
-  useEffect(() => {
-    if (!showBarcodeScanner) return;
 
-    const scanner = new Html5QrcodeScanner(
-      "barcode-scanner-container",
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true,
-        showTorchButtonIfSupported: true,
-      },
-      false
-    );
-
-    scanner.render(
-      (decodedText: string) => {
-        processBarcode(decodedText);
-        setShowBarcodeScanner(false);
-        scanner.clear().catch(() => {});
-        scannerRef.current = null;
-      },
-      () => {}
-    );
-
-    scannerRef.current = scanner;
-
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(() => {});
-        scannerRef.current = null;
-      }
-    };
-  }, [showBarcodeScanner, processBarcode]);
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -540,10 +507,6 @@ export default function PlannerPage() {
     setShowIdCapture(false);
     setShowBarcodeScanner(false);
     setShowDamageCapture(false);
-    if (scannerRef.current) {
-      scannerRef.current.clear().catch(() => {});
-      scannerRef.current = null;
-    }
   };
 
   // Filter orders
@@ -788,29 +751,14 @@ export default function PlannerPage() {
           {isPickup ? "Abholung bestätigen" : "Rückgabe bestätigen"}
         </button>
 
-        {/* Barcode Scanner Modal */}
-        {showBarcodeScanner && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">Barcode scannen</h3>
-                <button
-                  onClick={() => {
-                    setShowBarcodeScanner(false);
-                    if (scannerRef.current) {
-                      scannerRef.current.clear().catch(() => {});
-                      scannerRef.current = null;
-                    }
-                  }}
-                  className="p-2 text-gray-400 hover:text-black"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div id="barcode-scanner-container" className="rounded-lg overflow-hidden" />
-            </div>
-          </div>
-        )}
+        <BarcodeScannerModal
+          open={showBarcodeScanner}
+          onScan={(code) => {
+            processBarcode(code);
+            setShowBarcodeScanner(false);
+          }}
+          onClose={() => setShowBarcodeScanner(false)}
+        />
       </div>
     );
   }

@@ -52,7 +52,7 @@ export default function ProductDetailPage() {
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<"catalog" | "internal" | "barcode" | "maintenance">("catalog");
-  const [labelFormat, setLabelFormat] = useState<string>("62mm-default");
+  const [labelFormat, setLabelFormat] = useState<string>("29mm-default");
   const [showLabelEditor, setShowLabelEditor] = useState(false);
   const [labelFormats, setLabelFormats] = useState<LabelFormat[]>([]);
   const [isNewManufacturer, setIsNewManufacturer] = useState(false);
