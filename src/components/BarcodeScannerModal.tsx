@@ -183,16 +183,6 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
     if (!open) stopScanner();
   }, [open, stopScanner]);
 
-  const toggleCamera = async () => {
-    if (cameras.length < 2) return;
-    stopScanner();
-    if (!isMountedRef.current) return;
-
-    const nextIndex = (activeIndex + 1) % cameras.length;
-    setActiveIndex(nextIndex);
-    // The useEffect above will auto-start with the new camera
-  };
-
   const toggleTorch = async () => {
     try {
       const video = document.getElementById("scanner-video") as HTMLVideoElement;
@@ -222,14 +212,6 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
           <span className="font-medium">Barcode scannen</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={toggleCamera}
-            disabled={cameras.length < 2}
-            className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-40"
-            title="Kamera wechseln"
-          >
-            <SwitchCamera className="w-5 h-5" />
-          </button>
           {torchSupported && (
             <button
               onClick={toggleTorch}
@@ -271,7 +253,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
           {/* Video element – zxing draws directly into this */}
           <video
             id="scanner-video"
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover brightness-125 contrast-110"
             muted
             playsInline
           />
