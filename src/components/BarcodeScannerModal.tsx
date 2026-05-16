@@ -18,9 +18,16 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   const [hasError, setHasError] = useState<string | null>(null);
   const [lastScan, setLastScan] = useState<string | null>(null);
   const [torchSupported, setTorchSupported] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const beepRef = useRef<HTMLAudioElement | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Keep callbacks in refs so they don't trigger re-renders / effect re-runs
+  const onScanRef = useRef(onScan);
+  const onCloseRef = useRef(onClose);
+  onScanRef.current = onScan;
+  onCloseRef.current = onClose;
 
   // Initialize audio beep
   useEffect(() => {
@@ -55,6 +62,10 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
     }
   }, []);
 
+  // Keep beep callbacks in ref so effect doesn't depend on them
+  const beepFnsRef = useRef({ playBeep, playFallbackBeep });
+  beepFnsRef.current = { playBeep, playFallbackBeep };
+
   // Get cameras on open
   useEffect(() => {
     if (!open) return;
@@ -70,7 +81,10 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
             d.label.toLowerCase().includes("rear") ||
             d.label.toLowerCase().includes("environment")
           );
-          setActiveCamera(backCamera ? backCamera.id : devices[0].id);
+          const selected = backCamera ? backCamera.id : devices[0].id;
+          setActiveCamera(selected);
+          // bump key so scanner mounts fresh
+          setCameraKey((k) => k + 1);
         } else {
           setHasError("Keine Kamera gefunden.");
         }
@@ -85,58 +99,80 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   useEffect(() => {
     if (!open || !activeCamera) return;
 
-    const containerId = "barcode-scanner-video";
-    const scanner = new Html5Qrcode(containerId, {
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.QR_CODE,
-        Html5QrcodeSupportedFormats.DATA_MATRIX,
-      ],
-      useBarCodeDetectorIfSupported: true,
-      verbose: false,
-    });
+    let cancelled = false;
 
-    scannerRef.current = scanner;
-
-    scanner
-      .start(
-        activeCamera,
-        {
-          fps: 25,
-          qrbox: { width: 320, height: 160 },
-          aspectRatio: 1.777,
-          videoConstraints: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            // @ts-ignore – focusMode is supported by many mobile browsers but not yet in TS DOM types
-            focusMode: "continuous",
-          },
-        },
-        (decodedText) => {
-          playBeep();
-          playFallbackBeep();
-          setLastScan(decodedText);
-          onScan(decodedText);
-          // Auto-close after short delay so user sees the green flash
-          setTimeout(() => {
-            onClose();
-          }, 400);
-        },
-        () => {
-          // scan failure — ignore, camera keeps scanning
+    const run = async () => {
+      // Make sure any previous scanner is fully stopped before creating a new one
+      if (scannerRef.current) {
+        try {
+          await scannerRef.current.stop();
+        } catch {
+          // ignore
         }
-      )
-      .then(() => {
+        scannerRef.current = null;
+      }
+
+      if (cancelled) return;
+
+      const containerId = `barcode-scanner-video-${cameraKey}`;
+      const scanner = new Html5Qrcode(containerId, {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
+        ],
+        useBarCodeDetectorIfSupported: true,
+        verbose: false,
+      });
+
+      scannerRef.current = scanner;
+
+      try {
+        await scanner.start(
+          activeCamera,
+          {
+            fps: 25,
+            qrbox: { width: 320, height: 160 },
+            aspectRatio: 1.777,
+            videoConstraints: {
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              // @ts-ignore – focusMode is supported by many mobile browsers but not yet in TS DOM types
+              focusMode: "continuous",
+            },
+          },
+          (decodedText) => {
+            beepFnsRef.current.playBeep();
+            beepFnsRef.current.playFallbackBeep();
+            setLastScan(decodedText);
+            onScanRef.current(decodedText);
+            // Auto-close after short delay so user sees the green flash
+            setTimeout(() => {
+              onCloseRef.current();
+            }, 400);
+          },
+          () => {
+            // scan failure — ignore, camera keeps scanning
+          }
+        );
+
+        if (cancelled) {
+          scanner.stop().catch(() => {});
+          scannerRef.current = null;
+          return;
+        }
+
         setScanning(true);
-        // Apply continuous focus after camera is running (more reliable than initial constraints)
+
+        // Apply continuous focus + check torch after camera is running
         setTimeout(() => {
           try {
-            const video = document.querySelector("#barcode-scanner-video video") as HTMLVideoElement;
+            const video = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
             const stream = video?.srcObject as MediaStream;
             const track = stream?.getVideoTracks()[0];
             if (track && typeof track.applyConstraints === "function") {
@@ -151,38 +187,39 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
             setTorchSupported(false);
           }
         }, 600);
-      })
-      .catch((err) => {
-        console.error("Start scanner error:", err);
-        setHasError("Kamera konnte nicht gestartet werden.");
-      });
-
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current
-          .stop()
-          .then(() => {
-            scannerRef.current = null;
-            setScanning(false);
-          })
-          .catch(() => {
-            scannerRef.current = null;
-            setScanning(false);
-          });
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Start scanner error:", err);
+          setHasError("Kamera konnte nicht gestartet werden.");
+        }
       }
     };
-  }, [open, activeCamera, onScan, onClose, playBeep, playFallbackBeep]);
+
+    run();
+
+    return () => {
+      cancelled = true;
+      setScanning(false);
+      setTorchSupported(false);
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+        scannerRef.current = null;
+      }
+    };
+  }, [open, activeCamera, cameraKey]);
 
   const toggleCamera = () => {
     if (cameras.length < 2) return;
     const currentIndex = cameras.findIndex((c) => c.id === activeCamera);
     const nextIndex = (currentIndex + 1) % cameras.length;
     setActiveCamera(cameras[nextIndex].id);
+    setCameraKey((k) => k + 1);
   };
 
   const toggleTorch = async () => {
     try {
-      const video = document.querySelector("#barcode-scanner-video video") as HTMLVideoElement;
+      const containerId = `barcode-scanner-video-${cameraKey}`;
+      const video = document.querySelector(`#${containerId} video`) as HTMLVideoElement;
       const stream = video?.srcObject as MediaStream;
       const track = stream?.getVideoTracks()[0];
       if (track && typeof track.applyConstraints === "function") {
@@ -199,6 +236,8 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   };
 
   if (!open) return null;
+
+  const containerId = `barcode-scanner-video-${cameraKey}`;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
@@ -256,10 +295,10 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
       {/* Scanner view */}
       {!hasError && (
         <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-          {/* Video container */}
+          {/* Video container — unique id per camera switch ensures clean mount/unmount */}
           <div
-            ref={containerRef}
-            id="barcode-scanner-video"
+            id={containerId}
+            key={cameraKey}
             className="absolute inset-0 w-full h-full"
           />
 
@@ -269,7 +308,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
             <div className="absolute inset-0 bg-black/50" />
 
             {/* Clear scan area in center */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[200px]">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[160px]">
               <div className="relative w-full h-full">
                 {/* Transparent center */}
                 <div className="absolute inset-0 bg-transparent" />
