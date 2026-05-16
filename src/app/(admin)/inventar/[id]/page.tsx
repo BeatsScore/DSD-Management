@@ -490,6 +490,42 @@ export default function ProductDetailPage() {
     return map;
   };
 
+  const printHtml = (html: string) => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.top = "-9999px";
+    iframe.style.left = "-9999px";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const win = iframe.contentWindow;
+    if (!win) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    // Trigger print immediately; iframe content is already inline so it renders instantly
+    win.focus();
+    win.print();
+
+    // Clean up iframe after a short delay
+    setTimeout(() => {
+      if (iframe.parentNode) document.body.removeChild(iframe);
+    }, 1000);
+  };
+
   const printBarcode = () => {
     if (!product) return;
     const format = getLabelFormat(labelFormat);
@@ -498,11 +534,7 @@ export default function ProductDetailPage() {
       return;
     }
     const barcodeSvgMap = generateBarcodeSvgsForFormat(format, product.barcode);
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(generatePrintHtml(format, barcodeSvgMap));
-    printWindow.document.close();
-    printWindow.print();
+    printHtml(generatePrintHtml(format, barcodeSvgMap));
   };
 
   const printItemBarcode = (item: any) => {
@@ -513,11 +545,7 @@ export default function ProductDetailPage() {
       return;
     }
     const barcodeSvgMap = generateBarcodeSvgsForFormat(format, item.barcode);
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(generatePrintHtml(format, barcodeSvgMap, item));
-    printWindow.document.close();
-    printWindow.print();
+    printHtml(generatePrintHtml(format, barcodeSvgMap, item));
   };
 
   const updateForm = useCallback((key: string, value: any) => {
