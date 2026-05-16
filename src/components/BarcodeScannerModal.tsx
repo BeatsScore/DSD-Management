@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { X, ScanLine } from "lucide-react";
+import { X, ScanLine, Flashlight, FlashlightOff } from "lucide-react";
 
 interface BarcodeScannerModalProps {
   open: boolean;
@@ -14,6 +14,8 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<string | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -35,6 +37,8 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
       streamRef.current = null;
     }
     setScanning(false);
+    setTorchSupported(false);
+    setTorchOn(false);
   };
 
   useEffect(() => {
@@ -91,6 +95,19 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
 
         controlsRef.current = controls;
         setScanning(true);
+
+        // Check if torch is supported
+        setTimeout(() => {
+          try {
+            const track = streamRef.current?.getVideoTracks()[0];
+            const caps = track?.getCapabilities?.();
+            if (caps && "torch" in caps) {
+              setTorchSupported(true);
+            }
+          } catch {
+            setTorchSupported(false);
+          }
+        }, 500);
       } catch (err) {
         console.error("Scanner start error:", err);
         setError("Kamera konnte nicht gestartet werden.");
@@ -111,6 +128,26 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
           <ScanLine className="w-5 h-5" />
           <span className="font-medium">Barcode scannen</span>
         </div>
+        {torchSupported && (
+          <button
+            onClick={async () => {
+              try {
+                const track = streamRef.current?.getVideoTracks()[0];
+                if (track && typeof track.applyConstraints === "function") {
+                  // @ts-ignore – torch is a non-standard constraint
+                  await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
+                  setTorchOn((prev) => !prev);
+                }
+              } catch {
+                setTorchSupported(false);
+              }
+            }}
+            className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            title="Taschenlampe"
+          >
+            {torchOn ? <Flashlight className="w-5 h-5" /> : <FlashlightOff className="w-5 h-5" />}
+          </button>
+        )}
         <button
           onClick={() => { cleanup(); onClose(); }}
           className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
