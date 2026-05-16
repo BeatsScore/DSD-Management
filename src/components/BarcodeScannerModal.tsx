@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
+import { DecodeHintType, BarcodeFormat } from "@zxing/library";
 import { X, ScanLine, Flashlight, FlashlightOff } from "lucide-react";
 
 interface BarcodeScannerModalProps {
@@ -106,14 +107,26 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
           }
         }
 
-        // 3. Prepare offscreen canvas for decoding
+        // 3. Prepare offscreen canvas for decoding (higher res for dense barcodes)
         const canvas = document.createElement("canvas");
-        canvas.width = 640;
-        canvas.height = 360;
+        canvas.width = 1280;
+        canvas.height = 720;
         canvasRef.current = canvas;
 
         if (!readerRef.current) {
-          readerRef.current = new BrowserMultiFormatReader();
+          const hints = new Map();
+          hints.set(DecodeHintType.TRY_HARDER, true);
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+            BarcodeFormat.CODE_128,
+            BarcodeFormat.CODE_39,
+            BarcodeFormat.EAN_13,
+            BarcodeFormat.EAN_8,
+            BarcodeFormat.UPC_A,
+            BarcodeFormat.UPC_E,
+            BarcodeFormat.QR_CODE,
+            BarcodeFormat.DATA_MATRIX,
+          ]);
+          readerRef.current = new BrowserMultiFormatReader(hints);
         }
 
         setScanning(true);
