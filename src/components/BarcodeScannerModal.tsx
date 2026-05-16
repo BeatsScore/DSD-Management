@@ -18,19 +18,27 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
   const [torchSupported, setTorchSupported] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const controlsRef = useRef<any>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const rafRef = useRef<number>(0);
+  const frameCountRef = useRef(0);
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
+  const isMountedRef = useRef(true);
+
   onScanRef.current = onScan;
   onCloseRef.current = onClose;
 
-  // Cleanup everything
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const cleanup = () => {
-    if (controlsRef.current) {
-      try { controlsRef.current.stop(); } catch { /* ignore */ }
-      controlsRef.current = null;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -57,60 +65,95 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
 
     const start = async () => {
       try {
-        // 1. Open back camera directly
+        // 1. Open back camera with optimal constraints
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 60, min: 30 },
           },
         });
         streamRef.current = stream;
 
         const video = videoRef.current;
-        if (!video) return;
+        if (!video || !isMountedRef.current) return;
 
         video.srcObject = stream;
         await video.play();
 
-        // 2. Start decoding
+        // 2. Apply advanced camera settings after stream is running
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          try {
+            // @ts-ignore – non-standard constraints
+            await track.applyConstraints({
+              advanced: [
+                { focusMode: "continuous" },
+                { exposureMode: "continuous" },
+                { whiteBalanceMode: "continuous" },
+              ],
+            } as any);
+          } catch {
+            // ignore if not supported
+          }
+
+          const caps = track.getCapabilities?.();
+          if (caps && "torch" in caps) {
+            setTorchSupported(true);
+          }
+        }
+
+        // 3. Prepare offscreen canvas for decoding
+        const canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 360;
+        canvasRef.current = canvas;
+
         if (!readerRef.current) {
           readerRef.current = new BrowserMultiFormatReader();
         }
 
-        const controls = await readerRef.current.decodeFromVideoElement(
-          video,
-          (result) => {
-            if (result) {
-              const text = result.getText();
-              setLastScan(text);
-              onScanRef.current(text);
-              setTimeout(() => {
-                cleanup();
-                onCloseRef.current();
-              }, 400);
-            }
-          }
-        );
-
-        controlsRef.current = controls;
         setScanning(true);
 
-        // Check if torch is supported
-        setTimeout(() => {
-          try {
-            const track = streamRef.current?.getVideoTracks()[0];
-            const caps = track?.getCapabilities?.();
-            if (caps && "torch" in caps) {
-              setTorchSupported(true);
+        // 4. Run custom decode loop with requestAnimationFrame
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return;
+
+        const loop = () => {
+          if (!isMountedRef.current) return;
+
+          frameCountRef.current++;
+
+          // Decode every 2nd frame (~30 FPS decode on 60 FPS camera)
+          if (frameCountRef.current % 2 === 0 && video.readyState >= 2) {
+            try {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const result = readerRef.current!.decodeFromCanvas(canvas);
+              if (result) {
+                const text = result.getText();
+                setLastScan(text);
+                onScanRef.current(text);
+                setTimeout(() => {
+                  cleanup();
+                  onCloseRef.current();
+                }, 400);
+                return; // stop loop
+              }
+            } catch {
+              // no barcode found in this frame – keep scanning
             }
-          } catch {
-            setTorchSupported(false);
           }
-        }, 500);
+
+          rafRef.current = requestAnimationFrame(loop);
+        };
+
+        rafRef.current = requestAnimationFrame(loop);
       } catch (err) {
         console.error("Scanner start error:", err);
-        setError("Kamera konnte nicht gestartet werden.");
+        if (isMountedRef.current) {
+          setError("Kamera konnte nicht gestartet werden.");
+        }
       }
     };
 
@@ -128,32 +171,34 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
           <ScanLine className="w-5 h-5" />
           <span className="font-medium">Barcode scannen</span>
         </div>
-        {torchSupported && (
-          <button
-            onClick={async () => {
-              try {
-                const track = streamRef.current?.getVideoTracks()[0];
-                if (track && typeof track.applyConstraints === "function") {
-                  // @ts-ignore – torch is a non-standard constraint
-                  await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
-                  setTorchOn((prev) => !prev);
+        <div className="flex items-center gap-2">
+          {torchSupported && (
+            <button
+              onClick={async () => {
+                try {
+                  const track = streamRef.current?.getVideoTracks()[0];
+                  if (track && typeof track.applyConstraints === "function") {
+                    // @ts-ignore
+                    await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
+                    setTorchOn((prev) => !prev);
+                  }
+                } catch {
+                  setTorchSupported(false);
                 }
-              } catch {
-                setTorchSupported(false);
-              }
-            }}
+              }}
+              className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              title="Taschenlampe"
+            >
+              {torchOn ? <Flashlight className="w-5 h-5" /> : <FlashlightOff className="w-5 h-5" />}
+            </button>
+          )}
+          <button
+            onClick={() => { cleanup(); onClose(); }}
             className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-            title="Taschenlampe"
           >
-            {torchOn ? <Flashlight className="w-5 h-5" /> : <FlashlightOff className="w-5 h-5" />}
+            <X className="w-5 h-5" />
           </button>
-        )}
-        <button
-          onClick={() => { cleanup(); onClose(); }}
-          className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        </div>
       </div>
 
       {error ? (
@@ -173,7 +218,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
         <div className="flex-1 relative overflow-hidden">
           <video
             ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover brightness-125 contrast-110"
+            className="absolute inset-0 w-full h-full object-cover brightness-150 contrast-125 saturate-110"
             muted
             playsInline
           />
