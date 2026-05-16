@@ -97,6 +97,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
         Html5QrcodeSupportedFormats.QR_CODE,
         Html5QrcodeSupportedFormats.DATA_MATRIX,
       ],
+      useBarCodeDetectorIfSupported: true,
       verbose: false,
     });
 
@@ -106,9 +107,15 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
       .start(
         activeCamera,
         {
-          fps: 15,
-          qrbox: { width: 280, height: 200 },
+          fps: 25,
+          qrbox: { width: 320, height: 160 },
           aspectRatio: 1.777,
+          videoConstraints: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            // @ts-ignore – focusMode is supported by many mobile browsers but not yet in TS DOM types
+            focusMode: "continuous",
+          },
         },
         (decodedText) => {
           playBeep();
@@ -126,12 +133,16 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
       )
       .then(() => {
         setScanning(true);
-        // Check if torch is supported by inspecting the actual video track
+        // Apply continuous focus after camera is running (more reliable than initial constraints)
         setTimeout(() => {
           try {
             const video = document.querySelector("#barcode-scanner-video video") as HTMLVideoElement;
             const stream = video?.srcObject as MediaStream;
             const track = stream?.getVideoTracks()[0];
+            if (track && typeof track.applyConstraints === "function") {
+              // @ts-ignore – focusMode is a non-standard constraint
+              track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+            }
             const caps = track?.getCapabilities?.();
             if (caps && "torch" in caps) {
               setTorchSupported(true);
@@ -139,7 +150,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
           } catch {
             setTorchSupported(false);
           }
-        }, 500);
+        }, 600);
       })
       .catch((err) => {
         console.error("Start scanner error:", err);
