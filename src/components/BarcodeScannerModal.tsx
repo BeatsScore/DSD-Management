@@ -93,6 +93,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
                 { focusMode: "continuous" },
                 { exposureMode: "continuous" },
                 { whiteBalanceMode: "continuous" },
+                { exposureCompensation: -1 },
               ],
             } as any);
           } catch {
@@ -239,7 +240,7 @@ export function BarcodeScannerModal({ open, onScan, onClose }: BarcodeScannerMod
         >
           <video
             ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover brightness-150 contrast-125 saturate-110"
+            className="absolute inset-0 w-full h-full object-cover brightness-[1.6] contrast-[1.35] saturate-[1.15]"
             muted
             playsInline
           />
