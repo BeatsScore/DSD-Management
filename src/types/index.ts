@@ -228,3 +228,90 @@ export interface ProductOwner {
   quantity: number;
   created_at: string;
 }
+
+export interface AccountingCategory {
+  id: string;
+  name: string;
+  type: "einnahme" | "ausgabe";
+  color: string | null;
+  active: boolean;
+  created_at: string;
+}
+
+export interface Supplier {
+  id: string;
+  company_name: string;
+  contact_name: string | null;
+  address: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountingEntry {
+  id: string;
+  entry_number: string;
+  date: string;
+  amount: number;
+  type: "einnahme" | "ausgabe";
+  tax_rate: number;
+  payment_method: "bar" | "ueberweisung" | "karte" | "paypal" | "andere" | null;
+  description: string | null;
+  category_id: string | null;
+  category?: AccountingCategory | null;
+  customer_id: string | null;
+  customer?: Customer | null;
+  supplier_id: string | null;
+  supplier?: Supplier | null;
+  order_id: string | null;
+  document_id: string | null;
+  status: "gebucht" | "storniert" | "archiviert";
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountingEntryInvoice {
+  id: string;
+  entry_id: string;
+  order_id: string;
+  order?: Order;
+  allocated_amount: number;
+  created_at: string;
+}
+
+export interface AccountingAttachment {
+  id: string;
+  entry_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  created_at: string;
+}
+
+export interface AccountingMonthlyClosing {
+  id: string;
+  year: number;
+  month: number;
+  total_income: number;
+  total_expenses: number;
+  profit: number;
+  open_receivables: number;
+  open_payables: number;
+  is_closed: boolean;
+  closed_at: string | null;
+  closed_by: string | null;
+  created_at: string;
+}
+
+export interface AccountingActivityLog {
+  id: string;
+  entry_id: string | null;
+  user_id: string | null;
+  action: string;
+  old_values: any;
+  new_values: any;
+  created_at: string;
+}

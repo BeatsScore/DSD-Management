@@ -15,23 +15,34 @@ import {
   X,
   Inbox,
   Wrench,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+type NavLink = {
+  href?: string;
+  label: string;
+  icon: React.ElementType;
+  children?: { href: string; label: string }[];
+};
 
 export function AdminSidebar({ role }: { role: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login/");
   };
 
-  const links = [
+  const links: NavLink[] = [
     { href: "/dashboard/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/inventar/", label: "Inventar", icon: Package },
     { href: "/inventar/kalender/", label: "Kalender", icon: CalendarRange },
@@ -40,10 +51,24 @@ export function AdminSidebar({ role }: { role: string }) {
     { href: "/planer/", label: "Planer", icon: CalendarDays },
     { href: "/kunden/", label: "Kunden", icon: Users },
     { href: "/wartung/", label: "Wartung", icon: Wrench },
+    {
+      label: "Buchhaltung",
+      icon: BookOpen,
+      children: [
+        { href: "/buchhaltung/", label: "Übersicht" },
+        { href: "/buchhaltung/buchungen/", label: "Buchungen" },
+        { href: "/buchhaltung/rechnungen/", label: "Rechnungen" },
+        { href: "/buchhaltung/lieferanten/", label: "Lieferanten" },
+        { href: "/buchhaltung/monatsabschluss/", label: "Monatsabschluss" },
+        { href: "/buchhaltung/jahresabschluss/", label: "Jahresabschluss" },
+      ],
+    },
     ...(role === "admin" ? [{ href: "/mitarbeiter/", label: "Mitarbeiter", icon: UserCog }] : []),
   ];
 
   const closeMobile = () => setMobileOpen(false);
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href);
 
   return (
     <>
@@ -84,11 +109,56 @@ export function AdminSidebar({ role }: { role: string }) {
         </div>
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
           {links.map((link) => {
-            const active = pathname === link.href || pathname.startsWith(link.href);
+            if (link.children) {
+              const isSubmenuActive = link.children.some((c) => isActive(c.href));
+              const isOpen = openSubmenu === link.label || isSubmenuActive;
+              return (
+                <div key={link.label}>
+                  <button
+                    onClick={() => setOpenSubmenu(isOpen ? null : link.label)}
+                    className={`flex items-center justify-between w-full gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isSubmenuActive
+                        ? "bg-gray-800 text-white"
+                        : "text-gray-400 hover:text-white hover:bg-gray-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <link.icon className="w-5 h-5" />
+                      {link.label}
+                    </div>
+                    {isOpen ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </button>
+                  {isOpen && (
+                    <div className="ml-9 mt-1 space-y-1">
+                      {link.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          onClick={closeMobile}
+                          className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                            isActive(child.href)
+                              ? "bg-gray-800 text-white font-medium"
+                              : "text-gray-500 hover:text-white hover:bg-gray-900"
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            const active = link.href ? isActive(link.href) : false;
             return (
               <Link
                 key={link.href}
-                href={link.href}
+                href={link.href || "#"}
                 onClick={closeMobile}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
