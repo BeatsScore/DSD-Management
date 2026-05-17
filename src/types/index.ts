@@ -202,6 +202,21 @@ export interface Manufacturer {
   created_at: string;
 }
 
+export interface OrderItemAssignment {
+  id: string;
+  order_id: string;
+  product_item_id: string;
+  product_item?: {
+    id: string;
+    barcode: string;
+    serial_number: string | null;
+    product?: Product;
+  };
+  action_type: "pickup" | "return";
+  created_at: string;
+  created_by: string | null;
+}
+
 export interface ProductOwner {
   id: string;
   product_id: string;

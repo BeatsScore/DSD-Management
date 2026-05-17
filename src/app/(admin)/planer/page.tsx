@@ -34,6 +34,7 @@ export default function PlannerPage() {
   const [scanMode, setScanMode] = useState<"pickup" | "return">("pickup");
   const [scanInput, setScanInput] = useState("");
   const [scannedItems, setScannedItems] = useState<string[]>([]);
+  const [scannedProductItems, setScannedProductItems] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [scanningOrder, setScanningOrder] = useState<any>(null);
   const supabase = createClient();
@@ -262,12 +263,18 @@ export default function PlannerPage() {
     setScanningOrderId(orderId);
     setScanMode("pickup");
     setScannedItems([]);
+    setScannedProductItems([]);
     setScanInput("");
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("*, product:product_id(*), product_item:product_item_id(*)")
-      .eq("order_id", orderId);
+    const [{ data: items }, { data: assignments }] = await Promise.all([
+      supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", orderId),
+      supabase.from("order_item_assignments").select("*, product_item:product_item_id(*, product:product_id(*))").eq("order_id", orderId).eq("action_type", "pickup"),
+    ]);
     setOrderItems(items || []);
+    // Pre-fill scanned items from previous assignments (for re-scanning or partial pickup)
+    if (assignments && assignments.length > 0) {
+      setScannedProductItems(assignments.map((a) => a.product_item));
+      setScannedItems(assignments.map((a) => a.product_item_id));
+    }
   };
 
   const startReturn = async (orderId: string) => {
@@ -276,47 +283,123 @@ export default function PlannerPage() {
     setScanningOrderId(orderId);
     setScanMode("return");
     setScannedItems([]);
+    setScannedProductItems([]);
     setScanInput("");
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("*, product:product_id(*), product_item:product_item_id(*)")
-      .eq("order_id", orderId);
+    const [{ data: items }, { data: assignments }] = await Promise.all([
+      supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", orderId),
+      supabase.from("order_item_assignments").select("*, product_item:product_item_id(*, product:product_id(*))").eq("order_id", orderId).eq("action_type", "pickup"),
+    ]);
     setOrderItems(items || []);
+    // Pre-fill with previously picked up items
+    if (assignments && assignments.length > 0) {
+      setScannedProductItems(assignments.map((a) => a.product_item));
+      setScannedItems(assignments.map((a) => a.product_item_id));
+    }
   };
 
-  const processBarcode = useCallback((barcode: string) => {
+  const processBarcode = useCallback(async (barcode: string) => {
     if (!barcode || !scanningOrderId) return;
 
     const trimmed = barcode.trim();
 
-    // Match by product_item barcode
-    const matchedItem = orderItems.find(
-      (item) => item.product_item?.barcode === trimmed && !scannedItems.includes(item.product_item?.id)
-    );
+    // 1. Find product_item by barcode
+    const { data: productItem } = await supabase
+      .from("product_items")
+      .select("*, product:product_id(*)")
+      .eq("barcode", trimmed)
+      .single();
 
-    if (matchedItem) {
-      setScannedItems((prev) => [...prev, matchedItem.product_item.id]);
-      toast.success(`${matchedItem.product?.name} gescannt`);
-    } else {
-      // Fallback: match by product barcode (for backwards compatibility)
-      const matchedByProduct = orderItems.find(
-        (item) => item.product?.barcode === trimmed && !scannedItems.includes(item.product?.id)
-      );
-      if (matchedByProduct) {
-        setScannedItems((prev) => [...prev, matchedByProduct.product.id]);
-        toast.success(`${matchedByProduct.product?.name} gescannt`);
-      } else {
-        toast.error("Artikel nicht in diesem Auftrag gefunden oder bereits gescannt.");
+    if (!productItem) {
+      toast.error("Barcode nicht gefunden.");
+      setScanInput("");
+      return;
+    }
+
+    // 2. Check if this product is part of the order
+    const matchingOrderItem = orderItems.find(
+      (item) => item.product_id === productItem.product_id
+    );
+    if (!matchingOrderItem) {
+      toast.error(`${productItem.product?.name} ist nicht in diesem Auftrag.`);
+      setScanInput("");
+      return;
+    }
+
+    // 3. Check not already scanned
+    if (scannedItems.includes(productItem.id)) {
+      toast.error("Dieser Artikel wurde bereits gescannt.");
+      setScanInput("");
+      return;
+    }
+
+    // 4. Check how many of this product are expected
+    const expectedQty = matchingOrderItem.quantity || 1;
+    const alreadyScannedCount = scannedProductItems.filter(
+      (spi) => spi.product_id === productItem.product_id
+    ).length;
+    if (alreadyScannedCount >= expectedQty) {
+      toast.error(`Bereits ${expectedQty} × ${productItem.product?.name} gescannt.`);
+      setScanInput("");
+      return;
+    }
+
+    // 5. Check status based on scan mode
+    if (scanMode === "pickup") {
+      if (productItem.status !== "verfuegbar") {
+        toast.error(`${productItem.product?.name} ist nicht verfügbar (Status: ${productItem.status}).`);
+        setScanInput("");
+        return;
+      }
+    } else if (scanMode === "return") {
+      // For return, the item must have been picked up for this order
+      const { data: pickupAssignment } = await supabase
+        .from("order_item_assignments")
+        .select("id")
+        .eq("order_id", scanningOrderId)
+        .eq("product_item_id", productItem.id)
+        .eq("action_type", "pickup")
+        .single();
+      if (!pickupAssignment) {
+        toast.error(`${productItem.product?.name} wurde bei dieser Abholung nicht erfasst.`);
+        setScanInput("");
+        return;
+      }
+      if (productItem.status !== "vermietet") {
+        toast.error(`${productItem.product?.name} hat Status ${productItem.status}, erwartet: vermietet.`);
+        setScanInput("");
+        return;
       }
     }
+
+    // 6. Save assignment and update status
+    const { error: assignError } = await supabase.from("order_item_assignments").insert({
+      order_id: scanningOrderId,
+      product_item_id: productItem.id,
+      action_type: scanMode,
+    });
+
+    if (assignError) {
+      toast.error("Fehler beim Speichern: " + assignError.message);
+      setScanInput("");
+      return;
+    }
+
+    // Update product_item status
+    const newStatus = scanMode === "pickup" ? "vermietet" : "verfuegbar";
+    await supabase.from("product_items").update({ status: newStatus }).eq("id", productItem.id);
+
+    // 7. Update local state
+    setScannedItems((prev) => [...prev, productItem.id]);
+    setScannedProductItems((prev) => [...prev, productItem]);
+    toast.success(`${productItem.product?.name} (${productItem.barcode}) gescannt`);
     setScanInput("");
-  }, [scanningOrderId, orderItems, scannedItems]);
+  }, [scanningOrderId, orderItems, scannedItems, scannedProductItems, scanMode, supabase]);
 
 
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
-    processBarcode(scanInput);
+    await processBarcode(scanInput);
   };
 
   const confirmPickup = async () => {
@@ -332,19 +415,11 @@ export default function PlannerPage() {
       return;
     }
 
-    // Update scanned product_items status to "vermietet"
-    const scannedProductItemIds = orderItems
-      .filter((item) => scannedItems.includes(item.product_item?.id))
-      .map((item) => item.product_item.id)
-      .filter(Boolean);
-
-    if (scannedProductItemIds.length > 0) {
-      await supabase.from("product_items").update({ status: "vermietet" }).in("id", scannedProductItemIds);
-    }
-
     toast.success("Abholung bestätigt.");
     setScanningOrderId(null);
     setScanningOrder(null);
+    setScannedProductItems([]);
+    setScannedItems([]);
     loadOrders();
   };
 
@@ -360,24 +435,15 @@ export default function PlannerPage() {
       return;
     }
 
-    // Update scanned product_items status to "verfuegbar"
-    const scannedProductItemIds = orderItems
-      .filter((item) => scannedItems.includes(item.product_item?.id))
-      .map((item) => item.product_item.id)
-      .filter(Boolean);
-
-    if (scannedProductItemIds.length > 0) {
-      await supabase.from("product_items").update({ status: "verfuegbar" }).in("id", scannedProductItemIds);
-    }
-
     toast.success("Rückgabe bestätigt.");
-    // Open damage capture with current order items
+    // Open damage capture with scanned product items
     setDamageOrderId(scanningOrderId);
-    setDamageOrderItems(orderItems);
-    setDamageProductItemIds(orderItems.map((item) => item.product_item?.id).filter(Boolean));
+    setDamageOrderItems(scannedProductItems.map((spi) => ({ product_item: spi, product: spi.product })));
+    setDamageProductItemIds(scannedProductItems.map((spi) => spi.id));
     setShowDamageCapture(true);
     setScanningOrderId(null);
     setScanningOrder(null);
+    setScannedProductItems([]);
     setScannedItems([]);
     setOrderItems([]);
     loadOrders();
@@ -505,6 +571,7 @@ export default function PlannerPage() {
     setScanningOrderId(null);
     setScanningOrder(null);
     setScannedItems([]);
+    setScannedProductItems([]);
     setOrderItems([]);
     stopCamera();
     setShowIdCapture(false);
@@ -649,10 +716,23 @@ export default function PlannerPage() {
   if (scanningOrderId) {
     const totalItems = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
     const scannedCount = scannedItems.length;
-    const allScanned = orderItems.length > 0 && orderItems.every((item) =>
-      scannedItems.includes(item.product_item?.id) || scannedItems.includes(item.product?.id)
-    );
+    const allScanned = totalItems > 0 && scannedCount >= totalItems;
     const isPickup = scanMode === "pickup";
+
+    const removeScannedItem = async (productItemId: string) => {
+      // Delete assignment
+      await supabase.from("order_item_assignments").delete()
+        .eq("order_id", scanningOrderId)
+        .eq("product_item_id", productItemId)
+        .eq("action_type", scanMode);
+      // Revert status
+      const newStatus = scanMode === "pickup" ? "verfuegbar" : "vermietet";
+      await supabase.from("product_items").update({ status: newStatus }).eq("id", productItemId);
+      // Update local state
+      setScannedItems((prev) => prev.filter((id) => id !== productItemId));
+      setScannedProductItems((prev) => prev.filter((spi) => spi.id !== productItemId));
+      toast.success("Artikel entfernt.");
+    };
 
     return (
       <div className="max-w-xl mx-auto">
@@ -710,32 +790,69 @@ export default function PlannerPage() {
           </button>
         </form>
 
+        {/* Scanned items */}
+        {scannedProductItems.length > 0 && (
+          <div className="space-y-2 mb-6">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Gescannt</div>
+            {scannedProductItems.map((spi) => (
+              <div
+                key={spi.id}
+                className="flex items-center gap-3 p-3 rounded-lg border border-green-200 bg-green-50"
+              >
+                <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-green-800">{spi.product?.name}</div>
+                  <div className="text-xs text-green-700">
+                    Barcode: {spi.barcode}
+                    {spi.serial_number && <span> · SN: {spi.serial_number}</span>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeScannedItem(spi.id)}
+                  className="p-1.5 text-green-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                  title="Entfernen"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Expected products */}
         <div className="space-y-2 mb-8">
+          <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Erwartet</div>
           {orderItems.map((item) => {
-            const isScanned = scannedItems.includes(item.product_item?.id) || scannedItems.includes(item.product?.id);
+            const expectedQty = item.quantity || 1;
+            const scannedQty = scannedProductItems.filter(
+              (spi) => spi.product_id === item.product_id
+            ).length;
+            const remaining = expectedQty - scannedQty;
             return (
               <div
                 key={item.id}
                 className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                  isScanned
+                  remaining <= 0
                     ? "border-green-200 bg-green-50"
                     : "border-gray-200 bg-white"
                 }`}
               >
-                {isScanned ? (
+                {remaining <= 0 ? (
                   <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
                 ) : (
                   <Circle className="w-5 h-5 text-gray-300 shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className={`text-sm font-medium ${isScanned ? "text-green-800" : ""}`}>
+                  <div className={`text-sm font-medium ${remaining <= 0 ? "text-green-800" : ""}`}>
                     {item.product?.name}
                   </div>
                   <div className="text-xs text-gray-500">
                     {item.product?.product_id} | {item.product?.manufacturer}
                   </div>
                 </div>
-                <span className="text-xs text-gray-400">x{item.quantity}</span>
+                <span className={`text-xs font-medium ${remaining <= 0 ? "text-green-700" : "text-gray-400"}`}>
+                  {scannedQty}/{expectedQty}
+                </span>
               </div>
             );
           })}
@@ -756,8 +873,8 @@ export default function PlannerPage() {
 
         <BarcodeScannerModal
           open={showBarcodeScanner}
-          onScan={(code) => {
-            processBarcode(code);
+          onScan={async (code) => {
+            await processBarcode(code);
             setShowBarcodeScanner(false);
           }}
           onClose={() => setShowBarcodeScanner(false)}

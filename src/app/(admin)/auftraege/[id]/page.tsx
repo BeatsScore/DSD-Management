@@ -42,6 +42,7 @@ export default function OrderDetailPage() {
   const [damageLogs, setDamageLogs] = useState<any[]>([]);
   const [changeLogs, setChangeLogs] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
@@ -87,7 +88,7 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }] = await Promise.all([
+      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }, { data: ass }] = await Promise.all([
         supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
         supabase.from("order_items").select("*, product:product_id(*), product_item:product_item_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
@@ -95,6 +96,7 @@ export default function OrderDetailPage() {
         supabase.from("damage_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("order_change_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("products").select("id, name, manufacturer, product_id").eq("status", "verfuegbar").order("name"),
+        supabase.from("order_item_assignments").select("*, product_item:product_item_id(*, product:product_id(*))").eq("order_id", id).order("created_at", { ascending: true }),
       ]);
       setOrder(o);
       setItems(i || []);
@@ -103,6 +105,7 @@ export default function OrderDetailPage() {
       setDamageLogs(dl || []);
       setChangeLogs(cl || []);
       setAllProducts(ap || []);
+      setAssignments(ass || []);
       if (o) {
         setPaymentStatus(o.payment_status || "offen");
         setPaymentMethod(o.payment_method || "");
@@ -741,27 +744,62 @@ export default function OrderDetailPage() {
         <div className="card">
           <h2 className="section-header mb-4">Artikel</h2>
           {items.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left text-gray-500">
-                    <th className="pb-3 font-medium">Produkt</th>
-                    <th className="pb-3 font-medium">Hersteller</th>
-                    <th className="pb-3 font-medium text-center">Menge</th>
-                    <th className="pb-3 font-medium text-right">Preis/Tag</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="py-3 font-medium">{item.product?.name}</td>
-                      <td className="py-3 text-gray-600">{item.product?.manufacturer}</td>
-                      <td className="py-3 text-center">{item.quantity}</td>
-                      <td className="py-3 text-right">{formatCurrency(item.price_per_day)}</td>
+            <div className="space-y-4">
+              {/* Abstract order items with quantities */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left text-gray-500">
+                      <th className="pb-3 font-medium">Produkt</th>
+                      <th className="pb-3 font-medium">Hersteller</th>
+                      <th className="pb-3 font-medium text-center">Menge</th>
+                      <th className="pb-3 font-medium text-right">Preis/Tag</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {items.map((item) => (
+                      <tr key={item.id}>
+                        <td className="py-3 font-medium">{item.product?.name}</td>
+                        <td className="py-3 text-gray-600">{item.product?.manufacturer}</td>
+                        <td className="py-3 text-center">{item.quantity}</td>
+                        <td className="py-3 text-right">{formatCurrency(item.price_per_day)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Concrete product items (if assigned) */}
+              {assignments.length > 0 && (
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Zugewiesene Geräte</div>
+                  <div className="space-y-2">
+                    {assignments.map((ass) => (
+                      <Link
+                        key={ass.id}
+                        href={`/inventar/${ass.product_item?.product?.id}/`}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                      >
+                        <PackageOpen className="w-4 h-4 text-gray-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">{ass.product_item?.product?.name}</div>
+                          <div className="text-xs text-gray-500">
+                            Barcode: {ass.product_item?.barcode}
+                            {ass.product_item?.serial_number && <span> · SN: {ass.product_item.serial_number}</span>}
+                          </div>
+                        </div>
+                        <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          ass.action_type === 'pickup'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {ass.action_type === 'pickup' ? 'Abgeholt' : 'Zurückgebracht'}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-gray-500">Keine Artikel zugewiesen.</p>
