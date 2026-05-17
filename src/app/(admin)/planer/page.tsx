@@ -347,7 +347,7 @@ export default function PlannerPage() {
     // 5. Check status based on scan mode
     if (scanMode === "pickup") {
       if (productItem.status !== "verfuegbar") {
-        toast.error(`${productItem.product?.name} ist nicht verfügbar (Status: ${productItem.status}).`);
+        toast.error(`${productItem.product?.name} ist nicht verfügbar (Status: ${getStatusLabel(productItem.status)}).`);
         setScanInput("");
         return;
       }
@@ -366,7 +366,7 @@ export default function PlannerPage() {
         return;
       }
       if (productItem.status !== "vermietet") {
-        toast.error(`${productItem.product?.name} hat Status ${productItem.status}, erwartet: vermietet.`);
+        toast.error(`${productItem.product?.name} hat Status ${getStatusLabel(productItem.status)}, erwartet: Vermietet.`);
         setScanInput("");
         return;
       }

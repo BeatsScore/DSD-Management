@@ -924,8 +924,8 @@ export default function ProductDetailPage() {
                     <div key={item.id || index} className="border border-gray-200 rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-gray-500">Item #{index + 1}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
-                          {item.status}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusBadgeClass(item.status)}`}>
+                          {statusLabel(item.status)}
                         </span>
                       </div>
                       <div className="grid sm:grid-cols-2 gap-3">
@@ -1238,8 +1238,8 @@ export default function ProductDetailPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {item.condition && <span className="text-xs text-gray-500">{conditionLabel(item.condition)}</span>}
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
-                            {item.status}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusBadgeClass(item.status)}`}>
+                            {statusLabel(item.status)}
                           </span>
                         </div>
                       </div>
@@ -1294,8 +1294,8 @@ export default function ProductDetailPage() {
                     <div key={item.id || index} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-medium text-gray-500">Item #{index + 1}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.status === "verfuegbar" ? "bg-green-100 text-green-700" : item.status === "vermietet" ? "bg-blue-100 text-blue-700" : item.status === "defekt" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>
-                          {item.status}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusBadgeClass(item.status)}`}>
+                          {statusLabel(item.status)}
                         </span>
                       </div>
                       <div className="flex items-center gap-4">
