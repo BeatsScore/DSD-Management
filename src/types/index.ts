@@ -92,6 +92,9 @@ export interface Order {
   payment_status: "offen" | "anzahlung" | "vollstaendig" | null;
   payment_method: "bar" | "ueberweisung" | "karte" | "paypal" | null;
   paid_amount: number | null;
+  discount_type: "prozentual" | "absolut" | null;
+  discount_amount: number | null;
+  discount_reason: string | null;
   created_at: string;
   updated_at: string;
 }

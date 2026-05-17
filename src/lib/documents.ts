@@ -53,10 +53,19 @@ export async function generateDocument(
     })
     .join("");
 
+  // Discount calculation
   const subtotal = lineTotalSum;
+  const rawDiscount = order.discount_amount || 0;
+  const discount = order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
+  const netAfterDiscount = Math.max(0, subtotal - discount);
   const vatRate = 7.7;
-  const vatAmount = subtotal * (vatRate / 100);
-  const total = subtotal + vatAmount;
+  const vatAmount = netAfterDiscount * (vatRate / 100);
+  const total = netAfterDiscount + vatAmount;
+  const deposit = subtotal * 0.25; // 25% of un-discounted net
+
+  const discountRow = discount > 0
+    ? `<div class="price-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>`
+    : "";
 
   const customer = order.customer || {};
 
@@ -329,6 +338,11 @@ export async function generateDocument(
                 <span>Mietpreis gesamt</span>
                 <span>${formatCurrency(subtotal)}</span>
               </div>
+              ${discount > 0 ? `<div class="price-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>` : ""}
+              <div class="price-row">
+                <span>Netto nach Rabatt</span>
+                <span>${formatCurrency(netAfterDiscount)}</span>
+              </div>
               <div class="price-row">
                 <span>MWSt. ${vatRate}%</span>
                 <span>${formatCurrency(vatAmount)}</span>
@@ -338,7 +352,7 @@ export async function generateDocument(
                 <span>${formatCurrency(total)}</span>
               </div>
             </div>
-            <p>Der Mieter leistet vor Mietbeginn eine Kaution in Höhe von <strong>${formatCurrency(total * 0.2)}</strong> (20% des Mietwertes). Die Kaution wird innerhalb von 10 Werktagen nach Rückgabe der unbeschädigten Gegenstände zurückerstattet.</p>
+            <p>Der Mieter leistet vor Mietbeginn eine Kaution in Höhe von <strong>${formatCurrency(deposit)}</strong> (25% des unrabattierten Mietwertes). Die Kaution wird innerhalb von 10 Werktagen nach Rückgabe der unbeschädigten Gegenstände zurückerstattet.</p>
 
             <h1>Allgemeine Geschäftsbedingungen</h1>
 
@@ -621,6 +635,11 @@ export async function generateDocument(
                   <span>Zwischensumme</span>
                   <span>${formatCurrency(subtotal)}</span>
                 </div>
+                ${discount > 0 ? `<div class="summary-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>` : ""}
+                <div class="summary-row">
+                  <span>Netto nach Rabatt</span>
+                  <span>${formatCurrency(netAfterDiscount)}</span>
+                </div>
                 <div class="summary-row">
                   <span>MWSt. ${vatRate}%</span>
                   <span>${formatCurrency(vatAmount)}</span>
@@ -809,10 +828,18 @@ export function printDocument(
     .join("");
 
   const subtotal = lineTotalSum;
+  const rawDiscount = order.discount_amount || 0;
+  const discount = order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
+  const netAfterDiscount = Math.max(0, subtotal - discount);
   const vatRate = 7.7;
-  const vatAmount = subtotal * (vatRate / 100);
-  const total = subtotal + vatAmount;
+  const vatAmount = netAfterDiscount * (vatRate / 100);
+  const total = netAfterDiscount + vatAmount;
+  const deposit = subtotal * 0.25;
   const customer = order.customer || {};
+
+  const discountRowPrint = discount > 0
+    ? `<div class="price-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>`
+    : "";
 
   if (type === "mietvertrag") {
     const equipmentList = items
@@ -1080,6 +1107,11 @@ export function printDocument(
                 <span>Mietpreis gesamt</span>
                 <span>${formatCurrency(subtotal)}</span>
               </div>
+              ${discountRowPrint}
+              <div class="price-row">
+                <span>Netto nach Rabatt</span>
+                <span>${formatCurrency(netAfterDiscount)}</span>
+              </div>
               <div class="price-row">
                 <span>MWSt. ${vatRate}%</span>
                 <span>${formatCurrency(vatAmount)}</span>
@@ -1089,7 +1121,7 @@ export function printDocument(
                 <span>${formatCurrency(total)}</span>
               </div>
             </div>
-            <p>Der Mieter leistet vor Mietbeginn eine Kaution in Höhe von <strong>${formatCurrency(total * 0.2)}</strong> (20% des Mietwertes). Die Kaution wird innerhalb von 10 Werktagen nach Rückgabe der unbeschädigten Gegenstände zurückerstattet.</p>
+            <p>Der Mieter leistet vor Mietbeginn eine Kaution in Höhe von <strong>${formatCurrency(deposit)}</strong> (25% des unrabattierten Mietwertes). Die Kaution wird innerhalb von 10 Werktagen nach Rückgabe der unbeschädigten Gegenstände zurückerstattet.</p>
 
             <h1>Allgemeine Geschäftsbedingungen</h1>
 
@@ -1379,6 +1411,11 @@ export function printDocument(
               <div class="summary-row">
                 <span>Zwischensumme</span>
                 <span>${formatCurrency(subtotal)}</span>
+              </div>
+              ${discount > 0 ? `<div class="summary-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>` : ""}
+              <div class="summary-row">
+                <span>Netto nach Rabatt</span>
+                <span>${formatCurrency(netAfterDiscount)}</span>
               </div>
               <div class="summary-row">
                 <span>MWSt. ${vatRate}%</span>

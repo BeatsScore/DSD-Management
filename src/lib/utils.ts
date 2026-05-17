@@ -138,3 +138,31 @@ export function getStatusLabel(status: string): string {
   };
   return labels[status] || status;
 }
+
+export interface OrderTotals {
+  subtotal: number;
+  discount: number;
+  netAfterDiscount: number;
+  vat: number;
+  total: number;
+  deposit: number;
+}
+
+export function calculateOrderTotals(
+  items: { price_per_day: number | null; quantity: number }[],
+  dayRates: number,
+  discountType: string | null,
+  discountAmount: number | null
+): OrderTotals {
+  const subtotal = items.reduce(
+    (sum, it) => sum + (it.price_per_day || 0) * it.quantity * dayRates,
+    0
+  );
+  const rawDiscount = discountAmount || 0;
+  const discount = discountType === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
+  const netAfterDiscount = Math.max(0, subtotal - discount);
+  const vat = netAfterDiscount * 0.077;
+  const total = netAfterDiscount + vat;
+  const deposit = subtotal * 0.25;
+  return { subtotal, discount, netAfterDiscount, vat, total, deposit };
+}

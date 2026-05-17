@@ -23,6 +23,9 @@ export default function NewOrderPage() {
     endDate: "",
     notes: "",
     dayRates: 1,
+    discountType: "" as "prozentual" | "absolut" | "",
+    discountAmount: "",
+    discountReason: "",
   });
 
   const [selectedProducts, setSelectedProducts] = useState<
@@ -89,11 +92,18 @@ export default function NewOrderPage() {
     setLoading(true);
     const orderNumber = generateOrderNumber();
 
-    // Calculate total amount from line items
-    const totalAmount = selectedProducts.reduce(
+    // Calculate totals
+    const subtotal = selectedProducts.reduce(
       (sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * form.dayRates,
       0
     );
+    const discountAmount = parseFloat(form.discountAmount) || 0;
+    const discount = form.discountType === "prozentual"
+      ? subtotal * (discountAmount / 100)
+      : discountAmount;
+    const netAfterDiscount = Math.max(0, subtotal - discount);
+    const vat = netAfterDiscount * 0.077;
+    const totalAmount = netAfterDiscount + vat;
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -106,6 +116,9 @@ export default function NewOrderPage() {
         status: "offen",
         notes: form.notes || null,
         total_amount: totalAmount > 0 ? totalAmount : null,
+        discount_type: form.discountType || null,
+        discount_amount: discountAmount > 0 ? discountAmount : null,
+        discount_reason: form.discountReason || null,
       })
       .select()
       .single();
@@ -269,13 +282,93 @@ export default function NewOrderPage() {
                 onChange={(e) => setForm({ ...form, dayRates: parseInt(e.target.value) || 1 })}
                 required
               />
-              <p className="text-xs text-gray-400 mt-1">
-                {selectedProducts.length > 0
-                  ? `Gesamtbetrag: ${selectedProducts.reduce((sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity, 0).toFixed(2)} CHF × ${form.dayRates} = ${(selectedProducts.reduce((sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity, 0) * form.dayRates).toFixed(2)} CHF`
-                  : "Produkte hinzufügen, um den Gesamtbetrag zu sehen"}
-              </p>
             </div>
           </div>
+
+          {/* Discount */}
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label className="label">Rabatt-Typ</label>
+              <select
+                className="input-field"
+                value={form.discountType}
+                onChange={(e) => setForm({ ...form, discountType: e.target.value as "prozentual" | "absolut" | "" })}
+              >
+                <option value="">Kein Rabatt</option>
+                <option value="prozentual">Prozentual (%)</option>
+                <option value="absolut">Fixer Betrag (CHF)</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Rabatt</label>
+              <input
+                type="number"
+                min={0}
+                step={form.discountType === "prozentual" ? 1 : 0.01}
+                className="input-field"
+                value={form.discountAmount}
+                onChange={(e) => setForm({ ...form, discountAmount: e.target.value })}
+                disabled={!form.discountType}
+                placeholder={form.discountType === "prozentual" ? "%" : "CHF"}
+              />
+            </div>
+            <div>
+              <label className="label">Rabatt-Grund</label>
+              <input
+                type="text"
+                className="input-field"
+                value={form.discountReason}
+                onChange={(e) => setForm({ ...form, discountReason: e.target.value })}
+                disabled={!form.discountType}
+                placeholder="z.B. Stammkunde"
+              />
+            </div>
+          </div>
+
+          {/* Live preview */}
+          {selectedProducts.length > 0 && (
+            <div className="card bg-gray-50 border-gray-200">
+              {(() => {
+                const subtotal = selectedProducts.reduce((sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * form.dayRates, 0);
+                const discountAmount = parseFloat(form.discountAmount) || 0;
+                const discount = form.discountType === "prozentual" ? subtotal * (discountAmount / 100) : discountAmount;
+                const netAfterDiscount = Math.max(0, subtotal - discount);
+                const vat = netAfterDiscount * 0.077;
+                const total = netAfterDiscount + vat;
+                const deposit = subtotal * 0.25;
+                return (
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Zwischensumme</span>
+                      <span>{subtotal.toFixed(2)} CHF</span>
+                    </div>
+                    {discount > 0 && (
+                      <div className="flex justify-between text-red-600">
+                        <span>Rabatt{form.discountReason ? ` (${form.discountReason})` : ""}</span>
+                        <span>-{discount.toFixed(2)} CHF</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-gray-600">
+                      <span>Netto nach Rabatt</span>
+                      <span>{netAfterDiscount.toFixed(2)} CHF</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>MWSt. (7.7%)</span>
+                      <span>{vat.toFixed(2)} CHF</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-base border-t border-gray-300 pt-1 mt-1">
+                      <span>Gesamtbetrag</span>
+                      <span>{total.toFixed(2)} CHF</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 pt-1">
+                      <span>Kaution (25% Netto)</span>
+                      <span>{deposit.toFixed(2)} CHF</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
           <div>
             <label className="label">Notizen</label>
             <textarea

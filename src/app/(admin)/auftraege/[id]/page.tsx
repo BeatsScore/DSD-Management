@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download, ShieldCheck, History, Pencil, Plus, Search, Layers } from "lucide-react";
-import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat } from "@/lib/utils";
+import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download, ShieldCheck, History, Pencil, Plus, Search, Layers, Percent } from "lucide-react";
+import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat, calculateOrderTotals } from "@/lib/utils";
 import { generateDocument, printDocument } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -77,6 +77,12 @@ export default function OrderDetailPage() {
   const [depositPaidAmount, setDepositPaidAmount] = useState("");
   const [savingDeposit, setSavingDeposit] = useState(false);
 
+  // Discount state
+  const [discountType, setDiscountType] = useState("");
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
+  const [savingDiscount, setSavingDiscount] = useState(false);
+
   // Damage protocol modal state
   const [showDamageModal, setShowDamageModal] = useState(false);
   const [damageProductItemIds, setDamageProductItemIds] = useState<string[]>([]);
@@ -113,6 +119,9 @@ export default function OrderDetailPage() {
         setDepositStatus(o.deposit_status || "offen");
         setDepositMethod(o.deposit_method || "");
         setDepositPaidAmount(o.deposit_paid_amount != null ? String(o.deposit_paid_amount) : "");
+        setDiscountType(o.discount_type || "");
+        setDiscountAmount(o.discount_amount != null ? String(o.discount_amount) : "");
+        setDiscountReason(o.discount_reason || "");
         setChangeForm({
           startDate: o.start_date || "",
           endDate: o.end_date || "",
@@ -434,11 +443,11 @@ export default function OrderDetailPage() {
         newValue = `${formatDate(changeForm.startDate)} - ${formatDate(changeForm.endDate)}`;
         break;
       case "tagessaetze":
-        const newTotal = items.reduce((sum: number, it: any) => sum + (it.price_per_day || 0) * it.quantity * changeForm.dayRates, 0);
-        updates = { day_rates: changeForm.dayRates, total_amount: newTotal > 0 ? newTotal : null };
+        const newTotals = calculateOrderTotals(items, changeForm.dayRates, order.discount_type || null, order.discount_amount ?? null);
+        updates = { day_rates: changeForm.dayRates, total_amount: newTotals.total > 0 ? newTotals.total : null };
         logDescription = `Tagessätze geändert`;
         oldValue = `${order.day_rates || 1} Tagessätze (${formatCurrency(order.total_amount)})`;
-        newValue = `${changeForm.dayRates} Tagessätze (${formatCurrency(newTotal)})`;
+        newValue = `${changeForm.dayRates} Tagessätze (${formatCurrency(newTotals.total)})`;
         break;
       case "mitarbeiter":
         updates = { assigned_to: changeForm.assignedTo || null };
@@ -523,6 +532,30 @@ export default function OrderDetailPage() {
     setEditProducts(editProducts.map((ep) => (ep.productId === productId ? { ...ep, [field]: value } : ep)));
   };
 
+  const totals = calculateOrderTotals(items, order?.day_rates || 1, order?.discount_type || null, order?.discount_amount ?? null);
+
+  const saveDiscount = async () => {
+    setSavingDiscount(true);
+    const rawAmount = safeParseFloat(discountAmount) || 0;
+    const newTotals = calculateOrderTotals(items, order.day_rates || 1, discountType || null, rawAmount);
+    const { data, error } = await supabase.from("orders").update({
+      discount_type: discountType || null,
+      discount_amount: discountType ? rawAmount : null,
+      discount_reason: discountReason || null,
+      total_amount: newTotals.total > 0 ? newTotals.total : null,
+    }).eq("id", id).select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").single();
+
+    setSavingDiscount(false);
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    toast.success("Rabatt gespeichert.");
+    setOrder(data);
+  };
+
   const remainingAmount = (order?.total_amount || 0) - (order?.paid_amount || 0);
 
   const planModalTitle = planType === "pickup" ? "Abholung planen" : planType === "return" ? "Rückgabe planen" : "";
@@ -589,8 +622,15 @@ export default function OrderDetailPage() {
           <div>
             <div className="text-xs text-gray-500 mb-1">Gesamtbetrag</div>
             <div className="font-medium">{formatCurrency(order.total_amount)}</div>
-            <div className="text-xs text-gray-400">
-              {order.day_rates || 1} Tagessatz{order.day_rates > 1 ? "e" : ""} × {formatCurrency((order.total_amount || 0) / (order.day_rates || 1))}/Tag
+            <div className="text-xs text-gray-400 space-y-0.5 mt-1">
+              <div className="flex justify-between gap-2"><span>Zwischensumme:</span> <span>{formatCurrency(totals.subtotal)}</span></div>
+              {totals.discount > 0 && (
+                <>
+                  <div className="flex justify-between gap-2 text-green-600"><span>Rabatt:</span> <span>-{formatCurrency(totals.discount)}</span></div>
+                  <div className="flex justify-between gap-2"><span>Netto:</span> <span>{formatCurrency(totals.netAfterDiscount)}</span></div>
+                </>
+              )}
+              <div className="flex justify-between gap-2"><span>MwSt. (7.7%):</span> <span>{formatCurrency(totals.vat)}</span></div>
             </div>
           </div>
 
@@ -631,6 +671,51 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
+        {/* Discount */}
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Percent className="w-5 h-5 text-purple-600" />
+            <h2 className="section-header">Rabatt</h2>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rabattart</label>
+              <select value={discountType} onChange={(e) => setDiscountType(e.target.value)} className="input-field w-full">
+                <option value="">Kein Rabatt</option>
+                <option value="prozentual">Prozentual</option>
+                <option value="absolut">Absolut</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rabatt {discountType === "prozentual" ? "(%)" : "(CHF)"}</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={discountAmount}
+                onChange={(e) => setDiscountAmount(e.target.value)}
+                className="input-field w-full"
+                disabled={!discountType}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rabattgrund</label>
+              <input
+                type="text"
+                value={discountReason}
+                onChange={(e) => setDiscountReason(e.target.value)}
+                className="input-field w-full"
+                placeholder="z.B. Stammkunde"
+              />
+            </div>
+          </div>
+          <div className="mt-4">
+            <button onClick={saveDiscount} disabled={savingDiscount} className="btn-primary text-sm py-2 px-4">
+              {savingDiscount ? <Loader2 className="w-4 h-4 animate-spin" /> : "Rabatt speichern"}
+            </button>
+          </div>
+        </div>
+
         {/* Payment Tracking */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
@@ -641,6 +726,16 @@ export default function OrderDetailPage() {
             <div>
               <div className="text-xs text-gray-500 mb-1">Gesamtbetrag</div>
               <div className="text-lg font-semibold">{formatCurrency(order.total_amount)}</div>
+              <div className="text-xs text-gray-400 space-y-0.5 mt-1">
+                <div className="flex justify-between gap-2"><span>Zwischensumme:</span> <span>{formatCurrency(totals.subtotal)}</span></div>
+                {totals.discount > 0 && (
+                  <>
+                    <div className="flex justify-between gap-2 text-green-600"><span>Rabatt:</span> <span>-{formatCurrency(totals.discount)}</span></div>
+                    <div className="flex justify-between gap-2"><span>Netto:</span> <span>{formatCurrency(totals.netAfterDiscount)}</span></div>
+                  </>
+                )}
+                <div className="flex justify-between gap-2"><span>MwSt. (7.7%):</span> <span>{formatCurrency(totals.vat)}</span></div>
+              </div>
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">Restbetrag</div>
@@ -689,7 +784,7 @@ export default function OrderDetailPage() {
           <div className="grid sm:grid-cols-2 gap-4 mb-4">
             <div>
               <div className="text-xs text-gray-500 mb-1">Kaution (25% Netto)</div>
-              <div className="text-lg font-semibold">{formatCurrency(order.deposit_amount || (order.total_amount / 1.077 * 0.25))}</div>
+              <div className="text-lg font-semibold">{formatCurrency(order.deposit_amount || totals.deposit)}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">Status</div>
