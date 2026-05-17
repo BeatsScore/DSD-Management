@@ -35,6 +35,7 @@ export default function PlannerPage() {
   const [scanInput, setScanInput] = useState("");
   const [scannedItems, setScannedItems] = useState<string[]>([]);
   const [scannedProductItems, setScannedProductItems] = useState<any[]>([]);
+  const [expectedProductItems, setExpectedProductItems] = useState<any[]>([]);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [scanningOrder, setScanningOrder] = useState<any>(null);
   const supabase = createClient();
@@ -284,16 +285,16 @@ export default function PlannerPage() {
     setScanMode("return");
     setScannedItems([]);
     setScannedProductItems([]);
+    setExpectedProductItems([]);
     setScanInput("");
     const [{ data: items }, { data: assignments }] = await Promise.all([
       supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", orderId),
       supabase.from("order_item_assignments").select("*, product_item:product_item_id(*, product:product_id(*))").eq("order_id", orderId).eq("action_type", "pickup"),
     ]);
     setOrderItems(items || []);
-    // Pre-fill with previously picked up items
+    // Store expected items from pickup (these need to be returned)
     if (assignments && assignments.length > 0) {
-      setScannedProductItems(assignments.map((a) => a.product_item));
-      setScannedItems(assignments.map((a) => a.product_item_id));
+      setExpectedProductItems(assignments.map((a) => a.product_item));
     }
   };
 
@@ -572,6 +573,7 @@ export default function PlannerPage() {
     setScanningOrder(null);
     setScannedItems([]);
     setScannedProductItems([]);
+    setExpectedProductItems([]);
     setOrderItems([]);
     stopCamera();
     setShowIdCapture(false);
@@ -714,10 +716,12 @@ export default function PlannerPage() {
 
   // Scan Modal
   if (scanningOrderId) {
-    const totalItems = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const isPickup = scanMode === "pickup";
+    const totalItems = isPickup
+      ? orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0)
+      : expectedProductItems.length;
     const scannedCount = scannedItems.length;
     const allScanned = totalItems > 0 && scannedCount >= totalItems;
-    const isPickup = scanMode === "pickup";
 
     const removeScannedItem = async (productItemId: string) => {
       // Delete assignment
@@ -822,40 +826,76 @@ export default function PlannerPage() {
         {/* Expected products */}
         <div className="space-y-2 mb-8">
           <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Erwartet</div>
-          {orderItems.map((item) => {
-            const expectedQty = item.quantity || 1;
-            const scannedQty = scannedProductItems.filter(
-              (spi) => spi.product_id === item.product_id
-            ).length;
-            const remaining = expectedQty - scannedQty;
-            return (
-              <div
-                key={item.id}
-                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                  remaining <= 0
-                    ? "border-green-200 bg-green-50"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                {remaining <= 0 ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
-                ) : (
-                  <Circle className="w-5 h-5 text-gray-300 shrink-0" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className={`text-sm font-medium ${remaining <= 0 ? "text-green-800" : ""}`}>
-                    {item.product?.name}
+          {isPickup ? (
+            // Pickup: show abstract products with quantities
+            orderItems.map((item) => {
+              const expectedQty = item.quantity || 1;
+              const scannedQty = scannedProductItems.filter(
+                (spi) => spi.product_id === item.product_id
+              ).length;
+              const remaining = expectedQty - scannedQty;
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    remaining <= 0
+                      ? "border-green-200 bg-green-50"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  {remaining <= 0 ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-gray-300 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium ${remaining <= 0 ? "text-green-800" : ""}`}>
+                      {item.product?.name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {item.product?.product_id} | {item.product?.manufacturer}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {item.product?.product_id} | {item.product?.manufacturer}
-                  </div>
+                  <span className={`text-xs font-medium ${remaining <= 0 ? "text-green-700" : "text-gray-400"}`}>
+                    {scannedQty}/{expectedQty}
+                  </span>
                 </div>
-                <span className={`text-xs font-medium ${remaining <= 0 ? "text-green-700" : "text-gray-400"}`}>
-                  {scannedQty}/{expectedQty}
-                </span>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            // Return: show concrete expected items from pickup
+            expectedProductItems.map((item) => {
+              const isScanned = scannedItems.includes(item.id);
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    isScanned
+                      ? "border-green-200 bg-green-50"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  {isScanned ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-gray-300 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium ${isScanned ? "text-green-800" : ""}`}>
+                      {item.product?.name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Barcode: {item.barcode}
+                      {item.serial_number && <span> · SN: {item.serial_number}</span>}
+                    </div>
+                  </div>
+                  <span className={`text-xs font-medium ${isScanned ? "text-green-700" : "text-amber-600"}`}>
+                    {isScanned ? "Zurück" : "Vermietet"}
+                  </span>
+                </div>
+              );
+            })
+          )}
         </div>
 
         <button
