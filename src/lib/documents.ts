@@ -58,9 +58,7 @@ export async function generateDocument(
   const rawDiscount = order.discount_amount || 0;
   const discount = order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
   const netAfterDiscount = Math.max(0, subtotal - discount);
-  const vatRate = 7.7;
-  const vatAmount = netAfterDiscount * (vatRate / 100);
-  const total = netAfterDiscount + vatAmount;
+  const total = netAfterDiscount;
   const deposit = subtotal * 0.25; // 25% of un-discounted net
 
   const discountRow = discount > 0
@@ -338,15 +336,7 @@ export async function generateDocument(
                 <span>Mietpreis gesamt</span>
                 <span>${formatCurrency(subtotal)}</span>
               </div>
-              ${discount > 0 ? `<div class="price-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>` : ""}
-              <div class="price-row">
-                <span>Netto nach Rabatt</span>
-                <span>${formatCurrency(netAfterDiscount)}</span>
-              </div>
-              <div class="price-row">
-                <span>MWSt. ${vatRate}%</span>
-                <span>${formatCurrency(vatAmount)}</span>
-              </div>
+              ${discountRow}
               <div class="price-row total">
                 <span>Gesamtbetrag</span>
                 <span>${formatCurrency(total)}</span>
@@ -636,14 +626,6 @@ export async function generateDocument(
                   <span>${formatCurrency(subtotal)}</span>
                 </div>
                 ${discount > 0 ? `<div class="summary-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>` : ""}
-                <div class="summary-row">
-                  <span>Netto nach Rabatt</span>
-                  <span>${formatCurrency(netAfterDiscount)}</span>
-                </div>
-                <div class="summary-row">
-                  <span>MWSt. ${vatRate}%</span>
-                  <span>${formatCurrency(vatAmount)}</span>
-                </div>
                 <div class="summary-row total">
                   <span>Gesamtbetrag</span>
                   <span>${formatCurrency(total)}</span>
@@ -831,9 +813,7 @@ export function printDocument(
   const rawDiscount = order.discount_amount || 0;
   const discount = order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
   const netAfterDiscount = Math.max(0, subtotal - discount);
-  const vatRate = 7.7;
-  const vatAmount = netAfterDiscount * (vatRate / 100);
-  const total = netAfterDiscount + vatAmount;
+  const total = netAfterDiscount;
   const deposit = subtotal * 0.25;
   const customer = order.customer || {};
 
@@ -1108,14 +1088,6 @@ export function printDocument(
                 <span>${formatCurrency(subtotal)}</span>
               </div>
               ${discountRowPrint}
-              <div class="price-row">
-                <span>Netto nach Rabatt</span>
-                <span>${formatCurrency(netAfterDiscount)}</span>
-              </div>
-              <div class="price-row">
-                <span>MWSt. ${vatRate}%</span>
-                <span>${formatCurrency(vatAmount)}</span>
-              </div>
               <div class="price-row total">
                 <span>Gesamtbetrag</span>
                 <span>${formatCurrency(total)}</span>
@@ -1413,14 +1385,6 @@ export function printDocument(
                 <span>${formatCurrency(subtotal)}</span>
               </div>
               ${discount > 0 ? `<div class="summary-row" style="color:#c00;"><span>Rabatt${order.discount_reason ? " (" + escapeHtml(order.discount_reason) + ")" : ""}</span><span>-${formatCurrency(discount)}</span></div>` : ""}
-              <div class="summary-row">
-                <span>Netto nach Rabatt</span>
-                <span>${formatCurrency(netAfterDiscount)}</span>
-              </div>
-              <div class="summary-row">
-                <span>MWSt. ${vatRate}%</span>
-                <span>${formatCurrency(vatAmount)}</span>
-              </div>
               <div class="summary-row total">
                 <span>Gesamtbetrag</span>
                 <span>${formatCurrency(total)}</span>

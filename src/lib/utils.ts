@@ -161,8 +161,8 @@ export function calculateOrderTotals(
   const rawDiscount = discountAmount || 0;
   const discount = discountType === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
   const netAfterDiscount = Math.max(0, subtotal - discount);
-  const vat = netAfterDiscount * 0.077;
-  const total = netAfterDiscount + vat;
+  const vat = 0;
+  const total = netAfterDiscount;
   const deposit = subtotal * 0.25;
   return { subtotal, discount, netAfterDiscount, vat, total, deposit };
 }

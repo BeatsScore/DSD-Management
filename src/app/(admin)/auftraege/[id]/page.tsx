@@ -630,7 +630,6 @@ export default function OrderDetailPage() {
                   <div className="flex justify-between gap-2"><span>Netto:</span> <span>{formatCurrency(totals.netAfterDiscount)}</span></div>
                 </>
               )}
-              <div className="flex justify-between gap-2"><span>MwSt. (7.7%):</span> <span>{formatCurrency(totals.vat)}</span></div>
             </div>
           </div>
 
@@ -734,7 +733,6 @@ export default function OrderDetailPage() {
                     <div className="flex justify-between gap-2"><span>Netto:</span> <span>{formatCurrency(totals.netAfterDiscount)}</span></div>
                   </>
                 )}
-                <div className="flex justify-between gap-2"><span>MwSt. (7.7%):</span> <span>{formatCurrency(totals.vat)}</span></div>
               </div>
             </div>
             <div>

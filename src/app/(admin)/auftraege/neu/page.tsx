@@ -102,8 +102,7 @@ export default function NewOrderPage() {
       ? subtotal * (discountAmount / 100)
       : discountAmount;
     const netAfterDiscount = Math.max(0, subtotal - discount);
-    const vat = netAfterDiscount * 0.077;
-    const totalAmount = netAfterDiscount + vat;
+    const totalAmount = netAfterDiscount;
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -333,8 +332,7 @@ export default function NewOrderPage() {
                 const discountAmount = parseFloat(form.discountAmount) || 0;
                 const discount = form.discountType === "prozentual" ? subtotal * (discountAmount / 100) : discountAmount;
                 const netAfterDiscount = Math.max(0, subtotal - discount);
-                const vat = netAfterDiscount * 0.077;
-                const total = netAfterDiscount + vat;
+                const total = netAfterDiscount;
                 const deposit = subtotal * 0.25;
                 return (
                   <div className="space-y-1 text-sm">
@@ -348,14 +346,6 @@ export default function NewOrderPage() {
                         <span>-{discount.toFixed(2)} CHF</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-gray-600">
-                      <span>Netto nach Rabatt</span>
-                      <span>{netAfterDiscount.toFixed(2)} CHF</span>
-                    </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>MWSt. (7.7%)</span>
-                      <span>{vat.toFixed(2)} CHF</span>
-                    </div>
                     <div className="flex justify-between font-semibold text-base border-t border-gray-300 pt-1 mt-1">
                       <span>Gesamtbetrag</span>
                       <span>{total.toFixed(2)} CHF</span>
