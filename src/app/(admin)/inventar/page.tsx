@@ -29,7 +29,7 @@ export default function InventoryPage() {
           .from("products")
           .select("*, category:category_id(*)")
           .order("name", { ascending: true })
-          .limit(50),
+          .limit(1000),
         supabase
           .from("order_items")
           .select(

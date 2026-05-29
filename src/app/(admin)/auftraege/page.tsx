@@ -19,7 +19,7 @@ export default function OrdersPage() {
         .from("orders")
         .select("*, customer:customer_id(name)")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(1000);
       if (error) {
         console.error("Failed to load orders:", error);
       }

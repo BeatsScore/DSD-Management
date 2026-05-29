@@ -18,7 +18,7 @@ export default function CustomersPage() {
         .from("customers")
         .select("*")
         .order("name", { ascending: true })
-        .limit(50);
+        .limit(1000);
       if (error) {
         console.error("Failed to load customers:", error);
       }
