@@ -8,9 +8,7 @@ export function PublicFooter() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="bg-white rounded-lg px-4 py-3">
-                <img src="/logo.png" alt="DSD Management" className="h-20 w-auto object-contain" />
-              </div>
+              <img src="/logo-white.png" alt="DSD Management" className="h-20 w-auto object-contain" />
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
               Professionelle Eventtechnik zur Miete. Zuverlaessig, flexibel und 
