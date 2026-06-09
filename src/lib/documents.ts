@@ -12,6 +12,137 @@ function escapeHtml(text: string | null | undefined): string {
 }
 
 /**
+ * Split contract sections into pages by measuring their heights in an iframe.
+ * Ensures no section is split across pages.
+ */
+async function buildPaginatedContractHtml(
+  sections: { id: string; html: string }[],
+  styles: string,
+  headerHtml: string,
+  maxContentHeightPx: number
+): Promise<string> {
+  return new Promise((resolve) => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.top = "-9999px";
+    iframe.style.left = "-9999px";
+    iframe.style.width = "210mm";
+    document.body.appendChild(iframe);
+
+    iframe.onload = async () => {
+      const doc = iframe.contentDocument;
+      if (!doc) {
+        document.body.removeChild(iframe);
+        resolve("");
+        return;
+      }
+
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              ${styles}
+              body { margin: 0; padding: 0; }
+              #measure-root { width: 210mm; padding: 40px 60px; box-sizing: border-box; }
+              .measure-section { page-break-inside: avoid; }
+            </style>
+          </head>
+          <body>
+            <div id="measure-root">
+              ${sections
+                .map(
+                  (s) =>
+                    `<div class="measure-section" data-id="${s.id}">${s.html}</div>`
+                )
+                .join("")}
+            </div>
+          </body>
+        </html>
+      `);
+      doc.close();
+
+      await new Promise((r) => setTimeout(r, 800));
+
+      const root = doc.getElementById("measure-root");
+      if (!root) {
+        document.body.removeChild(iframe);
+        resolve("");
+        return;
+      }
+
+      const sectionEls = root.querySelectorAll(".measure-section");
+      const heights: number[] = [];
+      sectionEls.forEach((el) => {
+        heights.push((el as HTMLElement).offsetHeight);
+      });
+
+      const pages: string[][] = [];
+      let currentPage: string[] = [];
+      let currentHeight = 0;
+
+      for (let i = 0; i < sections.length; i++) {
+        const sectionHtml = sections[i].html;
+        const h = heights[i] || 100;
+
+        if (currentHeight + h > maxContentHeightPx && currentPage.length > 0) {
+          pages.push(currentPage);
+          currentPage = [sectionHtml];
+          currentHeight = h;
+        } else {
+          currentPage.push(sectionHtml);
+          currentHeight += h;
+        }
+      }
+      if (currentPage.length > 0) pages.push(currentPage);
+
+      document.body.removeChild(iframe);
+
+      const finalHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              ${styles}
+              .page {
+                width: 210mm;
+                height: 297mm;
+                padding: 40px 60px;
+                position: relative;
+                overflow: hidden;
+                page-break-after: always;
+                background: #fff;
+                box-sizing: border-box;
+              }
+              .page:last-child { page-break-after: auto; }
+            </style>
+          </head>
+          <body>
+            ${pages
+              .map(
+                (pageSections) => `
+              <div class="page">
+                ${headerHtml}
+                ${pageSections.join("")}
+              </div>
+            `
+              )
+              .join("")}
+          </body>
+        </html>
+      `;
+
+      resolve(finalHtml);
+    };
+
+    iframe.src = "about:blank";
+  });
+}
+
+/**
  * Generate a PDF document and trigger a download.
  * Uses html2canvas + jspdf for client-side PDF generation.
  */
@@ -83,324 +214,329 @@ export async function generateDocument(
       )
       .join("");
 
-    htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Mietvertrag - ${escapeHtml(order.order_number)}</title>
-          <style>
-            @page { margin: 0; size: A4; }
-            * { box-sizing: border-box; }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-              color: #111;
-              background: #fff;
-              margin: 0;
-              padding: 0;
-              line-height: 1.6;
-            }
-            .page {
-              max-width: 210mm;
-              min-height: 297mm;
-              margin: 0 auto;
-              padding: 155px 60px 50px;
-              position: relative;
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              padding: 18px 0 12px;
-              border-bottom: 2px solid #000;
-              background: #fff;
-              margin-bottom: 18px;
-            }
-            .brand-sub {
-              font-size: 11px;
-              color: #666;
-              margin-top: 6px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-            }
-            .doc-badge {
-              background: #000;
-              color: #fff;
-              padding: 10px 24px;
-              font-size: 12px;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 1.5px;
-            }
-            h1 {
-              font-size: 18px;
-              font-weight: 700;
-              margin: 22px 0 12px;
-              padding-bottom: 6px;
-              border-bottom: 2px solid #000;
-              page-break-after: avoid;
-            }
-            h2 {
-              font-size: 13px;
-              font-weight: 700;
-              margin: 16px 0 8px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              page-break-after: avoid;
-            }
-            p, li {
-              font-size: 12px;
-              color: #333;
-              margin: 0 0 8px;
-            }
-            ul {
-              margin: 0 0 12px;
-              padding-left: 20px;
-            }
-            li {
-              margin-bottom: 4px;
-            }
-            .parties {
-              display: flex;
-              gap: 30px;
-              margin: 18px 0;
-              page-break-inside: avoid;
-            }
-            .party {
-              flex: 1;
-              padding: 14px;
-              background: #f9f9f9;
-              border: 1px solid #e5e5e5;
-            }
-            .party-label {
-              font-size: 10px;
-              text-transform: uppercase;
-              letter-spacing: 1.2px;
-              color: #999;
-              margin-bottom: 6px;
-              font-weight: 700;
-            }
-            .party-name {
-              font-size: 14px;
-              font-weight: 700;
-              color: #000;
-              margin-bottom: 4px;
-            }
-            .party-detail {
-              font-size: 12px;
-              color: #555;
-              line-height: 1.5;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-              page-break-inside: avoid;
-            }
-            thead th {
-              padding: 12px;
-              text-align: left;
-              font-size: 10px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              color: #999;
-              font-weight: 700;
-              border-bottom: 2px solid #000;
-            }
-            tbody td {
-              font-size: 12px;
-            }
-            .price-box {
-              background: #f5f5f5;
-              padding: 14px;
-              margin: 18px 0;
-              border-left: 3px solid #000;
-              page-break-inside: avoid;
-            }
-            .price-row {
-              display: flex;
-              justify-content: space-between;
-              padding: 6px 0;
-              font-size: 13px;
-              color: #444;
-            }
-            .price-row.total {
-              font-size: 16px;
-              font-weight: 800;
-              color: #000;
-              border-top: 2px solid #000;
-              padding-top: 12px;
-              margin-top: 8px;
-            }
-            .signature-grid {
-              display: flex;
-              gap: 50px;
-              margin-top: 40px;
-              page-break-inside: avoid;
-            }
-            .signature-block {
-              flex: 1;
-            }
-            .signature-line {
-              border-bottom: 1px solid #000;
-              height: 48px;
-              margin-bottom: 6px;
-            }
-            .signature-label {
-              font-size: 11px;
-              color: #666;
-            }
-            .section-number {
-              display: inline-block;
-              width: 22px;
-              height: 22px;
-              background: #000;
-              color: #fff;
-              font-size: 11px;
-              font-weight: 700;
-              text-align: center;
-              line-height: 22px;
-              border-radius: 50%;
-              margin-right: 10px;
-            }
-            .footer {
-              margin-top: 35px;
-              padding-top: 12px;
-              border-top: 1px solid #e5e5e5;
-              font-size: 10px;
-              color: #999;
-              text-align: center;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="header">
-              <div>
-                <img src="/logo.png" alt="${companyInfo.name}" style="height:90px;width:auto;object-fit:contain;" />
-                <div class="brand-sub">Professionelle Eventtechnik</div>
-              </div>
-              <div class="doc-badge">Mietvertrag</div>
-            </div>
+    const contractStyles = `
+      @page { margin: 0; size: A4; }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #111;
+        background: #fff;
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 18px 0 12px;
+        border-bottom: 2px solid #000;
+        background: #fff;
+        margin-bottom: 18px;
+      }
+      .brand-sub {
+        font-size: 11px;
+        color: #666;
+        margin-top: 6px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .doc-badge {
+        background: #000;
+        color: #fff;
+        padding: 10px 24px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 22px 0 12px;
+        padding-bottom: 6px;
+        border-bottom: 2px solid #000;
+        page-break-after: avoid;
+      }
+      h2 {
+        font-size: 13px;
+        font-weight: 700;
+        margin: 16px 0 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        page-break-after: avoid;
+      }
+      p, li {
+        font-size: 12px;
+        color: #333;
+        margin: 0 0 8px;
+      }
+      ul {
+        margin: 0 0 12px;
+        padding-left: 20px;
+      }
+      li {
+        margin-bottom: 4px;
+      }
+      .parties {
+        display: flex;
+        gap: 30px;
+        margin: 18px 0;
+        page-break-inside: avoid;
+      }
+      .party {
+        flex: 1;
+        padding: 14px;
+        background: #f9f9f9;
+        border: 1px solid #e5e5e5;
+      }
+      .party-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: #999;
+        margin-bottom: 6px;
+        font-weight: 700;
+      }
+      .party-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #000;
+        margin-bottom: 4px;
+      }
+      .party-detail {
+        font-size: 12px;
+        color: #555;
+        line-height: 1.5;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        page-break-inside: avoid;
+      }
+      thead th {
+        padding: 12px;
+        text-align: left;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #999;
+        font-weight: 700;
+        border-bottom: 2px solid #000;
+      }
+      tbody td {
+        font-size: 12px;
+      }
+      .price-box {
+        background: #f5f5f5;
+        padding: 14px;
+        margin: 18px 0;
+        border-left: 3px solid #000;
+        page-break-inside: avoid;
+      }
+      .price-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 13px;
+        color: #444;
+      }
+      .price-row.total {
+        font-size: 16px;
+        font-weight: 800;
+        color: #000;
+        border-top: 2px solid #000;
+        padding-top: 12px;
+        margin-top: 8px;
+      }
+      .signature-grid {
+        display: flex;
+        gap: 50px;
+        margin-top: 40px;
+        page-break-inside: avoid;
+      }
+      .signature-block {
+        flex: 1;
+      }
+      .signature-line {
+        border-bottom: 1px solid #000;
+        height: 48px;
+        margin-bottom: 6px;
+      }
+      .signature-label {
+        font-size: 11px;
+        color: #666;
+      }
+      .section-number {
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        background: #000;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        text-align: center;
+        line-height: 22px;
+        border-radius: 50%;
+        margin-right: 10px;
+      }
+      .footer {
+        margin-top: 35px;
+        padding-top: 12px;
+        border-top: 1px solid #e5e5e5;
+        font-size: 10px;
+        color: #999;
+        text-align: center;
+      }
+    `;
 
-            <div style="font-size:12px;color:#666;margin-top:15px;margin-bottom:18px;">
-              Auftragsnummer: <strong>${escapeHtml(order.order_number)}</strong> | Datum: ${today}
-            </div>
+    const headerHtml = `
+      <div class="header">
+        <div>
+          <img src="/logo.png" alt="${companyInfo.name}" style="height:90px;width:auto;object-fit:contain;" />
+          <div class="brand-sub">Professionelle Eventtechnik</div>
+        </div>
+        <div class="doc-badge">Mietvertrag</div>
+      </div>
+    `;
 
-            <h1>Vertragsparteien</h1>
-            <div class="parties">
-              <div class="party">
-                <div class="party-label">Vermieter</div>
-                <div class="party-name">${companyInfo.legalName}</div>
-                <div class="party-detail">
-                  ${companyInfo.address}<br>
-                  ${companyInfo.city}<br>
-                  ${companyInfo.country}<br>
-                  E-Mail: ${companyInfo.email}<br>
-                  Tel: ${companyInfo.phone}
-                </div>
-              </div>
-              <div class="party">
-                <div class="party-label">Mieter</div>
-                <div class="party-name">${escapeHtml(customer.name) || "-"}</div>
-                <div class="party-detail">
-                  ${customer.company ? escapeHtml(customer.company) + "<br>" : ""}
-                  ${customer.address ? escapeHtml(customer.address).replace(/\n/g, "<br>") + "<br>" : ""}
-                  ${customer.phone ? "Tel: " + escapeHtml(customer.phone) + "<br>" : ""}
-                  ${escapeHtml(customer.email) || ""}
-                </div>
-              </div>
-            </div>
-
-            <h1>Mietgegenstand</h1>
-            <p>Der Vermieter überlässt dem Mieter folgende Gegenstände zur Miete:</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Produkt</th>
-                  <th style="text-align:center;">Produkt-ID</th>
-                  <th style="text-align:center;">Menge</th>
-                  <th style="text-align:right;">Preis / Tag</th>
-                </tr>
-              </thead>
-              <tbody>${equipmentList}</tbody>
-            </table>
-
-            <h1>Mietdauer</h1>
-            <p>Die Mietdauer beginnt am <strong>${formatDate(order.start_date)}</strong> und endet am <strong>${formatDate(order.end_date)}</strong>.</p>
-            <p>Gesamtdauer: <strong>${days} Tag${days > 1 ? "e" : ""}</strong></p>
-
-            <h1>Mietpreis und Kaution</h1>
-            <div class="price-box">
-              <div class="price-row">
-                <span>Mietpreis gesamt</span>
-                <span>${formatCurrency(subtotal)}</span>
-              </div>
-              ${discountRow}
-              <div class="price-row total">
-                <span>Gesamtbetrag</span>
-                <span>${formatCurrency(total)}</span>
-              </div>
-            </div>
-            <p>Der Mieter leistet vor Mietbeginn eine Kaution in Höhe von <strong>${formatCurrency(deposit)}</strong> (25% des unrabattierten Mietwertes). Die Kaution wird innerhalb von 10 Werktagen nach Rückgabe der unbeschädigten Gegenstände zurückerstattet.</p>
-
-            <h1>Allgemeine Geschäftsbedingungen</h1>
-
-            <h2><span class="section-number">1</span> Übergabe und Rückgabe</h2>
-            <p>Die Übergabe der Mietgegenstände erfolgt zu den vereinbarten Bürozeiten. Der Mieter verpflichtet sich, die Gegenstände termingerecht und im gleichen Zustand wie bei Übernahme zurückzugeben. Bei verspäteter Rückgabe werden zusätzliche Miettage in Rechnung gestellt.</p>
-
-            <h2><span class="section-number">2</span> Transport und Montage</h2>
-            <p>Transport, Aufbau und Abbau der Technik können auf Wunsch gegen gesonderte Vergütung durch den Vermieter durchgeführt werden. Sofern der Mieter den Transport selbst übernimmt, haftet er für Beschädigungen während des Transports.</p>
-
-            <h2><span class="section-number">3</span> Haftung des Mieters</h2>
-            <p>Der Mieter haftet für alle während der Mietdauer entstandenen Schäden, Verluste oder Diebstähle der überlassenen Gegenstände. Dies umfasst auch Schäden durch unsachgemässe Bedienung oder falsche Installation.</p>
-
-            <h2><span class="section-number">4</span> Versicherung</h2>
-            <p>Der Mieter ist verpflichtet, eine entsprechende Event-Versicherung abzuschliessen oder den Vermieter schriftlich von der Versicherungspflicht zu entbinden. Ohne Nachweis einer Versicherung wird der Vermieter keine Technik übergeben.</p>
-
-            <h2><span class="section-number">5</span> Technischer Support</h2>
-            <p>Ein technischer Support vor Ort ist auf Anfrage und gegen gesonderte Vergütung möglich. Der Vermieter garantiert die Funktionsfähigkeit der Technik bei ordnungsgemässer Nutzung.</p>
-
-            <h2><span class="section-number">6</span> Stornierung</h2>
-            <p>Stornierungen bis 14 Tage vor Mietbeginn sind kostenfrei. Bei Stornierung zwischen 14 und 7 Tagen vor Mietbeginn werden 50% des Mietpreises fällig. Bei Stornierung innerhalb von 7 Tagen vor Mietbeginn wird der volle Mietpreis fällig.</p>
-
-            <h2><span class="section-number">7</span> Kaution</h2>
-            <p>Die Kaution wird zur Sicherstellung der Rückgabe und des ordnungsgemässen Zustands der Mietgegenstände erhoben. Der Vermieter ist berechtigt, Schäden oder Verluste aus der Kaution zu begleichen.</p>
-
-            <h2><span class="section-number">8</span> Gewährleistung</h2>
-            <p>Der Vermieter übernimmt keine Gewährleistung für den Erfolg der Veranstaltung. Die Haftung des Vermieters ist auf Vorsatz und grobe Fahrlässigkeit beschränkt.</p>
-
-            <h2><span class="section-number">9</span> Anwendbares Recht und Gerichtsstand</h2>
-            <p>Auf diesen Vertrag ist ausschliesslich schweizerisches Recht anwendbar. Gerichtsstand ist Basel.</p>
-
-            <h1>Unterschriften</h1>
-            <p style="margin-bottom:30px;">Mit ihrer Unterschrift bestätigen beide Parteien, dass sie die vorstehenden Bedingungen gelesen, verstanden und akzeptiert haben.</p>
-
-            <div class="signature-grid">
-              <div class="signature-block">
-                <div class="signature-line"></div>
-                <div class="signature-label">
-                  <strong>Ort, Datum</strong><br>
-                  Unterschrift Vermieter
-                </div>
-              </div>
-              <div class="signature-block">
-                <div class="signature-line"></div>
-                <div class="signature-label">
-                  <strong>Ort, Datum</strong><br>
-                  Unterschrift Mieter
-                </div>
-              </div>
-            </div>
-
-            <div class="footer">
-              ${companyInfo.legalName} | ${companyInfo.address} | ${companyInfo.city} | ${companyInfo.email} | ${companyInfo.phone}<br>
-              ${companyInfo.bank} | IBAN: ${companyInfo.iban} | UID: ${companyInfo.uid}
+    const sections = [
+      {
+        id: "meta",
+        html: `<div style="font-size:12px;color:#666;margin-top:15px;margin-bottom:18px;">Auftragsnummer: <strong>${escapeHtml(order.order_number)}</strong> | Datum: ${today}</div>`,
+      },
+      {
+        id: "parties",
+        html: `<h1>Vertragsparteien</h1>
+        <div class="parties">
+          <div class="party">
+            <div class="party-label">Vermieter</div>
+            <div class="party-name">${companyInfo.legalName}</div>
+            <div class="party-detail">
+              ${companyInfo.address}<br>
+              ${companyInfo.city}<br>
+              ${companyInfo.country}<br>
+              E-Mail: ${companyInfo.email}<br>
+              Tel: ${companyInfo.phone}
             </div>
           </div>
-        </body>
-      </html>
-    `;
+          <div class="party">
+            <div class="party-label">Mieter</div>
+            <div class="party-name">${escapeHtml(customer.name) || "-"}</div>
+            <div class="party-detail">
+              ${customer.company ? escapeHtml(customer.company) + "<br>" : ""}
+              ${customer.address ? escapeHtml(customer.address).replace(/\n/g, "<br>") + "<br>" : ""}
+              ${customer.phone ? "Tel: " + escapeHtml(customer.phone) + "<br>" : ""}
+              ${escapeHtml(customer.email) || ""}
+            </div>
+          </div>
+        </div>`,
+      },
+      {
+        id: "equipment",
+        html: `<h1>Mietgegenstand</h1>
+        <p>Der Vermieter überlässt dem Mieter folgende Gegenstände zur Miete:</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Produkt</th>
+              <th style="text-align:center;">Produkt-ID</th>
+              <th style="text-align:center;">Menge</th>
+              <th style="text-align:right;">Preis / Tag</th>
+            </tr>
+          </thead>
+          <tbody>${equipmentList}</tbody>
+        </table>`,
+      },
+      {
+        id: "duration",
+        html: `<h1>Mietdauer</h1>
+        <p>Die Mietdauer beginnt am <strong>${formatDate(order.start_date)}</strong> und endet am <strong>${formatDate(order.end_date)}</strong>.</p>
+        <p>Gesamtdauer: <strong>${days} Tag${days > 1 ? "e" : ""}</strong></p>`,
+      },
+      {
+        id: "price",
+        html: `<h1>Mietpreis und Kaution</h1>
+        <div class="price-box">
+          <div class="price-row"><span>Mietpreis gesamt</span><span>${formatCurrency(subtotal)}</span></div>
+          ${discountRow}
+          <div class="price-row total"><span>Gesamtbetrag</span><span>${formatCurrency(total)}</span></div>
+        </div>
+        <p>Der Mieter leistet vor Mietbeginn eine Kaution in Höhe von <strong>${formatCurrency(deposit)}</strong> (25% des unrabattierten Mietwertes). Die Kaution wird innerhalb von 10 Werktagen nach Rückgabe der unbeschädigten Gegenstände zurückerstattet.</p>`,
+      },
+      {
+        id: "agb-header",
+        html: `<h1>Allgemeine Geschäftsbedingungen</h1>`,
+      },
+      {
+        id: "agb-1",
+        html: `<h2><span class="section-number">1</span> Übergabe und Rückgabe</h2>
+        <p>Die Übergabe der Mietgegenstände erfolgt zu den vereinbarten Bürozeiten. Der Mieter verpflichtet sich, die Gegenstände termingerecht und im gleichen Zustand wie bei Übernahme zurückzugeben. Bei verspäteter Rückgabe werden zusätzliche Miettage in Rechnung gestellt.</p>`,
+      },
+      {
+        id: "agb-2",
+        html: `<h2><span class="section-number">2</span> Transport und Montage</h2>
+        <p>Transport, Aufbau und Abbau der Technik können auf Wunsch gegen gesonderte Vergütung durch den Vermieter durchgeführt werden. Sofern der Mieter den Transport selbst übernimmt, haftet er für Beschädigungen während des Transports.</p>`,
+      },
+      {
+        id: "agb-3",
+        html: `<h2><span class="section-number">3</span> Haftung des Mieters</h2>
+        <p>Der Mieter haftet für alle während der Mietdauer entstandenen Schäden, Verluste oder Diebstähle der überlassenen Gegenstände. Dies umfasst auch Schäden durch unsachgemässe Bedienung oder falsche Installation.</p>`,
+      },
+      {
+        id: "agb-4",
+        html: `<h2><span class="section-number">4</span> Versicherung</h2>
+        <p>Der Mieter ist verpflichtet, eine entsprechende Event-Versicherung abzuschliessen oder den Vermieter schriftlich von der Versicherungspflicht zu entbinden. Ohne Nachweis einer Versicherung wird der Vermieter keine Technik übergeben.</p>`,
+      },
+      {
+        id: "agb-5",
+        html: `<h2><span class="section-number">5</span> Technischer Support</h2>
+        <p>Ein technischer Support vor Ort ist auf Anfrage und gegen gesonderte Vergütung möglich. Der Vermieter garantiert die Funktionsfähigkeit der Technik bei ordnungsgemässer Nutzung.</p>`,
+      },
+      {
+        id: "agb-6",
+        html: `<h2><span class="section-number">6</span> Stornierung</h2>
+        <p>Stornierungen bis 14 Tage vor Mietbeginn sind kostenfrei. Bei Stornierung zwischen 14 und 7 Tagen vor Mietbeginn werden 50% des Mietpreises fällig. Bei Stornierung innerhalb von 7 Tagen vor Mietbeginn wird der volle Mietpreis fällig.</p>`,
+      },
+      {
+        id: "agb-7",
+        html: `<h2><span class="section-number">7</span> Kaution</h2>
+        <p>Die Kaution wird zur Sicherstellung der Rückgabe und des ordnungsgemässen Zustands der Mietgegenstände erhoben. Der Vermieter ist berechtigt, Schäden oder Verluste aus der Kaution zu begleichen.</p>`,
+      },
+      {
+        id: "agb-8",
+        html: `<h2><span class="section-number">8</span> Gewährleistung</h2>
+        <p>Der Vermieter übernimmt keine Gewährleistung für den Erfolg der Veranstaltung. Die Haftung des Vermieters ist auf Vorsatz und grobe Fahrlässigkeit beschränkt.</p>`,
+      },
+      {
+        id: "agb-9",
+        html: `<h2><span class="section-number">9</span> Anwendbares Recht und Gerichtsstand</h2>
+        <p>Auf diesen Vertrag ist ausschliesslich schweizerisches Recht anwendbar. Gerichtsstand ist Basel.</p>`,
+      },
+      {
+        id: "signatures",
+        html: `<h1>Unterschriften</h1>
+        <p style="margin-bottom:30px;">Mit ihrer Unterschrift bestätigen beide Parteien, dass sie die vorstehenden Bedingungen gelesen, verstanden und akzeptiert haben.</p>
+        <div class="signature-grid">
+          <div class="signature-block">
+            <div class="signature-line"></div>
+            <div class="signature-label"><strong>Ort, Datum</strong><br>Unterschrift Vermieter</div>
+          </div>
+          <div class="signature-block">
+            <div class="signature-line"></div>
+            <div class="signature-label"><strong>Ort, Datum</strong><br>Unterschrift Mieter</div>
+          </div>
+        </div>`,
+      },
+      {
+        id: "footer",
+        html: `<div class="footer">${companyInfo.legalName} | ${companyInfo.address} | ${companyInfo.city} | ${companyInfo.email} | ${companyInfo.phone}<br>${companyInfo.bank} | IBAN: ${companyInfo.iban} | UID: ${companyInfo.uid}</div>`,
+      },
+    ];
+
+    // A4 content height in px at 96dpi minus padding: 297mm ≈ 1123px, minus 80px padding = ~1040px
+    htmlContent = await buildPaginatedContractHtml(sections, contractStyles, headerHtml, 1040);
   } else {
     // Default template for angebot, rechnung, auftragsbestaetigung, ablehnung
     htmlContent = `
@@ -708,45 +844,33 @@ export async function generateDocument(
         const { default: html2canvas } = await import("html2canvas");
         const { jsPDF } = await import("jspdf");
 
-        const pageEl = iframeDoc.querySelector(".page") as HTMLElement;
-        if (!pageEl) {
+        const pageEls = iframeDoc.querySelectorAll(".page") as NodeListOf<HTMLElement>;
+        if (!pageEls.length) {
           document.body.removeChild(iframe);
           resolve(false);
           return;
         }
 
-        const canvas = await html2canvas(pageEl, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: "#ffffff",
-          logging: false,
-        });
-
-        const imgData = canvas.toDataURL("image/png");
         const pdf = new jsPDF("p", "mm", "a4");
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const imgX = (pdfWidth - imgWidth * ratio) / 2;
-        let imgY = 0;
 
-        // For multi-page content, we need to handle pagination
-        const scaledHeight = imgHeight * ratio;
-        let heightLeft = scaledHeight;
-        let position = 0;
+        for (let i = 0; i < pageEls.length; i++) {
+          const pageEl = pageEls[i];
+          const canvas = await html2canvas(pageEl, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: "#ffffff",
+            logging: false,
+          });
 
-        pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, scaledHeight);
-        heightLeft -= pdfHeight;
+          const imgData = canvas.toDataURL("image/png");
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          const ratio = pdfWidth / imgWidth;
 
-        // Add additional pages if content overflows
-        while (heightLeft > 0) {
-          position = heightLeft - scaledHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, "PNG", imgX, position, imgWidth * ratio, scaledHeight);
-          heightLeft -= pdfHeight;
+          if (i > 0) pdf.addPage();
+          pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, imgHeight * ratio);
         }
 
         const fileName = `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;
