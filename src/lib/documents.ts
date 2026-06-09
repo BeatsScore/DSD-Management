@@ -240,7 +240,9 @@ export async function generateDocument(
         color: #666;
       }
       .section-number {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         width: 22px;
         height: 22px;
         background: #000;
@@ -248,9 +250,9 @@ export async function generateDocument(
         font-size: 11px;
         font-weight: 700;
         text-align: center;
-        line-height: 22px;
         border-radius: 50%;
         margin-right: 10px;
+        vertical-align: middle;
       }
       .footer {
         margin-top: 35px;
@@ -571,7 +573,9 @@ export async function generateDocument(
               color: #666;
             }
             .section-number {
-              display: inline-block;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
               width: 22px;
               height: 22px;
               background: #000;
@@ -579,9 +583,9 @@ export async function generateDocument(
               font-size: 11px;
               font-weight: 700;
               text-align: center;
-              line-height: 22px;
               border-radius: 50%;
               margin-right: 10px;
+              vertical-align: middle;
             }
             .footer {
               margin-top: 35px;
@@ -1217,7 +1221,9 @@ export function printDocument(
               color: #666;
             }
             .section-number {
-              display: inline-block;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
               width: 22px;
               height: 22px;
               background: #000;
@@ -1225,9 +1231,9 @@ export function printDocument(
               font-size: 11px;
               font-weight: 700;
               text-align: center;
-              line-height: 22px;
               border-radius: 50%;
               margin-right: 10px;
+              vertical-align: middle;
             }
             .footer {
               margin-top: 35px;
