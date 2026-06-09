@@ -12,6 +12,7 @@ import {
   FolderOpen,
   Layers,
   CalendarDays,
+  ScanBarcode,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -192,6 +193,13 @@ export default function InventoryPage() {
           >
             <Layers className="w-4 h-4 mr-1.5 md:mr-2" />{" "}
             <span className="hidden sm:inline">Sets</span>
+          </Link>
+          <Link
+            href="/inventar/buchung/"
+            className="btn-secondary text-sm px-4 py-2.5"
+          >
+            <ScanBarcode className="w-4 h-4 mr-1.5 md:mr-2" />{" "}
+            <span className="hidden sm:inline">Artikelbuchung</span>
           </Link>
           <Link
             href="/inventar/neu/"
