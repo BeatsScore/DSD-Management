@@ -11,136 +11,7 @@ function escapeHtml(text: string | null | undefined): string {
     .replace(/'/g, "&#039;");
 }
 
-/**
- * Split contract sections into pages by measuring their heights in an iframe.
- * Ensures no section is split across pages.
- */
-async function buildPaginatedContractHtml(
-  sections: { id: string; html: string }[],
-  styles: string,
-  headerHtml: string,
-  maxContentHeightPx: number
-): Promise<string> {
-  return new Promise((resolve) => {
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.top = "-9999px";
-    iframe.style.left = "-9999px";
-    iframe.style.width = "210mm";
-    document.body.appendChild(iframe);
 
-    iframe.onload = async () => {
-      const doc = iframe.contentDocument;
-      if (!doc) {
-        document.body.removeChild(iframe);
-        resolve("");
-        return;
-      }
-
-      doc.open();
-      doc.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              ${styles}
-              body { margin: 0; padding: 0; }
-              #measure-root { width: 210mm; padding: 40px 60px; box-sizing: border-box; }
-              .measure-section { page-break-inside: avoid; }
-            </style>
-          </head>
-          <body>
-            <div id="measure-root">
-              ${sections
-                .map(
-                  (s) =>
-                    `<div class="measure-section" data-id="${s.id}">${s.html}</div>`
-                )
-                .join("")}
-            </div>
-          </body>
-        </html>
-      `);
-      doc.close();
-
-      await new Promise((r) => setTimeout(r, 800));
-
-      const root = doc.getElementById("measure-root");
-      if (!root) {
-        document.body.removeChild(iframe);
-        resolve("");
-        return;
-      }
-
-      const sectionEls = root.querySelectorAll(".measure-section");
-      const heights: number[] = [];
-      sectionEls.forEach((el) => {
-        heights.push((el as HTMLElement).offsetHeight);
-      });
-
-      const pages: string[][] = [];
-      let currentPage: string[] = [];
-      let currentHeight = 0;
-
-      for (let i = 0; i < sections.length; i++) {
-        const sectionHtml = sections[i].html;
-        const h = heights[i] || 100;
-
-        if (currentHeight + h > maxContentHeightPx && currentPage.length > 0) {
-          pages.push(currentPage);
-          currentPage = [sectionHtml];
-          currentHeight = h;
-        } else {
-          currentPage.push(sectionHtml);
-          currentHeight += h;
-        }
-      }
-      if (currentPage.length > 0) pages.push(currentPage);
-
-      document.body.removeChild(iframe);
-
-      const finalHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              ${styles}
-              .page {
-                width: 210mm;
-                height: 297mm;
-                padding: 40px 60px;
-                position: relative;
-                overflow: hidden;
-                page-break-after: always;
-                background: #fff;
-                box-sizing: border-box;
-              }
-              .page:last-child { page-break-after: auto; }
-            </style>
-          </head>
-          <body>
-            ${pages
-              .map(
-                (pageSections) => `
-              <div class="page">
-                ${headerHtml}
-                ${pageSections.join("")}
-              </div>
-            `
-              )
-              .join("")}
-          </body>
-        </html>
-      `;
-
-      resolve(finalHtml);
-    };
-
-    iframe.src = "about:blank";
-  });
-}
 
 /**
  * Generate a PDF document and trigger a download.
@@ -535,8 +406,228 @@ export async function generateDocument(
       },
     ];
 
-    // A4 content height in px at 96dpi minus padding: 297mm ≈ 1123px, minus 80px padding = ~1040px
-    htmlContent = await buildPaginatedContractHtml(sections, contractStyles, headerHtml, 1040);
+    htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Mietvertrag - ${escapeHtml(order.order_number)}</title>
+          <style>
+            @page { margin: 0; size: A4; }
+            * { box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              color: #111;
+              background: #fff;
+              margin: 0;
+              padding: 0;
+              line-height: 1.6;
+            }
+            .page {
+              width: 210mm;
+              min-height: 297mm;
+              padding: 40px 60px;
+              position: relative;
+              overflow: hidden;
+              page-break-after: always;
+              background: #fff;
+              box-sizing: border-box;
+            }
+            .page:last-child { page-break-after: auto; }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              padding: 18px 0 12px;
+              border-bottom: 2px solid #000;
+              background: #fff;
+              margin-bottom: 18px;
+            }
+            .brand-sub {
+              font-size: 11px;
+              color: #666;
+              margin-top: 6px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .doc-badge {
+              background: #000;
+              color: #fff;
+              padding: 10px 24px;
+              font-size: 12px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 1.5px;
+            }
+            h1 {
+              font-size: 18px;
+              font-weight: 700;
+              margin: 22px 0 12px;
+              padding-bottom: 6px;
+              border-bottom: 2px solid #000;
+              page-break-after: avoid;
+            }
+            h2 {
+              font-size: 13px;
+              font-weight: 700;
+              margin: 16px 0 8px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              page-break-after: avoid;
+            }
+            p, li {
+              font-size: 12px;
+              color: #333;
+              margin: 0 0 8px;
+            }
+            .parties {
+              display: flex;
+              gap: 30px;
+              margin: 18px 0;
+              page-break-inside: avoid;
+            }
+            .party {
+              flex: 1;
+              padding: 14px;
+              background: #f9f9f9;
+              border: 1px solid #e5e5e5;
+            }
+            .party-label {
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 1.2px;
+              color: #999;
+              margin-bottom: 6px;
+              font-weight: 700;
+            }
+            .party-name {
+              font-size: 14px;
+              font-weight: 700;
+              color: #000;
+              margin-bottom: 4px;
+            }
+            .party-detail {
+              font-size: 12px;
+              color: #555;
+              line-height: 1.5;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+              page-break-inside: avoid;
+            }
+            thead th {
+              padding: 12px;
+              text-align: left;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: #999;
+              font-weight: 700;
+              border-bottom: 2px solid #000;
+            }
+            tbody td {
+              font-size: 12px;
+            }
+            .price-box {
+              background: #f5f5f5;
+              padding: 14px;
+              margin: 18px 0;
+              border-left: 3px solid #000;
+              page-break-inside: avoid;
+            }
+            .price-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 6px 0;
+              font-size: 13px;
+              color: #444;
+            }
+            .price-row.total {
+              font-size: 16px;
+              font-weight: 800;
+              color: #000;
+              border-top: 2px solid #000;
+              padding-top: 12px;
+              margin-top: 8px;
+            }
+            .signature-grid {
+              display: flex;
+              gap: 50px;
+              margin-top: 40px;
+              page-break-inside: avoid;
+            }
+            .signature-block {
+              flex: 1;
+            }
+            .signature-line {
+              border-bottom: 1px solid #000;
+              height: 48px;
+              margin-bottom: 6px;
+            }
+            .signature-label {
+              font-size: 11px;
+              color: #666;
+            }
+            .section-number {
+              display: inline-block;
+              width: 22px;
+              height: 22px;
+              background: #000;
+              color: #fff;
+              font-size: 11px;
+              font-weight: 700;
+              text-align: center;
+              line-height: 22px;
+              border-radius: 50%;
+              margin-right: 10px;
+            }
+            .footer {
+              margin-top: 35px;
+              padding-top: 12px;
+              border-top: 1px solid #e5e5e5;
+              font-size: 10px;
+              color: #999;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <!-- Seite 1: Vertragsparteien + Mietgegenstand + Mietdauer + Mietpreis -->
+          <div class="page">
+            ${headerHtml}
+            ${sections.find(s => s.id === "meta")?.html || ""}
+            ${sections.find(s => s.id === "parties")?.html || ""}
+            ${sections.find(s => s.id === "equipment")?.html || ""}
+            ${sections.find(s => s.id === "duration")?.html || ""}
+            ${sections.find(s => s.id === "price")?.html || ""}
+          </div>
+
+          <!-- Seite 2: AGB Punkte 1-8 -->
+          <div class="page">
+            ${headerHtml}
+            ${sections.find(s => s.id === "agb-header")?.html || ""}
+            ${sections.find(s => s.id === "agb-1")?.html || ""}
+            ${sections.find(s => s.id === "agb-2")?.html || ""}
+            ${sections.find(s => s.id === "agb-3")?.html || ""}
+            ${sections.find(s => s.id === "agb-4")?.html || ""}
+            ${sections.find(s => s.id === "agb-5")?.html || ""}
+            ${sections.find(s => s.id === "agb-6")?.html || ""}
+            ${sections.find(s => s.id === "agb-7")?.html || ""}
+            ${sections.find(s => s.id === "agb-8")?.html || ""}
+          </div>
+
+          <!-- Seite 3: AGB Punkt 9 + Unterschriften -->
+          <div class="page">
+            ${headerHtml}
+            ${sections.find(s => s.id === "agb-9")?.html || ""}
+            ${sections.find(s => s.id === "signatures")?.html || ""}
+            ${sections.find(s => s.id === "footer")?.html || ""}
+          </div>
+        </body>
+      </html>
+    `;
   } else {
     // Default template for angebot, rechnung, auftragsbestaetigung, ablehnung
     htmlContent = `
