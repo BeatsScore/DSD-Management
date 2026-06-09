@@ -201,10 +201,7 @@ export default function ArtikelbuchungPage() {
             <ScanBarcode className="w-4 h-4" />
           </button>
         </div>
-        <p className="text-xs text-gray-500">
-          Tipp: Du kannst auch direkt mit einem Barcode-Scanner scannen — das
-          Eingabefeld fokussiert automatisch.
-        </p>
+
       </div>
 
       {/* Item list */}
