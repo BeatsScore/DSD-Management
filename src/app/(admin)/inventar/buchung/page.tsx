@@ -25,7 +25,7 @@ type ScannedItem = {
   barcode: string;
   currentStatus: string;
   newStatus: string;
-  type: "product_item" | "product";
+  type: "product_item";
 };
 
 const STATUS_OPTIONS = [
@@ -54,7 +54,7 @@ export default function ArtikelbuchungPage() {
         return;
       }
 
-      // 1. Try product_items by barcode
+      // Search only in product_items (individual physical units)
       const { data: productItem, error: piError } = await supabase
         .from("product_items")
         .select("*, product:product_id(id, name, status)")
@@ -78,51 +78,7 @@ export default function ArtikelbuchungPage() {
         return;
       }
 
-      // 2. Try products by barcode
-      const { data: productByBarcode, error: pbError } = await supabase
-        .from("products")
-        .select("id, name, status, barcode")
-        .eq("barcode", trimmed)
-        .maybeSingle();
-
-      if (!pbError && productByBarcode) {
-        const newItem: ScannedItem = {
-          key: `${trimmed}-${Date.now()}`,
-          productId: productByBarcode.id,
-          productName: productByBarcode.name,
-          barcode: trimmed,
-          currentStatus: productByBarcode.status,
-          newStatus: productByBarcode.status,
-          type: "product",
-        };
-        setItems((prev) => [...prev, newItem]);
-        toast.success(`Produkt gefunden: ${newItem.productName}`);
-        return;
-      }
-
-      // 3. Try products by product_id
-      const { data: productById, error: pidError } = await supabase
-        .from("products")
-        .select("id, name, status, product_id")
-        .eq("product_id", trimmed)
-        .maybeSingle();
-
-      if (!pidError && productById) {
-        const newItem: ScannedItem = {
-          key: `${trimmed}-${Date.now()}`,
-          productId: productById.id,
-          productName: productById.name,
-          barcode: trimmed,
-          currentStatus: productById.status,
-          newStatus: productById.status,
-          type: "product",
-        };
-        setItems((prev) => [...prev, newItem]);
-        toast.success(`Produkt gefunden: ${newItem.productName}`);
-        return;
-      }
-
-      toast.error("Artikel nicht gefunden");
+      toast.error("Artikel nicht gefunden — Barcode existiert nicht als Einzelartikel");
     },
     [items, supabase]
   );
@@ -166,28 +122,15 @@ export default function ArtikelbuchungPage() {
     let errorCount = 0;
 
     for (const item of changed) {
-      if (item.type === "product_item" && item.productItemId) {
-        const { error } = await supabase
-          .from("product_items")
-          .update({ status: item.newStatus })
-          .eq("id", item.productItemId);
-        if (error) {
-          console.error(error);
-          errorCount++;
-        } else {
-          successCount++;
-        }
+      const { error } = await supabase
+        .from("product_items")
+        .update({ status: item.newStatus })
+        .eq("id", item.productItemId);
+      if (error) {
+        console.error(error);
+        errorCount++;
       } else {
-        const { error } = await supabase
-          .from("products")
-          .update({ status: item.newStatus })
-          .eq("id", item.productId);
-        if (error) {
-          console.error(error);
-          errorCount++;
-        } else {
-          successCount++;
-        }
+        successCount++;
       }
     }
 
@@ -200,7 +143,6 @@ export default function ArtikelbuchungPage() {
       toast.error(
         `${successCount} erfolgreich, ${errorCount} fehlgeschlagen`
       );
-      // Update current status to reflect saved ones
       setItems((prev) =>
         prev.map((i) =>
           changed.some((c) => c.key === i.key)
@@ -225,7 +167,7 @@ export default function ArtikelbuchungPage() {
             Artikelbuchung
           </h1>
           <p className="text-gray-600 text-sm">
-            Scanne oder suche Artikel und ändere deren Status
+            Scanne oder suche einzelne Artikel-Einheiten und ändere deren Status
           </p>
         </div>
       </div>
@@ -305,9 +247,7 @@ export default function ArtikelbuchungPage() {
                       {item.serialNumber && (
                         <span>· SN: {item.serialNumber}</span>
                       )}
-                      {item.type === "product_item" && (
-                        <span className="text-blue-600">Einzelartikel</span>
-                      )}
+                      <span className="text-blue-600">Einzelartikel</span>
                     </div>
                   </div>
 
