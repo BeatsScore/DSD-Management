@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -25,6 +26,15 @@ export default function LoginPage() {
       toast.error("Anmeldung fehlgeschlagen: " + error.message);
       return;
     }
+
+    if (rememberMe) {
+      localStorage.setItem("dsd_remember", "true");
+      sessionStorage.removeItem("dsd_remember");
+    } else {
+      sessionStorage.setItem("dsd_remember", "false");
+      localStorage.removeItem("dsd_remember");
+    }
+
     toast.success("Erfolgreich angemeldet");
     router.push("/dashboard/");
     router.refresh();
@@ -63,6 +73,18 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="remember"
+                type="checkbox"
+                className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <label htmlFor="remember" className="text-sm text-gray-600 select-none cursor-pointer">
+                Angemeldet bleiben
+              </label>
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Anmelden"}

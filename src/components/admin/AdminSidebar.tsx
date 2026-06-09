@@ -38,6 +38,8 @@ export function AdminSidebar({ role }: { role: string }) {
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
   const handleLogout = async () => {
+    localStorage.removeItem("dsd_remember");
+    sessionStorage.removeItem("dsd_remember");
     await supabase.auth.signOut();
     router.push("/login/");
   };

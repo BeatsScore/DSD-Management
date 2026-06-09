@@ -1,5 +1,6 @@
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { SessionGuard } from "@/components/auth/SessionGuard";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,6 +28,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      <SessionGuard />
       <AdminSidebar role={profile.role} />
       <div className="flex-1 flex flex-col min-w-0 ml-0 md:ml-64">
         <AdminHeader userName={profile.full_name || user.email || "Benutzer"} />
