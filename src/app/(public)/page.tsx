@@ -7,7 +7,6 @@ import {
   Headphones,
   Award,
   ArrowRight,
-  Star,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -115,47 +114,6 @@ export default function HomePage() {
                 jederzeit zur Verfuegung.
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="page-header mb-4">Das sagen unsere Kunden</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Marcel Weber",
-                company: "Weber Events GmbH",
-                text: "Hervorragender Service und top Equipment. DSD Management ist unser verlässlicher Partner für jedes Event.",
-              },
-              {
-                name: "Sarah Meier",
-                company: "Kulturhaus Zürich",
-                text: "Schnelle Abwicklung, faire Preise und immer freundlich. Die Technik funktioniert einwandfrei.",
-              },
-              {
-                name: "Thomas Keller",
-                company: "Keller & Partner AG",
-                text: "Firmenevents sind bei uns in besten Händen. Professionelle Beratung und reibungslose Logistik.",
-              },
-            ].map((t, i) => (
-              <div key={i} className="card">
-                <div className="flex gap-1 mb-3">
-                  {[...Array(5)].map((_, j) => (
-                    <Star key={j} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-gray-700 text-sm mb-4 leading-relaxed">&quot;{t.text}&quot;</p>
-                <div>
-                  <div className="font-medium text-sm">{t.name}</div>
-                  <div className="text-xs text-gray-500">{t.company}</div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
