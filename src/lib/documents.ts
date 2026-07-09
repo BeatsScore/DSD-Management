@@ -240,14 +240,17 @@ export async function generateDocument(
         color: #666;
       }
       .section-number {
-        display: inline-block;
-        width: 22px;
-        height: 22px;
-        line-height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        line-height: 1;
         background: #000;
         color: #fff;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
+        font-family: Arial, sans-serif;
         text-align: center;
         border-radius: 50%;
         margin-right: 10px;
@@ -571,14 +574,17 @@ export async function generateDocument(
               color: #666;
             }
             .section-number {
-              display: inline-block;
-              width: 22px;
-              height: 22px;
-              line-height: 22px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              width: 24px;
+              height: 24px;
+              line-height: 1;
               background: #000;
               color: #fff;
-              font-size: 11px;
+              font-size: 12px;
               font-weight: 700;
+              font-family: Arial, sans-serif;
               text-align: center;
               border-radius: 50%;
               margin-right: 10px;
@@ -1216,14 +1222,17 @@ export function printDocument(
               color: #666;
             }
             .section-number {
-              display: inline-block;
-              width: 22px;
-              height: 22px;
-              line-height: 22px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              width: 24px;
+              height: 24px;
+              line-height: 1;
               background: #000;
               color: #fff;
-              font-size: 11px;
+              font-size: 12px;
               font-weight: 700;
+              font-family: Arial, sans-serif;
               text-align: center;
               border-radius: 50%;
               margin-right: 10px;
