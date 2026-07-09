@@ -240,12 +240,10 @@ export async function generateDocument(
         color: #666;
       }
       .section-number {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        display: inline-block;
         width: 24px;
         height: 24px;
-        line-height: 1;
+        line-height: 24px;
         background: #000;
         color: #fff;
         font-size: 12px;
@@ -574,12 +572,10 @@ export async function generateDocument(
               color: #666;
             }
             .section-number {
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
+              display: inline-block;
               width: 24px;
               height: 24px;
-              line-height: 1;
+              line-height: 24px;
               background: #000;
               color: #fff;
               font-size: 12px;
@@ -1222,12 +1218,10 @@ export function printDocument(
               color: #666;
             }
             .section-number {
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
+              display: inline-block;
               width: 24px;
               height: 24px;
-              line-height: 1;
+              line-height: 24px;
               background: #000;
               color: #fff;
               font-size: 12px;
