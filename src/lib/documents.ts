@@ -290,8 +290,7 @@ export async function generateDocument(
               ${companyInfo.address}<br>
               ${companyInfo.city}<br>
               ${companyInfo.country}<br>
-              E-Mail: ${companyInfo.email}<br>
-              Tel: ${companyInfo.phone}
+              E-Mail: ${companyInfo.email}
             </div>
           </div>
           <div class="party">
@@ -404,7 +403,7 @@ export async function generateDocument(
       },
       {
         id: "footer",
-        html: `<div class="footer">${companyInfo.legalName} | ${companyInfo.address} | ${companyInfo.city} | ${companyInfo.email} | ${companyInfo.phone}<br>${companyInfo.bank} | IBAN: ${companyInfo.iban} | UID: ${companyInfo.uid}</div>`,
+        html: `<div class="footer">${companyInfo.legalName} | ${companyInfo.address} | ${companyInfo.city} | ${companyInfo.email}<br>${companyInfo.bank} | IBAN: ${companyInfo.iban}</div>`,
       },
     ];
 
@@ -877,14 +876,12 @@ export async function generateDocument(
                 </div>
                 <div style="text-align:center;">
                   <strong>Kontakt</strong><br>
-                  ${companyInfo.phone}<br>
-                  ${companyInfo.website}
+                  ${companyInfo.email}
                 </div>
                 <div style="text-align:right;">
                   <strong>Bankverbindung</strong><br>
                   ${companyInfo.bank}<br>
-                  IBAN: ${companyInfo.iban}<br>
-                  UID: ${companyInfo.uid}
+                  IBAN: ${companyInfo.iban}
                 </div>
               </div>
             </div>
@@ -1268,8 +1265,7 @@ export function printDocument(
                   ${companyInfo.address}<br>
                   ${companyInfo.city}<br>
                   ${companyInfo.country}<br>
-                  E-Mail: ${companyInfo.email}<br>
-                  Tel: ${companyInfo.phone}
+                  E-Mail: ${companyInfo.email}
                 </div>
               </div>
               <div class="party">
@@ -1366,8 +1362,8 @@ export function printDocument(
             </div>
 
             <div class="footer">
-              ${companyInfo.legalName} | ${companyInfo.address} | ${companyInfo.city} | ${companyInfo.email} | ${companyInfo.phone}<br>
-              ${companyInfo.bank} | IBAN: ${companyInfo.iban} | UID: ${companyInfo.uid}
+              ${companyInfo.legalName} | ${companyInfo.address} | ${companyInfo.city} | ${companyInfo.email}<br>
+              ${companyInfo.bank} | IBAN: ${companyInfo.iban}
             </div>
           </div>
         </body>
@@ -1626,14 +1622,12 @@ export function printDocument(
               </div>
               <div style="text-align:center;">
                 <strong>Kontakt</strong><br>
-                ${companyInfo.phone}<br>
-                ${companyInfo.website}
+                ${companyInfo.email}
               </div>
               <div style="text-align:right;">
                 <strong>Bankverbindung</strong><br>
                 ${companyInfo.bank}<br>
-                IBAN: ${companyInfo.iban}<br>
-                UID: ${companyInfo.uid}
+                IBAN: ${companyInfo.iban}
               </div>
             </div>
           </div>

@@ -5,9 +5,7 @@ export const companyInfo = {
   city: "4052 Basel",
   country: "Schweiz",
   email: "info@dsdmanagement.ch",
-  phone: "+41 44 123 45 67",
   website: "www.dsdmanagement.ch",
-  bank: "UBS AG, Zürich",
-  iban: "CH12 3456 7890 1234 5678 9",
-  uid: "CHE-123.456.789",
+  bank: "BLKB Liestal",
+  iban: "CH30 0076 9437 8357 0200 1",
 };
