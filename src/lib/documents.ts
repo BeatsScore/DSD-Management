@@ -241,24 +241,12 @@ export async function generateDocument(
       }
       .section-number {
         display: inline-block;
-        position: relative;
-        width: 24px;
-        height: 24px;
-        background: #000;
-        color: #fff;
-        border-radius: 50%;
-        margin-right: 10px;
-        vertical-align: middle;
-      }
-      .section-number-inner {
-        position: absolute;
-        top: 45%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 12px;
+        color: #000;
+        font-size: 13px;
         font-weight: 700;
         font-family: Arial, sans-serif;
-        line-height: 1;
+        margin-right: 10px;
+        vertical-align: middle;
       }
       .footer {
         margin-top: 35px;
@@ -349,47 +337,47 @@ export async function generateDocument(
       },
       {
         id: "agb-1",
-        html: `<h2><span class="section-number"><span class="section-number-inner">1</span></span> Übergabe und Rückgabe</h2>
+        html: `<h2><span class="section-number">1</span> Übergabe und Rückgabe</h2>
         <p>Die Übergabe der Mietgegenstände erfolgt zu den vereinbarten Bürozeiten. Der Mieter verpflichtet sich, die Gegenstände termingerecht und im gleichen Zustand wie bei Übernahme zurückzugeben. Bei verspäteter Rückgabe werden zusätzliche Miettage in Rechnung gestellt.</p>`,
       },
       {
         id: "agb-2",
-        html: `<h2><span class="section-number"><span class="section-number-inner">2</span></span> Transport und Montage</h2>
+        html: `<h2><span class="section-number">2</span> Transport und Montage</h2>
         <p>Transport, Aufbau und Abbau der Technik können auf Wunsch gegen gesonderte Vergütung durch den Vermieter durchgeführt werden. Sofern der Mieter den Transport selbst übernimmt, haftet er für Beschädigungen während des Transports.</p>`,
       },
       {
         id: "agb-3",
-        html: `<h2><span class="section-number"><span class="section-number-inner">3</span></span> Haftung des Mieters</h2>
+        html: `<h2><span class="section-number">3</span> Haftung des Mieters</h2>
         <p>Der Mieter haftet für alle während der Mietdauer entstandenen Schäden, Verluste oder Diebstähle der überlassenen Gegenstände. Dies umfasst auch Schäden durch unsachgemässe Bedienung oder falsche Installation.</p>`,
       },
       {
         id: "agb-4",
-        html: `<h2><span class="section-number"><span class="section-number-inner">4</span></span> Versicherung</h2>
+        html: `<h2><span class="section-number">4</span> Versicherung</h2>
         <p>Der Mieter ist verpflichtet, eine entsprechende Event-Versicherung abzuschliessen oder den Vermieter schriftlich von der Versicherungspflicht zu entbinden. Ohne Nachweis einer Versicherung wird der Vermieter keine Technik übergeben.</p>`,
       },
       {
         id: "agb-5",
-        html: `<h2><span class="section-number"><span class="section-number-inner">5</span></span> Technischer Support</h2>
+        html: `<h2><span class="section-number">5</span> Technischer Support</h2>
         <p>Ein technischer Support vor Ort ist auf Anfrage und gegen gesonderte Vergütung möglich. Der Vermieter garantiert die Funktionsfähigkeit der Technik bei ordnungsgemässer Nutzung.</p>`,
       },
       {
         id: "agb-6",
-        html: `<h2><span class="section-number"><span class="section-number-inner">6</span></span> Stornierung</h2>
+        html: `<h2><span class="section-number">6</span> Stornierung</h2>
         <p>Stornierungen bis 14 Tage vor Mietbeginn sind kostenfrei. Bei Stornierung zwischen 14 und 7 Tagen vor Mietbeginn werden 50% des Mietpreises fällig. Bei Stornierung innerhalb von 7 Tagen vor Mietbeginn wird der volle Mietpreis fällig.</p>`,
       },
       {
         id: "agb-7",
-        html: `<h2><span class="section-number"><span class="section-number-inner">7</span></span> Kaution</h2>
+        html: `<h2><span class="section-number">7</span> Kaution</h2>
         <p>Die Kaution wird zur Sicherstellung der Rückgabe und des ordnungsgemässen Zustands der Mietgegenstände erhoben. Der Vermieter ist berechtigt, Schäden oder Verluste aus der Kaution zu begleichen.</p>`,
       },
       {
         id: "agb-8",
-        html: `<h2><span class="section-number"><span class="section-number-inner">8</span></span> Gewährleistung</h2>
+        html: `<h2><span class="section-number">8</span> Gewährleistung</h2>
         <p>Der Vermieter übernimmt keine Gewährleistung für den Erfolg der Veranstaltung. Die Haftung des Vermieters ist auf Vorsatz und grobe Fahrlässigkeit beschränkt.</p>`,
       },
       {
         id: "agb-9",
-        html: `<h2><span class="section-number"><span class="section-number-inner">9</span></span> Anwendbares Recht und Gerichtsstand</h2>
+        html: `<h2><span class="section-number">9</span> Anwendbares Recht und Gerichtsstand</h2>
         <p>Auf diesen Vertrag ist ausschliesslich schweizerisches Recht anwendbar. Gerichtsstand ist Basel.</p>`,
       },
       {
@@ -579,24 +567,12 @@ export async function generateDocument(
             }
             .section-number {
               display: inline-block;
-              position: relative;
-              width: 24px;
-              height: 24px;
-              background: #000;
-              color: #fff;
-              border-radius: 50%;
-              margin-right: 10px;
-              vertical-align: middle;
-            }
-            .section-number-inner {
-              position: absolute;
-              top: 45%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              font-size: 12px;
+              color: #000;
+              font-size: 13px;
               font-weight: 700;
               font-family: Arial, sans-serif;
-              line-height: 1;
+              margin-right: 10px;
+              vertical-align: middle;
             }
             .footer {
               margin-top: 35px;
@@ -1231,24 +1207,12 @@ export function printDocument(
             }
             .section-number {
               display: inline-block;
-              position: relative;
-              width: 24px;
-              height: 24px;
-              background: #000;
-              color: #fff;
-              border-radius: 50%;
-              margin-right: 10px;
-              vertical-align: middle;
-            }
-            .section-number-inner {
-              position: absolute;
-              top: 45%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              font-size: 12px;
+              color: #000;
+              font-size: 13px;
               font-weight: 700;
               font-family: Arial, sans-serif;
-              line-height: 1;
+              margin-right: 10px;
+              vertical-align: middle;
             }
             .footer {
               margin-top: 35px;
@@ -1332,31 +1296,31 @@ export function printDocument(
 
             <h1>Allgemeine Geschäftsbedingungen</h1>
 
-            <h2><span class="section-number"><span class="section-number-inner">1</span></span> Übergabe und Rückgabe</h2>
+            <h2><span class="section-number">1</span> Übergabe und Rückgabe</h2>
             <p>Die Übergabe der Mietgegenstände erfolgt zu den vereinbarten Bürozeiten. Der Mieter verpflichtet sich, die Gegenstände termingerecht und im gleichen Zustand wie bei Übernahme zurückzugeben. Bei verspäteter Rückgabe werden zusätzliche Miettage in Rechnung gestellt.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">2</span></span> Transport und Montage</h2>
+            <h2><span class="section-number">2</span> Transport und Montage</h2>
             <p>Transport, Aufbau und Abbau der Technik können auf Wunsch gegen gesonderte Vergütung durch den Vermieter durchgeführt werden. Sofern der Mieter den Transport selbst übernimmt, haftet er für Beschädigungen während des Transports.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">3</span></span> Haftung des Mieters</h2>
+            <h2><span class="section-number">3</span> Haftung des Mieters</h2>
             <p>Der Mieter haftet für alle während der Mietdauer entstandenen Schäden, Verluste oder Diebstähle der überlassenen Gegenstände. Dies umfasst auch Schäden durch unsachgemässe Bedienung oder falsche Installation.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">4</span></span> Versicherung</h2>
+            <h2><span class="section-number">4</span> Versicherung</h2>
             <p>Der Mieter ist verpflichtet, eine entsprechende Event-Versicherung abzuschliessen oder den Vermieter schriftlich von der Versicherungspflicht zu entbinden. Ohne Nachweis einer Versicherung wird der Vermieter keine Technik übergeben.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">5</span></span> Technischer Support</h2>
+            <h2><span class="section-number">5</span> Technischer Support</h2>
             <p>Ein technischer Support vor Ort ist auf Anfrage und gegen gesonderte Vergütung möglich. Der Vermieter garantiert die Funktionsfähigkeit der Technik bei ordnungsgemässer Nutzung.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">6</span></span> Stornierung</h2>
+            <h2><span class="section-number">6</span> Stornierung</h2>
             <p>Stornierungen bis 14 Tage vor Mietbeginn sind kostenfrei. Bei Stornierung zwischen 14 und 7 Tagen vor Mietbeginn werden 50% des Mietpreises fällig. Bei Stornierung innerhalb von 7 Tagen vor Mietbeginn wird der volle Mietpreis fällig.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">7</span></span> Kaution</h2>
+            <h2><span class="section-number">7</span> Kaution</h2>
             <p>Die Kaution wird zur Sicherstellung der Rückgabe und des ordnungsgemässen Zustands der Mietgegenstände erhoben. Der Vermieter ist berechtigt, Schäden oder Verluste aus der Kaution zu begleichen.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">8</span></span> Gewährleistung</h2>
+            <h2><span class="section-number">8</span> Gewährleistung</h2>
             <p>Der Vermieter übernimmt keine Gewährleistung für den Erfolg der Veranstaltung. Die Haftung des Vermieters ist auf Vorsatz und grobe Fahrlässigkeit beschränkt.</p>
 
-            <h2><span class="section-number"><span class="section-number-inner">9</span></span> Anwendbares Recht und Gerichtsstand</h2>
+            <h2><span class="section-number">9</span> Anwendbares Recht und Gerichtsstand</h2>
             <p>Auf diesen Vertrag ist ausschliesslich schweizerisches Recht anwendbar. Gerichtsstand ist Basel.</p>
 
             <h1>Unterschriften</h1>
