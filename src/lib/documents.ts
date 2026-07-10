@@ -252,7 +252,7 @@ export async function generateDocument(
       }
       .section-number-inner {
         position: absolute;
-        top: 50%;
+        top: 45%;
         left: 50%;
         transform: translate(-50%, -50%);
         font-size: 12px;
@@ -590,7 +590,7 @@ export async function generateDocument(
             }
             .section-number-inner {
               position: absolute;
-              top: 50%;
+              top: 45%;
               left: 50%;
               transform: translate(-50%, -50%);
               font-size: 12px;
@@ -1242,7 +1242,7 @@ export function printDocument(
             }
             .section-number-inner {
               position: absolute;
-              top: 50%;
+              top: 45%;
               left: 50%;
               transform: translate(-50%, -50%);
               font-size: 12px;
