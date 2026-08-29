@@ -163,6 +163,32 @@ function orderDiscountReason(_type: string): string {
   return "";
 }
 
+function buildSignatureSection(order: any): string {
+  const signatureUrl = order.customer_signature_url;
+  const signedAt = order.customer_signed_at
+    ? new Date(order.customer_signed_at).toLocaleDateString("de-CH")
+    : null;
+
+  return `
+    <h1>Unterschrift</h1>
+    <p style="margin-bottom:20px;font-size:11px;color:#555;">Mit der Unterschrift bestätigt der Mieter die vorstehenden Angaben und Bedingungen.</p>
+    <div class="signature-grid">
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <div class="signature-label"><strong>Ort, Datum</strong><br>Unterschrift Vermieter</div>
+      </div>
+      <div class="signature-block">
+        ${
+          signatureUrl
+            ? `<div style="height:40px;margin-bottom:6px;"><img src="${signatureUrl}" style="max-height:100%;max-width:100%;" alt="Kundenunterschrift" /></div>`
+            : `<div class="signature-line"></div>`
+        }
+        <div class="signature-label"><strong>${signedAt || "Ort, Datum"}</strong><br>Unterschrift Mieter${signedAt ? ` (digital signiert am ${signedAt})` : ""}</div>
+      </div>
+    </div>
+  `;
+}
+
 function buildNotice(type: string): string {
   const text =
     type === "rechnung"
@@ -245,6 +271,11 @@ function buildStandardDocument(type: string, order: any, items: any[]): string {
     `;
 
     pages.push(buildPage(pageContent, docTitle, { watermark: true }));
+  }
+
+  // Offer documents get a dedicated signature page.
+  if (type === "angebot") {
+    pages.push(buildPage(buildSignatureSection(order), docTitle, { watermark: true }));
   }
 
   return pages.join("");
@@ -347,20 +378,7 @@ function buildContractDocument(_type: string, order: any, items: any[]): string 
     `<h2><span class="section-number">9</span> Anwendbares Recht und Gerichtsstand</h2><p>Auf diesen Vertrag ist ausschliesslich schweizerisches Recht anwendbar. Gerichtsstand ist Basel.</p>`,
   ];
 
-  const signatureSection = `
-    <h1>Unterschriften</h1>
-    <p style="margin-bottom:30px;">Mit ihrer Unterschrift bestätigen beide Parteien, dass sie die vorstehenden Bedingungen gelesen, verstanden und akzeptiert haben.</p>
-    <div class="signature-grid">
-      <div class="signature-block">
-        <div class="signature-line"></div>
-        <div class="signature-label"><strong>Ort, Datum</strong><br>Unterschrift Vermieter</div>
-      </div>
-      <div class="signature-block">
-        <div class="signature-line"></div>
-        <div class="signature-label"><strong>Ort, Datum</strong><br>Unterschrift Mieter</div>
-      </div>
-    </div>
-  `;
+  const signatureSection = buildSignatureSection(order);
 
   return [
     buildPage(metaSection + partiesSection + equipmentSection + durationSection + priceSection, docTitle),

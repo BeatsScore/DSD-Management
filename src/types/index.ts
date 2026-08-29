@@ -95,6 +95,8 @@ export interface Order {
   discount_type: "prozentual" | "absolut" | null;
   discount_amount: number | null;
   discount_reason: string | null;
+  customer_signature_url: string | null;
+  customer_signed_at: string | null;
   created_at: string;
   updated_at: string;
 }

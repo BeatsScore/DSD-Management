@@ -10,6 +10,7 @@ import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFl
 import { generateDocument, printDocument } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { SignaturePad } from "@/components/ui/SignaturePad";
 
 type PlanType = "pickup" | "return" | null;
 
@@ -84,6 +85,10 @@ export default function OrderDetailPage() {
   const [discountReason, setDiscountReason] = useState("");
   const [savingDiscount, setSavingDiscount] = useState(false);
 
+  // Signature state
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [pendingDocType, setPendingDocType] = useState<string | null>(null);
+
   // Damage protocol modal state
   const [showDamageModal, setShowDamageModal] = useState(false);
   const [damageProductItemIds, setDamageProductItemIds] = useState<string[]>([]);
@@ -96,7 +101,7 @@ export default function OrderDetailPage() {
   useEffect(() => {
     async function load() {
       const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }, { data: ps }, { data: ass }] = await Promise.all([
-        supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
+        supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email), customer_signature_url, customer_signed_at").eq("id", id).single(),
         supabase.from("order_items").select("*, product:product_id(*), set:set_id(*), product_item:product_item_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "staff"]).order("full_name", { ascending: true }),
@@ -169,6 +174,12 @@ export default function OrderDetailPage() {
   };
 
   const generatePDF = async (type: string) => {
+    if ((type === "angebot" || type === "mietvertrag") && !order.customer_signature_url) {
+      setPendingDocType(type);
+      setShowSignatureModal(true);
+      return;
+    }
+
     const success = await generateDocument(type, order, items, window);
     if (!success) {
       toast.error("PDF konnte nicht generiert werden.");
@@ -189,6 +200,12 @@ export default function OrderDetailPage() {
   };
 
   const handlePrint = (type: string) => {
+    if ((type === "angebot" || type === "mietvertrag") && !order.customer_signature_url) {
+      setPendingDocType(type);
+      setShowSignatureModal(true);
+      return;
+    }
+
     const success = printDocument(type, order, items, window);
     if (!success) {
       toast.error("Druckvorschau konnte nicht geöffnet werden.");
@@ -196,9 +213,41 @@ export default function OrderDetailPage() {
   };
 
   const handleDownload = async (type: string) => {
+    if ((type === "angebot" || type === "mietvertrag") && !order.customer_signature_url) {
+      setPendingDocType(type);
+      setShowSignatureModal(true);
+      return;
+    }
+
     const success = await generateDocument(type, order, items, window);
     if (!success) {
       toast.error("PDF konnte nicht generiert werden.");
+    }
+  };
+
+  const saveSignature = async (dataUrl: string) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ customer_signature_url: dataUrl, customer_signed_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Unterschrift konnte nicht gespeichert werden: " + error.message);
+      return;
+    }
+
+    setOrder((prev: any) => ({
+      ...prev,
+      customer_signature_url: dataUrl,
+      customer_signed_at: new Date().toISOString(),
+    }));
+    setShowSignatureModal(false);
+    toast.success("Unterschrift gespeichert.");
+
+    if (pendingDocType) {
+      const type = pendingDocType;
+      setPendingDocType(null);
+      generatePDF(type);
     }
   };
 
@@ -1016,12 +1065,44 @@ export default function OrderDetailPage() {
 
         <div className="card">
           <h2 className="section-header mb-4">Dokumente generieren</h2>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 mb-4">
             {["angebot", "rechnung", "mietvertrag", "auftragsbestaetigung", "ablehnung"].map((type) => (
               <button key={type} onClick={() => generatePDF(type)} className="btn-secondary text-sm py-2 px-4">
                 <FileText className="w-4 h-4 mr-1" /> {docTypeLabel(type)}
               </button>
             ))}
+          </div>
+          <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+            {order.customer_signature_url ? (
+              <div className="flex items-center gap-3">
+                <div className="h-12 border border-gray-200 rounded bg-white px-2">
+                  <img
+                    src={order.customer_signature_url}
+                    alt="Kundenunterschrift"
+                    className="h-full w-auto object-contain"
+                  />
+                </div>
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium text-green-700">Unterschrift erfasst</span>
+                  {order.customer_signed_at && (
+                    <span className="block text-xs text-gray-400">
+                      am {new Date(order.customer_signed_at).toLocaleDateString("de-CH")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">Noch keine Kundenunterschrift erfasst.</div>
+            )}
+            <button
+              onClick={() => {
+                setPendingDocType(null);
+                setShowSignatureModal(true);
+              }}
+              className="btn-secondary text-sm py-2 px-4 ml-auto"
+            >
+              {order.customer_signature_url ? "Unterschrift ändern" : "Unterschrift erfassen"}
+            </button>
           </div>
         </div>
 
@@ -1569,6 +1650,17 @@ export default function OrderDetailPage() {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
+
+      {showSignatureModal && (
+        <SignaturePad
+          onSave={saveSignature}
+          onCancel={() => {
+            setShowSignatureModal(false);
+            setPendingDocType(null);
+          }}
+          existingSignature={order.customer_signature_url}
+        />
+      )}
     </div>
   );
 }
