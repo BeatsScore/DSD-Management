@@ -387,7 +387,7 @@ export default function OrderDetailPage() {
       angebot: "Angebot",
       rechnung: "Rechnung",
       mietvertrag: "Mietvertrag",
-      auftragsbestaetigung: "Auftragsbestaetigung",
+      auftragsbestaetigung: "Auftragsbestätigung",
       ablehnung: "Ablehnung",
     };
     return map[type] || type;

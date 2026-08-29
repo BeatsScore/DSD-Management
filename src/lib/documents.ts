@@ -15,7 +15,7 @@ const titleMap: Record<string, string> = {
   angebot: "Angebot",
   rechnung: "Rechnung",
   mietvertrag: "Mietvertrag",
-  auftragsbestaetigung: "Auftragsbestaetigung",
+  auftragsbestaetigung: "Auftragsbestätigung",
   ablehnung: "Ablehnung",
 };
 
@@ -94,7 +94,7 @@ function buildFooter(): string {
 
 function buildPage(contentHtml: string, docTitle: string, options: { watermark?: boolean } = {}): string {
   const watermarkHtml = options.watermark
-    ? `<div class="watermark">${docTitle}</div>`
+    ? `<div class="watermark">${companyInfo.name}</div>`
     : "";
 
   return `
@@ -474,13 +474,15 @@ function buildDocumentHtml(type: string, order: any, items: any[]): string {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-30deg);
-            font-size: 80px;
+            font-size: 42px;
             font-weight: 900;
-            color: rgba(0,0,0,0.03);
+            color: rgba(0,0,0,0.04);
             pointer-events: none;
             z-index: 0;
             text-transform: uppercase;
-            letter-spacing: 8px;
+            letter-spacing: 5px;
+            white-space: nowrap;
+            max-width: 100%;
           }
           .meta-grid {
             display: flex;
