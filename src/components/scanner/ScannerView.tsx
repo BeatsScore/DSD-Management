@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ScanLine, ScanBarcode, CameraOff, Loader2, RefreshCw } from "lucide-react";
 import { useScanner } from "@/hooks/useScanner";
 import { clsx, type ClassValue } from "clsx";
@@ -40,14 +40,22 @@ export function ScannerView({
     onError,
   });
 
+  const autoStartedRef = useRef(false);
+
   useEffect(() => {
-    if (autoStart) {
-      start();
+    if (autoStart && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      // Kurzes Delay, damit das DOM-Element mit containerId garantiert gerendert ist.
+      const timer = setTimeout(() => start(), 0);
+      return () => clearTimeout(timer);
     }
+  }, [autoStart, start]);
+
+  useEffect(() => {
     return () => {
       stop().catch(() => {});
     };
-  }, [autoStart, start, stop]);
+  }, [stop]);
 
   return (
     <div

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 export interface UseScannerOptions {
@@ -39,11 +39,10 @@ export interface UseScannerReturn {
   activeCameraId: string | null;
 }
 
-let scannerInstanceCounter = 0;
-
-function generateScannerId() {
-  scannerInstanceCounter += 1;
-  return `scanner-view-port-${scannerInstanceCounter}-${Date.now().toString(36)}`;
+function useScannerId() {
+  const reactId = useId();
+  // useId liefert IDs mit Doppelpunkten; für HTML-Attribute bereinigen.
+  return `scanner-view-port-${reactId.replace(/[^a-zA-Z0-9-]/g, "-")}`;
 }
 
 /** Formate, die der Scanner erkennen soll – QR und gängige Barcodes. */
@@ -71,7 +70,7 @@ export function useScanner({
   facingMode = "environment",
 }: UseScannerOptions): UseScannerReturn {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const containerId = useRef(generateScannerId()).current;
+  const containerId = useScannerId();
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
