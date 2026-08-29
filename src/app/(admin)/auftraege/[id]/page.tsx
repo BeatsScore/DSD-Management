@@ -1017,7 +1017,7 @@ export default function OrderDetailPage() {
         <div className="card">
           <h2 className="section-header mb-4">Dokumente generieren</h2>
           <div className="flex flex-wrap gap-3">
-            {["angebot", "rechnung", "mietvertrag", "auftragsbestaetigung", "ablehnung"].map((type) => (
+            {["angebot", "rechnung", "mietvertrag", "auftragsbestaetigung"].map((type) => (
               <button key={type} onClick={() => generatePDF(type)} className="btn-secondary text-sm py-2 px-4">
                 <FileText className="w-4 h-4 mr-1" /> {docTypeLabel(type)}
               </button>
