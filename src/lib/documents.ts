@@ -163,12 +163,7 @@ function orderDiscountReason(_type: string): string {
   return "";
 }
 
-function buildSignatureSection(order: any): string {
-  const signatureUrl = order.customer_signature_url;
-  const signedAt = order.customer_signed_at
-    ? new Date(order.customer_signed_at).toLocaleDateString("de-CH")
-    : null;
-
+function buildSignatureSection(_order: any): string {
   return `
     <h1>Unterschrift</h1>
     <p style="margin-bottom:20px;font-size:11px;color:#555;">Mit der Unterschrift bestätigt der Mieter die vorstehenden Angaben und Bedingungen.</p>
@@ -178,12 +173,8 @@ function buildSignatureSection(order: any): string {
         <div class="signature-label"><strong>Ort, Datum</strong><br>Unterschrift Vermieter</div>
       </div>
       <div class="signature-block">
-        ${
-          signatureUrl
-            ? `<div style="height:40px;margin-bottom:6px;"><img src="${signatureUrl}" style="max-height:100%;max-width:100%;" alt="Kundenunterschrift" /></div>`
-            : `<div class="signature-line"></div>`
-        }
-        <div class="signature-label"><strong>${signedAt || "Ort, Datum"}</strong><br>Unterschrift Mieter${signedAt ? ` (digital signiert am ${signedAt})` : ""}</div>
+        <div class="signature-line"></div>
+        <div class="signature-label"><strong>Ort, Datum</strong><br>Unterschrift Mieter</div>
       </div>
     </div>
   `;
