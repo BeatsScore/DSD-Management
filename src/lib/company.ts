@@ -1,6 +1,6 @@
 export const companyInfo = {
   name: "DSD Management",
-  legalName: "DSD Management GmbH",
+  legalName: "DSD Management",
   address: "Post EG, Gartenstrasse 143",
   city: "4052 Basel",
   country: "Schweiz",
