@@ -25,7 +25,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
-import { ScannerModal } from "@/components/scanner/ScannerModal";
+import { ScannerView } from "@/components/scanner/ScannerView";
 
 export default function PlannerPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -787,12 +787,28 @@ export default function PlannerPage() {
           />
           <button
             type="button"
-            onClick={() => setShowBarcodeScanner(true)}
-            className="btn-primary px-4"
+            onClick={() => setShowBarcodeScanner((prev) => !prev)}
+            className={`btn-primary px-4 transition-colors ${
+              showBarcodeScanner ? "bg-red-600 hover:bg-red-700" : ""
+            }`}
           >
             <QrCode className="w-4 h-4" />
           </button>
         </form>
+
+        {showBarcodeScanner && (
+          <div className="mb-6 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+            <ScannerView
+              onScan={async (code) => {
+                await processBarcode(code);
+                setShowBarcodeScanner(false);
+              }}
+              onError={(err) => toast.error(err.message)}
+              autoStart
+              className="h-80"
+            />
+          </div>
+        )}
 
         {/* Scanned items */}
         {scannedProductItems.length > 0 && (
@@ -911,14 +927,6 @@ export default function PlannerPage() {
           {isPickup ? "Abholung bestätigen" : "Rückgabe bestätigen"}
         </button>
 
-        <ScannerModal
-          open={showBarcodeScanner}
-          onScan={async (code) => {
-            await processBarcode(code);
-            setShowBarcodeScanner(false);
-          }}
-          onClose={() => setShowBarcodeScanner(false)}
-        />
       </div>
     );
   }
