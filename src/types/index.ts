@@ -102,9 +102,11 @@ export interface Order {
 export interface OrderItem {
   id: string;
   order_id: string;
-  product_id: string;
+  product_id: string | null;
   product_item_id?: string | null;
+  set_id?: string | null;
   product?: Product;
+  set?: ProductSet;
   quantity: number;
   price_per_day: number | null;
   created_at: string;

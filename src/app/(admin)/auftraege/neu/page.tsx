@@ -11,6 +11,7 @@ import { generateOrderNumber } from "@/lib/utils";
 export default function NewOrderPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [productSets, setProductSets] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -47,21 +48,38 @@ export default function NewOrderPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: c }, { data: p }, { data: s }] = await Promise.all([
+      const [{ data: c }, { data: p }, { data: ps }, { data: s }] = await Promise.all([
         supabase.from("customers").select("*").order("name"),
         supabase.from("products").select("*").eq("status", "verfuegbar").order("name"),
+        supabase.from("product_sets").select("*").eq("active", true).order("name"),
         supabase.from("profiles").select("*").in("role", ["admin", "staff"]).order("full_name"),
       ]);
       setCustomers(c || []);
       setProducts(p || []);
+      setProductSets(ps || []);
       setStaff(s || []);
     }
     load();
   }, [supabase]);
 
-  const addProduct = (productId: string) => {
-    if (selectedProducts.find((sp) => sp.productId === productId)) return;
-    setSelectedProducts([...selectedProducts, { productId, quantity: 1, pricePerDay: 0 }]);
+  const addProduct = (value: string) => {
+    if (selectedProducts.find((sp) => sp.productId === value)) return;
+
+    if (value.startsWith("set:")) {
+      const setId = value.slice(4);
+      const set = productSets.find((s) => s.id === setId);
+      setSelectedProducts([
+        ...selectedProducts,
+        { productId: value, quantity: 1, pricePerDay: set?.rental_price_per_day ?? 0 },
+      ]);
+      return;
+    }
+
+    const product = products.find((p) => p.id === value);
+    setSelectedProducts([
+      ...selectedProducts,
+      { productId: value, quantity: 1, pricePerDay: product?.rental_price_per_day ?? 0 },
+    ]);
   };
 
   const removeProduct = (productId: string) => {
@@ -129,12 +147,16 @@ export default function NewOrderPage() {
     }
 
     if (selectedProducts.length > 0) {
-      const items = selectedProducts.map((sp) => ({
-        order_id: order.id,
-        product_id: sp.productId,
-        quantity: sp.quantity,
-        price_per_day: sp.pricePerDay || null,
-      }));
+      const items = selectedProducts.map((sp) => {
+        const isSet = sp.productId.startsWith("set:");
+        return {
+          order_id: order.id,
+          product_id: isSet ? null : sp.productId,
+          set_id: isSet ? sp.productId.slice(4) : null,
+          quantity: sp.quantity,
+          price_per_day: sp.pricePerDay || null,
+        };
+      });
       const { error: itemsError } = await supabase.from("order_items").insert(items);
       if (itemsError) {
         // Best effort: try to clean up the empty order
@@ -394,37 +416,60 @@ export default function NewOrderPage() {
               }}
             >
               <option value="">Bitte wählen</option>
-              {products
-                .filter((p) => {
-                  if (selectedProducts.find((sp) => sp.productId === p.id)) return false;
-                  if (!productSearch.trim()) return true;
-                  const term = productSearch.toLowerCase();
-                  return (
-                    p.name?.toLowerCase().includes(term) ||
-                    p.manufacturer?.toLowerCase().includes(term) ||
-                    p.product_id?.toLowerCase().includes(term)
-                  );
-                })
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.manufacturer})
-                  </option>
-                ))}
+              <optgroup label="Sets">
+                {productSets
+                  .filter((s) => {
+                    if (selectedProducts.find((sp) => sp.productId === `set:${s.id}`)) return false;
+                    if (!productSearch.trim()) return true;
+                    const term = productSearch.toLowerCase();
+                    return s.name?.toLowerCase().includes(term);
+                  })
+                  .map((s) => (
+                    <option key={`set:${s.id}`} value={`set:${s.id}`}>
+                      [Set] {s.name}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Produkte">
+                {products
+                  .filter((p) => {
+                    if (selectedProducts.find((sp) => sp.productId === p.id)) return false;
+                    if (!productSearch.trim()) return true;
+                    const term = productSearch.toLowerCase();
+                    return (
+                      p.name?.toLowerCase().includes(term) ||
+                      p.manufacturer?.toLowerCase().includes(term) ||
+                      p.product_id?.toLowerCase().includes(term)
+                    );
+                  })
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.manufacturer})
+                    </option>
+                  ))}
+              </optgroup>
             </select>
           </div>
 
           {selectedProducts.length > 0 && (
             <div className="space-y-2">
               {selectedProducts.map((sp) => {
-                const product = products.find((p) => p.id === sp.productId);
+                const isSet = sp.productId.startsWith("set:");
+                const item = isSet
+                  ? productSets.find((s) => s.id === sp.productId.slice(4))
+                  : products.find((p) => p.id === sp.productId);
                 return (
                   <div
                     key={sp.productId}
                     className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">{product?.name}</div>
-                      <div className="text-xs text-gray-500">{product?.manufacturer}</div>
+                      <div className="text-sm font-medium">
+                        {isSet ? `[Set] ${item?.name}` : item?.name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {isSet ? "Produktset" : item?.manufacturer}
+                      </div>
                     </div>
                     <input
                       type="number"

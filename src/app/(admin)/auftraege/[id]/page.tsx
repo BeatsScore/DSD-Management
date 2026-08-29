@@ -42,6 +42,7 @@ export default function OrderDetailPage() {
   const [damageLogs, setDamageLogs] = useState<any[]>([]);
   const [changeLogs, setChangeLogs] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [productSets, setProductSets] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
@@ -94,14 +95,15 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }, { data: ass }] = await Promise.all([
+      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }, { data: ps }, { data: ass }] = await Promise.all([
         supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
-        supabase.from("order_items").select("*, product:product_id(*), product_item:product_item_id(*)").eq("order_id", id),
+        supabase.from("order_items").select("*, product:product_id(*), set:set_id(*), product_item:product_item_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "staff"]).order("full_name", { ascending: true }),
         supabase.from("damage_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
         supabase.from("order_change_logs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
-        supabase.from("products").select("id, name, manufacturer, product_id").eq("status", "verfuegbar").order("name"),
+        supabase.from("products").select("id, name, manufacturer, product_id, rental_price_per_day").eq("status", "verfuegbar").order("name"),
+        supabase.from("product_sets").select("*").eq("active", true).order("name"),
         supabase.from("order_item_assignments").select("*, product_item:product_item_id(*, product:product_id(*))").eq("order_id", id).order("created_at", { ascending: true }),
       ]);
       setOrder(o);
@@ -111,6 +113,7 @@ export default function OrderDetailPage() {
       setDamageLogs(dl || []);
       setChangeLogs(cl || []);
       setAllProducts(ap || []);
+      setProductSets(ps || []);
       setAssignments(ass || []);
       if (o) {
         setPaymentStatus(o.payment_status || "offen");
@@ -130,7 +133,13 @@ export default function OrderDetailPage() {
         });
       }
       if (i) {
-        setEditProducts(i.map((it: any) => ({ productId: it.product_id, quantity: it.quantity, pricePerDay: it.price_per_day || 0 })));
+        setEditProducts(
+          i.map((it: any) => ({
+            productId: it.set_id ? `set:${it.set_id}` : it.product_id,
+            quantity: it.quantity,
+            pricePerDay: it.price_per_day || 0,
+          }))
+        );
       }
       setLoading(false);
     }
@@ -416,7 +425,13 @@ export default function OrderDetailPage() {
       });
     }
     if (items) {
-      setEditProducts(items.map((it: any) => ({ productId: it.product_id, quantity: it.quantity, pricePerDay: it.price_per_day || 0 })));
+      setEditProducts(
+        items.map((it: any) => ({
+          productId: it.set_id ? `set:${it.set_id}` : it.product_id,
+          quantity: it.quantity,
+          pricePerDay: it.price_per_day || 0,
+        }))
+      );
     }
     setProductSearch("");
   };
@@ -461,20 +476,35 @@ export default function OrderDetailPage() {
         // Delete existing items and insert new ones
         await supabase.from("order_items").delete().eq("order_id", id);
         if (editProducts.length > 0) {
-          const newItems = editProducts.map((ep) => ({
-            order_id: id,
-            product_id: ep.productId,
-            quantity: ep.quantity,
-            price_per_day: ep.pricePerDay || null,
-          }));
+          const newItems = editProducts.map((ep) => {
+            const isSet = ep.productId.startsWith("set:");
+            return {
+              order_id: id,
+              product_id: isSet ? null : ep.productId,
+              set_id: isSet ? ep.productId.slice(4) : null,
+              quantity: ep.quantity,
+              price_per_day: ep.pricePerDay || null,
+            };
+          });
           await supabase.from("order_items").insert(newItems);
         }
         logDescription = `Produkte überarbeitet`;
-        oldValue = items.map((it: any) => `${it.product?.name} (${it.quantity}x)`).join(", ");
-        newValue = editProducts.map((ep) => {
-          const p = allProducts.find((ap) => ap.id === ep.productId);
-          return `${p?.name || "?"} (${ep.quantity}x)`;
-        }).join(", ");
+        oldValue = items
+          .map((it: any) => {
+            const name = it.set?.name || it.product?.name || "?";
+            return `${name} (${it.quantity}x)`;
+          })
+          .join(", ");
+        newValue = editProducts
+          .map((ep) => {
+            const isSet = ep.productId.startsWith("set:");
+            const item = isSet
+              ? productSets.find((s) => s.id === ep.productId.slice(4))
+              : allProducts.find((ap) => ap.id === ep.productId);
+            const name = isSet ? `[Set] ${item?.name}` : item?.name || "?";
+            return `${name} (${ep.quantity}x)`;
+          })
+          .join(", ");
         break;
     }
 
@@ -506,7 +536,7 @@ export default function OrderDetailPage() {
 
     // Refresh data
     const { data: o } = await supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single();
-    const { data: i } = await supabase.from("order_items").select("*, product:product_id(*)").eq("order_id", id);
+    const { data: i } = await supabase.from("order_items").select("*, product:product_id(*), set:set_id(*)").eq("order_id", id);
     const { data: cl } = await supabase.from("order_change_logs").select("*").eq("order_id", id).order("created_at", { ascending: false });
 
     setOrder(o);
@@ -519,9 +549,32 @@ export default function OrderDetailPage() {
   };
 
   // Product editing helpers
-  const addEditProduct = (productId: string) => {
-    if (editProducts.find((ep) => ep.productId === productId)) return;
-    setEditProducts([...editProducts, { productId, quantity: 1, pricePerDay: 0 }]);
+  const addEditProduct = (value: string) => {
+    if (editProducts.find((ep) => ep.productId === value)) return;
+
+    if (value.startsWith("set:")) {
+      const setId = value.slice(4);
+      const set = productSets.find((s) => s.id === setId);
+      setEditProducts([
+        ...editProducts,
+        {
+          productId: value,
+          quantity: 1,
+          pricePerDay: set?.rental_price_per_day ?? 0,
+        },
+      ]);
+      return;
+    }
+
+    const product = allProducts.find((p) => p.id === value);
+    setEditProducts([
+      ...editProducts,
+      {
+        productId: value,
+        quantity: 1,
+        pricePerDay: product?.rental_price_per_day ?? 0,
+      },
+    ]);
   };
 
   const removeEditProduct = (productId: string) => {
@@ -850,14 +903,21 @@ export default function OrderDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="py-3 font-medium">{item.product?.name}</td>
-                        <td className="py-3 text-gray-600">{item.product?.manufacturer}</td>
-                        <td className="py-3 text-center">{item.quantity}</td>
-                        <td className="py-3 text-right">{formatCurrency(item.price_per_day)}</td>
-                      </tr>
-                    ))}
+                    {items.map((item) => {
+                      const isSet = !!item.set_id;
+                      return (
+                        <tr key={item.id}>
+                          <td className="py-3 font-medium">
+                            {isSet ? `[Set] ${item.set?.name}` : item.product?.name}
+                          </td>
+                          <td className="py-3 text-gray-600">
+                            {isSet ? "Produktset" : item.product?.manufacturer}
+                          </td>
+                          <td className="py-3 text-center">{item.quantity}</td>
+                          <td className="py-3 text-right">{formatCurrency(item.price_per_day)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1400,34 +1460,57 @@ export default function OrderDetailPage() {
                     }}
                   >
                     <option value="">Bitte wählen</option>
-                    {allProducts
-                      .filter((p) => {
-                        if (editProducts.find((ep) => ep.productId === p.id)) return false;
-                        if (!productSearch.trim()) return true;
-                        const term = productSearch.toLowerCase();
-                        return (
-                          p.name?.toLowerCase().includes(term) ||
-                          p.manufacturer?.toLowerCase().includes(term) ||
-                          p.product_id?.toLowerCase().includes(term)
-                        );
-                      })
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.manufacturer})
-                        </option>
-                      ))}
+                    <optgroup label="Sets">
+                      {productSets
+                        .filter((s) => {
+                          if (editProducts.find((ep) => ep.productId === `set:${s.id}`)) return false;
+                          if (!productSearch.trim()) return true;
+                          const term = productSearch.toLowerCase();
+                          return s.name?.toLowerCase().includes(term);
+                        })
+                        .map((s) => (
+                          <option key={`set:${s.id}`} value={`set:${s.id}`}>
+                            [Set] {s.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                    <optgroup label="Produkte">
+                      {allProducts
+                        .filter((p) => {
+                          if (editProducts.find((ep) => ep.productId === p.id)) return false;
+                          if (!productSearch.trim()) return true;
+                          const term = productSearch.toLowerCase();
+                          return (
+                            p.name?.toLowerCase().includes(term) ||
+                            p.manufacturer?.toLowerCase().includes(term) ||
+                            p.product_id?.toLowerCase().includes(term)
+                          );
+                        })
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.manufacturer})
+                          </option>
+                        ))}
+                    </optgroup>
                   </select>
                 </div>
 
                 {editProducts.length > 0 && (
                   <div className="space-y-2">
                     {editProducts.map((ep) => {
-                      const product = allProducts.find((p) => p.id === ep.productId);
+                      const isSet = ep.productId.startsWith("set:");
+                      const item = isSet
+                        ? productSets.find((s) => s.id === ep.productId.slice(4))
+                        : allProducts.find((p) => p.id === ep.productId);
                       return (
                         <div key={ep.productId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium">{product?.name}</div>
-                            <div className="text-xs text-gray-500">{product?.manufacturer}</div>
+                            <div className="text-sm font-medium">
+                              {isSet ? `[Set] ${item?.name}` : item?.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {isSet ? "Produktset" : item?.manufacturer}
+                            </div>
                           </div>
                           <input
                             type="number"
