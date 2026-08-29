@@ -109,31 +109,6 @@ export function ScannerView({
           </div>
         )}
 
-        {/* Scan-Fenster-Overlay */}
-        {isScanning && (
-          <div className="absolute inset-0 z-10 pointer-events-none">
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[170px] max-w-[80%] max-h-[45%]">
-              <div className="relative w-full h-full">
-                {/* Ecken */}
-                <div className="absolute top-0 left-0 w-9 h-9 border-t-[3px] border-l-[3px] border-white rounded-tl-lg" />
-                <div className="absolute top-0 right-0 w-9 h-9 border-t-[3px] border-r-[3px] border-white rounded-tr-lg" />
-                <div className="absolute bottom-0 left-0 w-9 h-9 border-b-[3px] border-l-[3px] border-white rounded-bl-lg" />
-                <div className="absolute bottom-0 right-0 w-9 h-9 border-b-[3px] border-r-[3px] border-white rounded-br-lg" />
-
-                {/* Scan-Linie */}
-                <div className="absolute left-1 right-1 h-0.5 bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.9)] animate-scanline" />
-              </div>
-            </div>
-
-            <div className="absolute bottom-20 left-0 right-0 text-center">
-              <p className="text-white/90 text-sm font-medium px-6">
-                QR-Code oder Barcode innerhalb des Rahmens halten
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Ladezustand */}
         {isStarting && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-white bg-black/70">
@@ -163,22 +138,6 @@ export function ScannerView({
         )}
       </div>
 
-      <style jsx>{`
-        @keyframes scanline {
-          0% {
-            top: 0%;
-          }
-          50% {
-            top: 100%;
-          }
-          100% {
-            top: 0%;
-          }
-        }
-        .animate-scanline {
-          animation: scanline 2.2s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 }
