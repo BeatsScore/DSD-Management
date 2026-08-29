@@ -170,7 +170,6 @@ export function useScanner({
         cameraId,
         {
           fps: 10,
-          qrbox: { width: 250, height: 140 },
           aspectRatio: 1.777,
         },
         handleScan,
