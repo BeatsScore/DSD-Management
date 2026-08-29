@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { ScannerModal } from "@/components/scanner/ScannerModal";
 import {
   ArrowLeft,
   ScanBarcode,
@@ -317,7 +317,7 @@ export default function ArtikelbuchungPage() {
         </div>
       )}
 
-      <BarcodeScannerModal
+      <ScannerModal
         open={showScanner}
         onScan={handleScan}
         onClose={() => setShowScanner(false)}

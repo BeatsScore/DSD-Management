@@ -25,7 +25,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { formatDate, getStatusColor, getStatusLabel, formatCurrency } from "@/lib/utils";
-import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { ScannerModal } from "@/components/scanner/ScannerModal";
 
 export default function PlannerPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -911,7 +911,7 @@ export default function PlannerPage() {
           {isPickup ? "Abholung bestätigen" : "Rückgabe bestätigen"}
         </button>
 
-        <BarcodeScannerModal
+        <ScannerModal
           open={showBarcodeScanner}
           onScan={async (code) => {
             await processBarcode(code);
