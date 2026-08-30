@@ -104,6 +104,11 @@ export default function OrderDetailPage() {
   });
   const [savingWorkHour, setSavingWorkHour] = useState(false);
 
+  // Note editing state
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteText, setNoteText] = useState(order?.notes || "");
+  const [savingNote, setSavingNote] = useState(false);
+
   useEffect(() => {
     async function load() {
       const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }, { data: ps }, { data: ass }, { data: wh }] = await Promise.all([
@@ -158,6 +163,12 @@ export default function OrderDetailPage() {
     }
     load();
   }, [id, supabase]);
+
+  useEffect(() => {
+    if (order) {
+      setNoteText(order.notes || "");
+    }
+  }, [order?.notes]);
 
   const updateStatus = async (status: string) => {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
@@ -644,6 +655,27 @@ export default function OrderDetailPage() {
     setOrder(o);
   };
 
+  const saveNote = async () => {
+    setSavingNote(true);
+    const { data, error } = await supabase
+      .from("orders")
+      .update({ notes: noteText || null })
+      .eq("id", id)
+      .select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)")
+      .single();
+
+    setSavingNote(false);
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    setOrder(data);
+    setEditingNote(false);
+    toast.success("Notiz gespeichert.");
+  };
+
   const saveWorkHour = async (e: React.FormEvent) => {
     e.preventDefault();
     const hours = parseFloat(workHourForm.hours);
@@ -750,69 +782,137 @@ export default function OrderDetailPage() {
       </div>
 
       <div className="space-y-6">
-        <div className="card grid sm:grid-cols-2 gap-6">
-          <div>
-            <div className="text-xs text-gray-500 mb-1">Kunde</div>
-            <div className="font-medium">{order.customer?.name || "-"}</div>
-            {order.customer?.company && <div className="text-sm text-gray-600">{order.customer.company}</div>}
-            {order.customer?.phone && <div className="text-sm text-gray-500">{order.customer.phone}</div>}
-            {order.customer?.email && <div className="text-sm text-gray-500">{order.customer.email}</div>}
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 mb-1">Zugewiesen an</div>
-            <div className="font-medium">{order.assigned?.full_name || order.assigned?.email || "Nicht zugewiesen"}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 mb-1">Zeitraum</div>
-            <div className="font-medium">{formatDate(order.start_date)} - {formatDate(order.end_date)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 mb-1">Gesamtbetrag</div>
-            <div className="font-medium">{formatCurrency(order.total_amount)}</div>
-            <div className="text-xs text-gray-400 space-y-0.5 mt-1">
-              <div className="flex justify-between gap-2"><span>Zwischensumme:</span> <span>{formatCurrency(totals.subtotal)}</span></div>
-              {totals.discount > 0 && (
-                <>
-                  <div className="flex justify-between gap-2 text-green-600"><span>Rabatt:</span> <span>-{formatCurrency(totals.discount)}</span></div>
-                  <div className="flex justify-between gap-2"><span>Netto:</span> <span>{formatCurrency(totals.netAfterDiscount)}</span></div>
-                </>
-              )}
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="card lg:col-span-2 grid sm:grid-cols-2 gap-6">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Kunde</div>
+              <div className="font-medium">{order.customer?.name || "-"}</div>
+              {order.customer?.company && <div className="text-sm text-gray-600">{order.customer.company}</div>}
+              {order.customer?.phone && <div className="text-sm text-gray-500">{order.customer.phone}</div>}
+              {order.customer?.email && <div className="text-sm text-gray-500">{order.customer.email}</div>}
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Zugewiesen an</div>
+              <div className="font-medium">{order.assigned?.full_name || order.assigned?.email || "Nicht zugewiesen"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Zeitraum</div>
+              <div className="font-medium">{formatDate(order.start_date)} - {formatDate(order.end_date)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Gesamtbetrag</div>
+              <div className="font-medium">{formatCurrency(order.total_amount)}</div>
+              <div className="text-xs text-gray-400 space-y-0.5 mt-1">
+                <div className="flex justify-between gap-2"><span>Zwischensumme:</span> <span>{formatCurrency(totals.subtotal)}</span></div>
+                {totals.discount > 0 && (
+                  <>
+                    <div className="flex justify-between gap-2 text-green-600"><span>Rabatt:</span> <span>-{formatCurrency(totals.discount)}</span></div>
+                    <div className="flex justify-between gap-2"><span>Netto:</span> <span>{formatCurrency(totals.netAfterDiscount)}</span></div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Pickup info */}
+            <div className="sm:col-span-2 border-t border-gray-100 pt-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <Truck className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs text-gray-500 mb-0.5">Geplante Abholung</div>
+                    {order.pickup_date ? (
+                      <div className="text-sm">
+                        <span className="font-medium">{formatDate(order.pickup_date)}</span>
+                        {order.pickup_time && <span> um {order.pickup_time}</span>}
+                        {order.pickup_staff && <div className="text-gray-500 text-xs mt-0.5">{order.pickup_staff.full_name}</div>}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">Noch nicht geplant</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <RotateCcw className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs text-gray-500 mb-0.5">Geplante Rückgabe</div>
+                    {order.return_date ? (
+                      <div className="text-sm">
+                        <span className="font-medium">{formatDate(order.return_date)}</span>
+                        {order.return_time && <span> um {order.return_time}</span>}
+                        {order.return_staff && <div className="text-gray-500 text-xs mt-0.5">{order.return_staff.full_name}</div>}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">Noch nicht geplant</div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Pickup info */}
-          <div className="sm:col-span-2 border-t border-gray-100 pt-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <Truck className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Geplante Abholung</div>
-                  {order.pickup_date ? (
-                    <div className="text-sm">
-                      <span className="font-medium">{formatDate(order.pickup_date)}</span>
-                      {order.pickup_time && <span> um {order.pickup_time}</span>}
-                      {order.pickup_staff && <div className="text-gray-500 text-xs mt-0.5">{order.pickup_staff.full_name}</div>}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-400">Noch nicht geplant</div>
-                  )}
-                </div>
+          {/* Quick actions */}
+          <div className="card lg:col-span-1 flex flex-col">
+            <h2 className="section-header mb-4">Schnellaktionen</h2>
+            <div className="space-y-3">
+              <Link href="/buchhaltung/rechnungen" className="btn-secondary w-full text-sm py-2 px-4">
+                <FileText className="w-4 h-4 mr-2" /> Zu Rechnung
+              </Link>
+              {order.customer_id && (
+                <Link href={`/kunden/${order.customer_id}/`} className="btn-secondary w-full text-sm py-2 px-4">
+                  <User className="w-4 h-4 mr-2" /> Kunde
+                </Link>
+              )}
+              <button onClick={openDamageModal} className="btn-secondary w-full text-sm py-2 px-4">
+                <AlertTriangle className="w-4 h-4 mr-2" /> Schadensprotokoll
+              </button>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-100 flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-wider">Notizen</div>
+                {!editingNote && (
+                  <button
+                    onClick={() => setEditingNote(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    <Pencil className="w-3 h-3" /> {order.notes ? "Bearbeiten" : "Hinzufügen"}
+                  </button>
+                )}
               </div>
-              <div className="flex items-start gap-3">
-                <RotateCcw className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Geplante Rückgabe</div>
-                  {order.return_date ? (
-                    <div className="text-sm">
-                      <span className="font-medium">{formatDate(order.return_date)}</span>
-                      {order.return_time && <span> um {order.return_time}</span>}
-                      {order.return_staff && <div className="text-gray-500 text-xs mt-0.5">{order.return_staff.full_name}</div>}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-400">Noch nicht geplant</div>
-                  )}
+              {editingNote ? (
+                <div className="space-y-2">
+                  <textarea
+                    rows={4}
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    className="input-field w-full text-sm"
+                    placeholder="Notiz eingeben..."
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveNote}
+                      disabled={savingNote}
+                      className="btn-primary text-xs py-2 px-3 flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {savingNote ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                      Speichern
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingNote(false);
+                        setNoteText(order?.notes || "");
+                      }}
+                      className="btn-secondary text-xs py-2 px-3 flex-1"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-sm text-gray-700 whitespace-pre-line min-h-[3rem]">
+                  {order.notes ? order.notes : <span className="text-gray-400 italic">Keine Notizen</span>}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1085,13 +1185,6 @@ export default function OrderDetailPage() {
             <p className="text-sm text-gray-500">Noch keine Arbeitszeit erfasst.</p>
           )}
         </div>
-
-        {order.notes && (
-          <div className="card">
-            <div className="text-xs text-gray-500 mb-1">Notizen</div>
-            <div className="text-sm text-gray-700 whitespace-pre-line">{order.notes}</div>
-          </div>
-        )}
 
         <div className="card">
           <h2 className="section-header mb-4">Artikel</h2>

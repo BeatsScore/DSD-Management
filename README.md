@@ -81,3 +81,5 @@ Der Barcode-Scanner im Planer funktioniert mit:
 ## Wichtiger Hinweis
 
 Da die Website in der Schweiz gehostet wird, wird durchgaengig "ss" anstelle des scharfen S (ß) verwendet.
+
+Immer NPM Init verwenden vor dem pushen. 
