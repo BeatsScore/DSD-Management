@@ -44,6 +44,7 @@ export default function OrderDetailPage() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [productSets, setProductSets] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [workHours, setWorkHours] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { confirm, state, handleConfirm, handleCancel } = useConfirm();
 
@@ -93,9 +94,19 @@ export default function OrderDetailPage() {
   const [damagePhotoPreview, setDamagePhotoPreview] = useState<string | null>(null);
   const [savingDamage, setSavingDamage] = useState(false);
 
+  // Work hours form state
+  const [workHourForm, setWorkHourForm] = useState({
+    staffId: "",
+    workDate: new Date().toISOString().slice(0, 10),
+    hours: "",
+    hourlyRate: "",
+    description: "",
+  });
+  const [savingWorkHour, setSavingWorkHour] = useState(false);
+
   useEffect(() => {
     async function load() {
-      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }, { data: ps }, { data: ass }] = await Promise.all([
+      const [{ data: o }, { data: i }, { data: d }, { data: p }, { data: dl }, { data: cl }, { data: ap }, { data: ps }, { data: ass }, { data: wh }] = await Promise.all([
         supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single(),
         supabase.from("order_items").select("*, product:product_id(*), set:set_id(*), product_item:product_item_id(*)").eq("order_id", id),
         supabase.from("documents").select("*").eq("order_id", id).order("created_at", { ascending: false }),
@@ -105,6 +116,7 @@ export default function OrderDetailPage() {
         supabase.from("products").select("id, name, manufacturer, product_id, rental_price_per_day").eq("status", "verfuegbar").order("name"),
         supabase.from("product_sets").select("*").eq("active", true).order("name"),
         supabase.from("order_item_assignments").select("*, product_item:product_item_id(*, product:product_id(*))").eq("order_id", id).order("created_at", { ascending: true }),
+        supabase.from("order_work_hours").select("*, staff:staff_id(*)").eq("order_id", id).order("work_date", { ascending: false }),
       ]);
       setOrder(o);
       setItems(i || []);
@@ -115,6 +127,7 @@ export default function OrderDetailPage() {
       setAllProducts(ap || []);
       setProductSets(ps || []);
       setAssignments(ass || []);
+      setWorkHours(wh || []);
       if (o) {
         setPaymentStatus(o.payment_status || "offen");
         setPaymentMethod(o.payment_method || "");
@@ -169,7 +182,7 @@ export default function OrderDetailPage() {
   };
 
   const generatePDF = async (type: string) => {
-    const success = await generateDocument(type, order, items, window);
+    const success = await generateDocument(type, order, items, workHours, window);
     if (!success) {
       toast.error("PDF konnte nicht generiert werden.");
       return;
@@ -189,14 +202,14 @@ export default function OrderDetailPage() {
   };
 
   const handlePrint = (type: string) => {
-    const success = printDocument(type, order, items, window);
+    const success = printDocument(type, order, items, workHours, window);
     if (!success) {
       toast.error("Druckvorschau konnte nicht geöffnet werden.");
     }
   };
 
   const handleDownload = async (type: string) => {
-    const success = await generateDocument(type, order, items, window);
+    const success = await generateDocument(type, order, items, workHours, window);
     if (!success) {
       toast.error("PDF konnte nicht generiert werden.");
     }
@@ -458,7 +471,7 @@ export default function OrderDetailPage() {
         newValue = `${formatDate(changeForm.startDate)} - ${formatDate(changeForm.endDate)}`;
         break;
       case "tagessaetze":
-        const newTotals = calculateOrderTotals(items, changeForm.dayRates, order.discount_type || null, order.discount_amount ?? null);
+        const newTotals = calculateOrderTotals(items, changeForm.dayRates, order.discount_type || null, order.discount_amount ?? null, workHours);
         updates = { day_rates: changeForm.dayRates, total_amount: newTotals.total > 0 ? newTotals.total : null };
         logDescription = `Tagessätze geändert`;
         oldValue = `${order.day_rates || 1} Tagessätze (${formatCurrency(order.total_amount)})`;
@@ -521,7 +534,9 @@ export default function OrderDetailPage() {
     // Recalculate total amount for product changes
     if (showChangeModal === "produkte") {
       const dayRates = order.day_rates || 1;
-      const totalAmount = editProducts.reduce((sum, ep) => sum + (ep.pricePerDay || 0) * ep.quantity * dayRates, 0);
+      const productTotal = editProducts.reduce((sum, ep) => sum + (ep.pricePerDay || 0) * ep.quantity * dayRates, 0);
+      const workHoursTotal = workHours.reduce((sum: number, wh: any) => sum + wh.hours * (wh.hourly_rate || 0), 0);
+      const totalAmount = productTotal + workHoursTotal;
       await supabase.from("orders").update({ total_amount: totalAmount > 0 ? totalAmount : null }).eq("id", id);
     }
 
@@ -585,12 +600,12 @@ export default function OrderDetailPage() {
     setEditProducts(editProducts.map((ep) => (ep.productId === productId ? { ...ep, [field]: value } : ep)));
   };
 
-  const totals = calculateOrderTotals(items, order?.day_rates || 1, order?.discount_type || null, order?.discount_amount ?? null);
+  const totals = calculateOrderTotals(items, order?.day_rates || 1, order?.discount_type || null, order?.discount_amount ?? null, workHours);
 
   const saveDiscount = async () => {
     setSavingDiscount(true);
     const rawAmount = safeParseFloat(discountAmount) || 0;
-    const newTotals = calculateOrderTotals(items, order.day_rates || 1, discountType || null, rawAmount);
+    const newTotals = calculateOrderTotals(items, order.day_rates || 1, discountType || null, rawAmount, workHours);
     const { data, error } = await supabase.from("orders").update({
       discount_type: discountType || null,
       discount_amount: discountType ? rawAmount : null,
@@ -607,6 +622,85 @@ export default function OrderDetailPage() {
 
     toast.success("Rabatt gespeichert.");
     setOrder(data);
+  };
+
+  const recalculateOrderTotal = async (currentItems = items, currentWorkHours = workHours) => {
+    const newTotals = calculateOrderTotals(
+      currentItems,
+      order?.day_rates || 1,
+      order?.discount_type || null,
+      order?.discount_amount ?? null,
+      currentWorkHours
+    );
+    await supabase
+      .from("orders")
+      .update({ total_amount: newTotals.total > 0 ? newTotals.total : null })
+      .eq("id", id);
+    const { data: o } = await supabase
+      .from("orders")
+      .select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)")
+      .eq("id", id)
+      .single();
+    setOrder(o);
+  };
+
+  const saveWorkHour = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const hours = parseFloat(workHourForm.hours);
+    const hourlyRate = parseFloat(workHourForm.hourlyRate);
+    if (!workHourForm.staffId || !workHourForm.workDate || !hours || hours <= 0) {
+      toast.error("Bitte Mitarbeiter, Datum und Stunden angeben.");
+      return;
+    }
+
+    setSavingWorkHour(true);
+    const { error } = await supabase.from("order_work_hours").insert({
+      order_id: id,
+      staff_id: workHourForm.staffId || null,
+      work_date: workHourForm.workDate,
+      hours,
+      hourly_rate: hourlyRate > 0 ? hourlyRate : null,
+      description: workHourForm.description || null,
+    });
+
+    if (error) {
+      setSavingWorkHour(false);
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    const { data: wh } = await supabase
+      .from("order_work_hours")
+      .select("*, staff:staff_id(*)")
+      .eq("order_id", id)
+      .order("work_date", { ascending: false });
+    setWorkHours(wh || []);
+    await recalculateOrderTotal(items, wh || []);
+
+    setWorkHourForm({
+      staffId: "",
+      workDate: new Date().toISOString().slice(0, 10),
+      hours: "",
+      hourlyRate: "",
+      description: "",
+    });
+    setSavingWorkHour(false);
+    toast.success("Arbeitszeit erfasst.");
+  };
+
+  const deleteWorkHour = async (workHourId: string) => {
+    if (!(await confirm("Arbeitszeit löschen?", "Dieser Eintrag wird entfernt.", { confirmLabel: "Löschen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
+
+    const { error } = await supabase.from("order_work_hours").delete().eq("id", workHourId);
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    const updated = workHours.filter((wh) => wh.id !== workHourId);
+    setWorkHours(updated);
+    await recalculateOrderTotal(items, updated);
+    toast.success("Arbeitszeit entfernt.");
   };
 
   const remainingAmount = (order?.total_amount || 0) - (order?.paid_amount || 0);
@@ -878,6 +972,118 @@ export default function OrderDetailPage() {
               {savingDeposit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Kaution speichern"}
             </button>
           </div>
+        </div>
+
+        {/* Work hours */}
+        <div className="card">
+          <h2 className="section-header mb-4">Arbeitszeit</h2>
+
+          <form onSubmit={saveWorkHour} className="grid sm:grid-cols-6 gap-3 mb-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Mitarbeiter</label>
+              <select
+                value={workHourForm.staffId}
+                onChange={(e) => setWorkHourForm({ ...workHourForm, staffId: e.target.value })}
+                className="input-field w-full text-sm"
+              >
+                <option value="">Bitte wählen</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name || p.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Datum</label>
+              <input
+                type="date"
+                value={workHourForm.workDate}
+                onChange={(e) => setWorkHourForm({ ...workHourForm, workDate: e.target.value })}
+                className="input-field w-full text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Stunden</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={workHourForm.hours}
+                onChange={(e) => setWorkHourForm({ ...workHourForm, hours: e.target.value })}
+                className="input-field w-full text-sm"
+                placeholder="z. B. 3.5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Stundensatz (CHF)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={workHourForm.hourlyRate}
+                onChange={(e) => setWorkHourForm({ ...workHourForm, hourlyRate: e.target.value })}
+                className="input-field w-full text-sm"
+                placeholder="z. B. 50"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Beschreibung</label>
+              <input
+                type="text"
+                value={workHourForm.description}
+                onChange={(e) => setWorkHourForm({ ...workHourForm, description: e.target.value })}
+                className="input-field w-full text-sm"
+                placeholder="z. B. Aufbau vor Ort"
+              />
+            </div>
+            <div className="sm:col-span-6">
+              <button
+                type="submit"
+                disabled={savingWorkHour}
+                className="btn-primary text-sm py-2 px-4"
+              >
+                {savingWorkHour ? <Loader2 className="w-4 h-4 animate-spin" /> : "Arbeitszeit hinzufügen"}
+              </button>
+            </div>
+          </form>
+
+          {workHours.length > 0 ? (
+            <div className="space-y-2">
+              {workHours.map((wh) => {
+                const lineTotal = wh.hours * (wh.hourly_rate || 0);
+                return (
+                  <div key={wh.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1 min-w-0 grid sm:grid-cols-5 gap-2 text-sm">
+                      <div className="font-medium">{wh.staff?.full_name || wh.staff?.email || "Mitarbeiter"}</div>
+                      <div className="text-gray-600">{formatDate(wh.work_date)}</div>
+                      <div className="text-gray-600">{wh.hours} h</div>
+                      <div className="text-gray-600">{wh.hourly_rate != null ? formatCurrency(wh.hourly_rate) + "/h" : "-"}</div>
+                      <div className="text-gray-600 truncate">{wh.description || "-"}</div>
+                    </div>
+                    <div className="text-sm font-medium min-w-[80px] text-right">
+                      {lineTotal > 0 ? formatCurrency(lineTotal) : "-"}
+                    </div>
+                    <button
+                      onClick={() => deleteWorkHour(wh.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600"
+                      title="Entfernen"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between pt-3 border-t border-gray-200 text-sm">
+                <span className="font-medium text-gray-700">Arbeitszeit total</span>
+                <span className="font-semibold">
+                  {formatCurrency(workHours.reduce((sum: number, wh: any) => sum + wh.hours * (wh.hourly_rate || 0), 0))}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Noch keine Arbeitszeit erfasst.</p>
+          )}
         </div>
 
         {order.notes && (

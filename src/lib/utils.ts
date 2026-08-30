@@ -148,21 +148,31 @@ export interface OrderTotals {
   deposit: number;
 }
 
+export interface WorkHourInput {
+  hours: number;
+  hourly_rate: number | null;
+}
+
 export function calculateOrderTotals(
   items: { price_per_day: number | null; quantity: number }[],
   dayRates: number,
   discountType: string | null,
-  discountAmount: number | null
+  discountAmount: number | null,
+  workHours: WorkHourInput[] = []
 ): OrderTotals {
   const subtotal = items.reduce(
     (sum, it) => sum + (it.price_per_day || 0) * it.quantity * dayRates,
+    0
+  );
+  const workHoursTotal = workHours.reduce(
+    (sum, wh) => sum + wh.hours * (wh.hourly_rate || 0),
     0
   );
   const rawDiscount = discountAmount || 0;
   const discount = discountType === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
   const netAfterDiscount = Math.max(0, subtotal - discount);
   const vat = 0;
-  const total = netAfterDiscount;
+  const total = netAfterDiscount + workHoursTotal;
   const deposit = subtotal * 0.25;
   return { subtotal, discount, netAfterDiscount, vat, total, deposit };
 }

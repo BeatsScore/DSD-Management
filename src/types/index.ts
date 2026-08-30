@@ -207,6 +207,18 @@ export interface Manufacturer {
   created_at: string;
 }
 
+export interface OrderWorkHour {
+  id: string;
+  order_id: string;
+  staff_id: string | null;
+  staff?: Profile;
+  work_date: string;
+  hours: number;
+  hourly_rate: number | null;
+  description: string | null;
+  created_at: string;
+}
+
 export interface OrderItemAssignment {
   id: string;
   order_id: string;

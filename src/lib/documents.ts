@@ -35,7 +35,7 @@ function itemDisplaySubtitle(item: any): string {
   return [manufacturer, productId ? `(${productId})` : ""].filter(Boolean).join(" ");
 }
 
-function prepareData(type: string, order: any, items: any[]) {
+function prepareData(type: string, order: any, items: any[], workHours: any[] = []) {
   const docTitle = titleMap[type] || type;
   const today = new Date().toLocaleDateString("de-CH");
   const days = getRentalDays(order.start_date, order.end_date);
@@ -48,14 +48,24 @@ function prepareData(type: string, order: any, items: any[]) {
     return { ...item, lineTotal };
   });
 
+  const workHourLineItems = workHours.map((wh) => ({
+    ...wh,
+    _kind: "workhour" as const,
+    lineTotal: wh.hours * (wh.hourly_rate || 0),
+  }));
+  const workHoursTotal = workHourLineItems.reduce(
+    (sum, wh) => sum + wh.lineTotal,
+    0
+  );
+
   const subtotal = lineTotalSum;
   const rawDiscount = order.discount_amount || 0;
   const discount = order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
   const netAfterDiscount = Math.max(0, subtotal - discount);
-  const total = netAfterDiscount;
+  const total = netAfterDiscount + workHoursTotal;
   const deposit = subtotal * 0.25;
 
-  return { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit };
+  return { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit, workHours: workHourLineItems, workHoursTotal };
 }
 
 function buildHeader(docTitle: string): string {
@@ -112,15 +122,30 @@ function buildPage(contentHtml: string, docTitle: string, options: { watermark?:
 }
 
 function buildTableRow(item: any): string {
+  const isWorkHour = item._kind === "workhour";
+  const name = isWorkHour ? escapeHtml(item.description || "Arbeitszeit") : escapeHtml(itemDisplayName(item));
+  const subtitle = isWorkHour
+    ? escapeHtml(`${item.staff?.full_name || item.staff?.email || "Mitarbeiter"} · ${formatDate(item.work_date)}`)
+    : escapeHtml(itemDisplaySubtitle(item));
+  const quantity = isWorkHour ? `${item.hours} h` : item.quantity;
+  const unitPrice = isWorkHour
+    ? item.hourly_rate != null
+      ? `${formatCurrency(item.hourly_rate)}/h`
+      : "-"
+    : item.price_per_day != null
+      ? formatCurrency(item.price_per_day)
+      : "-";
+  const lineTotal = item.lineTotal > 0 ? formatCurrency(item.lineTotal) : "-";
+
   return `
     <tr>
       <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;">
-        <div style="font-weight:600;color:#111;">${escapeHtml(itemDisplayName(item))}</div>
-        <div style="font-size:11px;color:#888;">${escapeHtml(itemDisplaySubtitle(item))}</div>
+        <div style="font-weight:600;color:#111;">${name}</div>
+        <div style="font-size:11px;color:#888;">${subtitle}</div>
       </td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:center;color:#444;">${item.quantity}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;color:#444;">${item.price_per_day != null ? formatCurrency(item.price_per_day) : "-"}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;font-weight:600;color:#111;">${item.lineTotal > 0 ? formatCurrency(item.lineTotal) : "-"}</td>
+      <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:center;color:#444;">${quantity}</td>
+      <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;color:#444;">${unitPrice}</td>
+      <td style="padding:14px 12px;border-bottom:1px solid #e5e5e5;font-size:13px;text-align:right;font-weight:600;color:#111;">${lineTotal}</td>
     </tr>
   `;
 }
@@ -150,10 +175,16 @@ function buildSummary(data: ReturnType<typeof prepareData>, type: string): strin
         }</span><span>-${formatCurrency(data.discount)}</span></div>`
       : "";
 
+  const workHoursRow =
+    data.workHoursTotal > 0
+      ? `<div class="summary-row"><span>Arbeitszeit</span><span>${formatCurrency(data.workHoursTotal)}</span></div>`
+      : "";
+
   return `
     <div class="summary">
       <div class="summary-row"><span>Zwischensumme</span><span>${formatCurrency(data.subtotal)}</span></div>
       ${discountRow}
+      ${workHoursRow}
       <div class="summary-row total"><span>Gesamtbetrag</span><span>${formatCurrency(data.total)}</span></div>
     </div>
   `;
@@ -225,15 +256,20 @@ function buildMetaBlock(data: ReturnType<typeof prepareData>, order: any): strin
   `;
 }
 
-function buildStandardDocument(type: string, order: any, items: any[]): string {
-  const data = prepareData(type, order, items);
-  const { docTitle, lineItems } = data;
+function buildStandardDocument(type: string, order: any, items: any[], workHours: any[] = []): string {
+  const data = prepareData(type, order, items, workHours);
+  const { docTitle, lineItems, workHours: workHourRows } = data;
 
   const pages: string[] = [];
 
+  const tableRows = [
+    ...lineItems.map((item: any) => ({ ...item, _kind: "product" as const })),
+    ...workHourRows,
+  ];
+
   // First page contains metadata, as many items as fit, summary, notice and footer.
-  const firstPageRows = lineItems.slice(0, MAX_ROWS_FIRST_PAGE);
-  const remainingRows = lineItems.slice(MAX_ROWS_FIRST_PAGE);
+  const firstPageRows = tableRows.slice(0, MAX_ROWS_FIRST_PAGE);
+  const remainingRows = tableRows.slice(MAX_ROWS_FIRST_PAGE);
 
   const firstPageContent = `
     ${buildMetaBlock(data, order)}
@@ -272,9 +308,9 @@ function buildStandardDocument(type: string, order: any, items: any[]): string {
   return pages.join("");
 }
 
-function buildContractDocument(_type: string, order: any, items: any[]): string {
-  const data = prepareData("mietvertrag", order, items);
-  const { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit } = data;
+function buildContractDocument(_type: string, order: any, items: any[], workHours: any[] = []): string {
+  const data = prepareData("mietvertrag", order, items, workHours);
+  const { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit, workHoursTotal } = data;
 
   const equipmentRows = lineItems
     .map(
@@ -292,6 +328,11 @@ function buildContractDocument(_type: string, order: any, items: any[]): string 
   const discountRow =
     discount > 0
       ? `<div class="price-row" style="color:#c00;"><span>Rabatt</span><span>-${formatCurrency(discount)}</span></div>`
+      : "";
+
+  const workHoursRow =
+    workHoursTotal > 0
+      ? `<div class="price-row"><span>Arbeitszeit</span><span>${formatCurrency(workHoursTotal)}</span></div>`
       : "";
 
   const metaSection = `
@@ -351,6 +392,7 @@ function buildContractDocument(_type: string, order: any, items: any[]): string 
     <div class="price-box">
       <div class="price-row"><span>Mietpreis gesamt</span><span>${formatCurrency(subtotal)}</span></div>
       ${discountRow}
+      ${workHoursRow}
       <div class="price-row total"><span>Gesamtbetrag</span><span>${formatCurrency(total)}</span></div>
     </div>
     <p>Der Mieter leistet vor Mietbeginn eine Kaution in Höhe von <strong>${formatCurrency(deposit)}</strong> (25% des unrabattierten Mietwertes). Die Kaution wird innerhalb von 10 Werktagen nach Rückgabe der unbeschädigten Gegenstände zurückerstattet.</p>
@@ -378,11 +420,11 @@ function buildContractDocument(_type: string, order: any, items: any[]): string 
   ].join("");
 }
 
-function buildDocumentHtml(type: string, order: any, items: any[]): string {
+function buildDocumentHtml(type: string, order: any, items: any[], workHours: any[] = []): string {
   const bodyContent =
     type === "mietvertrag"
-      ? buildContractDocument(type, order, items)
-      : buildStandardDocument(type, order, items);
+      ? buildContractDocument(type, order, items, workHours)
+      : buildStandardDocument(type, order, items, workHours);
 
   return `
     <!DOCTYPE html>
@@ -686,9 +728,10 @@ export async function generateDocument(
   type: string,
   order: any,
   items: any[],
+  workHours: any[] = [],
   _window: Window
 ): Promise<boolean> {
-  const htmlContent = buildDocumentHtml(type, order, items);
+  const htmlContent = buildDocumentHtml(type, order, items, workHours);
 
   return new Promise((resolve) => {
     const iframe = document.createElement("iframe");
@@ -776,11 +819,11 @@ export async function generateDocument(
   });
 }
 
-export function printDocument(type: string, order: any, items: any[], window: Window): boolean {
+export function printDocument(type: string, order: any, items: any[], workHours: any[] = [], window: Window): boolean {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
 
-  const htmlContent = buildDocumentHtml(type, order, items);
+  const htmlContent = buildDocumentHtml(type, order, items, workHours);
   printWindow.document.write(htmlContent);
   printWindow.document.close();
 
