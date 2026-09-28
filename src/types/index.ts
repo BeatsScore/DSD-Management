@@ -105,6 +105,8 @@ export interface OrderItem {
   product_id: string | null;
   product_item_id?: string | null;
   set_id?: string | null;
+  custom_name?: string | null;
+  custom_manufacturer?: string | null;
   product?: Product;
   set?: ProductSet;
   quantity: number;
@@ -132,7 +134,7 @@ export interface Request {
 export interface Document {
   id: string;
   order_id: string;
-  type: "angebot" | "rechnung" | "mietvertrag" | "auftragsbestaetigung" | "ablehnung";
+  type: "angebot" | "rechnung" | "mietvertrag" | "auftragsbestaetigung" | "ablehnung" | "mahnung";
   file_url: string | null;
   file_name: string;
   created_at: string;

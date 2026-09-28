@@ -19,24 +19,31 @@ const titleMap: Record<string, string> = {
   ablehnung: "Ablehnung",
 };
 
+export interface MahnungOptions {
+  stufe: 1 | 2 | 3;
+  fee: number;
+  betreibung: boolean;
+}
+
 // Approximate row capacities for A4 pages with the current styling.
 const MAX_ROWS_FIRST_PAGE = 8;
 const MAX_ROWS_OTHER_PAGES = 14;
 
 function itemDisplayName(item: any): string {
   if (item.set?.name) return `[Set] ${item.set.name}`;
+  if (item.custom_name) return item.custom_name;
   return item.product?.name || "-";
 }
 
 function itemDisplaySubtitle(item: any): string {
   if (item.set?.name) return "Produktset";
-  const manufacturer = item.product?.manufacturer || "";
+  const manufacturer = item.custom_manufacturer || item.product?.manufacturer || "";
   const productId = item.product?.product_id || "";
   return [manufacturer, productId ? `(${productId})` : ""].filter(Boolean).join(" ");
 }
 
-function prepareData(type: string, order: any, items: any[], workHours: any[] = []) {
-  const docTitle = titleMap[type] || type;
+function prepareData(type: string, order: any, items: any[], workHours: any[] = [], mahnung?: MahnungOptions) {
+  const docTitle = mahnung ? `${mahnung.stufe}. Mahnung` : titleMap[type] || type;
   const today = new Date().toLocaleDateString("de-CH");
   const days = getRentalDays(order.start_date, order.end_date);
   const customer = order.customer || {};
@@ -62,10 +69,11 @@ function prepareData(type: string, order: any, items: any[], workHours: any[] = 
   const rawDiscount = order.discount_amount || 0;
   const discount = order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
   const netAfterDiscount = Math.max(0, subtotal - discount);
-  const total = netAfterDiscount + workHoursTotal;
+  const mahnungFee = mahnung?.fee || 0;
+  const total = netAfterDiscount + workHoursTotal + mahnungFee;
   const deposit = subtotal * 0.25;
 
-  return { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit, workHours: workHourLineItems, workHoursTotal };
+  return { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit, workHours: workHourLineItems, workHoursTotal, mahnungFee, mahnung };
 }
 
 function buildHeader(docTitle: string): string {
@@ -180,11 +188,17 @@ function buildSummary(data: ReturnType<typeof prepareData>, type: string): strin
       ? `<div class="summary-row"><span>Arbeitszeit</span><span>${formatCurrency(data.workHoursTotal)}</span></div>`
       : "";
 
+  const mahnungFeeRow =
+    data.mahnungFee > 0
+      ? `<div class="summary-row"><span>Mahngebühr</span><span>${formatCurrency(data.mahnungFee)}</span></div>`
+      : "";
+
   return `
     <div class="summary">
       <div class="summary-row"><span>Zwischensumme</span><span>${formatCurrency(data.subtotal)}</span></div>
       ${discountRow}
       ${workHoursRow}
+      ${mahnungFeeRow}
       <div class="summary-row total"><span>Gesamtbetrag</span><span>${formatCurrency(data.total)}</span></div>
     </div>
   `;
@@ -211,15 +225,31 @@ function buildSignatureSection(_order: any): string {
   `;
 }
 
-function buildNotice(type: string): string {
-  const text =
-    type === "rechnung"
-      ? "Zahlbar innerhalb von 14 Tagen ab Rechnungsdatum ohne Abzug. Bei Überschreitung des Zahlungstermins werden Verzugszinsen in Höhe von 5% berechnet."
-      : type === "angebot"
-      ? "Dieses Angebot ist 30 Tage gültig. Preisänderungen vorbehalten. Die Vermietung erfolgt nach Verfügbarkeit."
-      : type === "auftragsbestaetigung"
-      ? "Wir bestätigen hiermit Ihren Auftrag. Die Abholung erfolgt am vereinbarten Datum zu den Bürozeiten."
-      : "Wir bedanken uns für Ihr Interesse. Bei Fragen stehen wir Ihnen gerne zur Verfügung.";
+function buildNotice(type: string, mahnung?: MahnungOptions): string {
+  let text: string;
+  if (mahnung) {
+    const base =
+      mahnung.stufe === 1
+        ? "Trotz unserer Rechnung ist der offene Betrag bis heute noch nicht bei uns eingegangen. Wir bitten Sie, den ausstehenden Betrag innert 14 Tagen auf das angegebene Konto zu überweisen."
+        : mahnung.stufe === 2
+        ? "Trotz unserer ersten Mahnung ist der offene Betrag weiterhin nicht bei uns eingegangen. Wir fordern Sie hiermit erneut auf, den ausstehenden Betrag innert 10 Tagen zu begleichen."
+        : "Trotz mehrfacher Mahnungen ist der offene Betrag weiterhin nicht bei uns eingegangen. Dies ist unsere letzte Mahnung: Bitte begleichen Sie den ausstehenden Betrag innert 7 Tagen.";
+    const betreibungText = mahnung.betreibung
+      ? mahnung.stufe >= 2
+        ? " Sollte der Betrag auch nach Ablauf dieser Frist nicht beglichen werden, sehen wir uns gezwungen, ein Betreibungsverfahren gegen Sie einzuleiten."
+        : " Bei Nichtbezahlung behalten wir uns vor, ein Betreibungsverfahren gegen Sie einzuleiten."
+      : "";
+    text = base + betreibungText;
+  } else {
+    text =
+      type === "rechnung"
+        ? "Zahlbar innerhalb von 14 Tagen ab Rechnungsdatum ohne Abzug. Bei Überschreitung des Zahlungstermins werden Verzugszinsen in Höhe von 5% berechnet."
+        : type === "angebot"
+        ? "Dieses Angebot ist 30 Tage gültig. Preisänderungen vorbehalten. Die Vermietung erfolgt nach Verfügbarkeit."
+        : type === "auftragsbestaetigung"
+        ? "Wir bestätigen hiermit Ihren Auftrag. Die Abholung erfolgt am vereinbarten Datum zu den Bürozeiten."
+        : "Wir bedanken uns für Ihr Interesse. Bei Fragen stehen wir Ihnen gerne zur Verfügung.";
+  }
 
   return `
     <div class="notice">
@@ -256,8 +286,8 @@ function buildMetaBlock(data: ReturnType<typeof prepareData>, order: any): strin
   `;
 }
 
-function buildStandardDocument(type: string, order: any, items: any[], workHours: any[] = []): string {
-  const data = prepareData(type, order, items, workHours);
+function buildStandardDocument(type: string, order: any, items: any[], workHours: any[] = [], mahnung?: MahnungOptions): string {
+  const data = prepareData(type, order, items, workHours, mahnung);
   const { docTitle, lineItems, workHours: workHourRows } = data;
 
   const pages: string[] = [];
@@ -278,7 +308,7 @@ function buildStandardDocument(type: string, order: any, items: any[], workHours
       <tbody>${firstPageRows.map(buildTableRow).join("")}</tbody>
     </table>
     ${remainingRows.length === 0 ? buildSummary(data, type) : ""}
-    ${remainingRows.length === 0 ? buildNotice(type) : ""}
+    ${remainingRows.length === 0 ? buildNotice(type, mahnung) : ""}
   `;
 
   pages.push(buildPage(firstPageContent, docTitle, { watermark: true }));
@@ -294,7 +324,7 @@ function buildStandardDocument(type: string, order: any, items: any[], workHours
         <tbody>${pageRows.map(buildTableRow).join("")}</tbody>
       </table>
       ${isLast ? buildSummary(data, type) : ""}
-      ${isLast ? buildNotice(type) : ""}
+      ${isLast ? buildNotice(type, mahnung) : ""}
     `;
 
     pages.push(buildPage(pageContent, docTitle, { watermark: true }));
@@ -420,18 +450,20 @@ function buildContractDocument(_type: string, order: any, items: any[], workHour
   ].join("");
 }
 
-function buildDocumentHtml(type: string, order: any, items: any[], workHours: any[] = []): string {
+function buildDocumentHtml(type: string, order: any, items: any[], workHours: any[] = [], mahnung?: MahnungOptions): string {
   const bodyContent =
     type === "mietvertrag"
       ? buildContractDocument(type, order, items, workHours)
-      : buildStandardDocument(type, order, items, workHours);
+      : buildStandardDocument(type, order, items, workHours, mahnung);
+
+  const pageTitle = mahnung ? `${mahnung.stufe}. Mahnung` : titleMap[type] || type;
 
   return `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
-        <title>${escapeHtml(titleMap[type] || type)} - ${escapeHtml(order.order_number)}</title>
+        <title>${escapeHtml(pageTitle)} - ${escapeHtml(order.order_number)}</title>
         <style>
           @page { margin: 0; size: A4; }
           * { box-sizing: border-box; }
@@ -729,9 +761,10 @@ export async function generateDocument(
   order: any,
   items: any[],
   workHours: any[] = [],
-  _window: Window
+  _window: Window,
+  mahnung?: MahnungOptions
 ): Promise<boolean> {
-  const htmlContent = buildDocumentHtml(type, order, items, workHours);
+  const htmlContent = buildDocumentHtml(type, order, items, workHours, mahnung);
 
   return new Promise((resolve) => {
     const iframe = document.createElement("iframe");
@@ -803,7 +836,9 @@ export async function generateDocument(
           pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
         }
 
-        const fileName = `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        const fileName = mahnung
+          ? `mahnung_${mahnung.stufe}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`
+          : `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;
         pdf.save(fileName);
 
         document.body.removeChild(iframe);
@@ -819,11 +854,11 @@ export async function generateDocument(
   });
 }
 
-export function printDocument(type: string, order: any, items: any[], workHours: any[] = [], window: Window): boolean {
+export function printDocument(type: string, order: any, items: any[], workHours: any[] = [], window: Window, mahnung?: MahnungOptions): boolean {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
 
-  const htmlContent = buildDocumentHtml(type, order, items, workHours);
+  const htmlContent = buildDocumentHtml(type, order, items, workHours, mahnung);
   printWindow.document.write(htmlContent);
   printWindow.document.close();
 

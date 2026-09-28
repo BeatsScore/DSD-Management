@@ -91,9 +91,10 @@ export default async function DashboardPage() {
 
   const productRentals: Record<string, { name: string; count: number }> = {};
   (topProducts || []).forEach((item: any) => {
-    const key = item.product?.product_id || "unknown";
+    if (!item.product) return; // skip one-off custom positions
+    const key = item.product.product_id || "unknown";
     if (!productRentals[key]) {
-      productRentals[key] = { name: item.product?.name || "Unbekannt", count: 0 };
+      productRentals[key] = { name: item.product.name || "Unbekannt", count: 0 };
     }
     productRentals[key].count += item.quantity || 1;
   });

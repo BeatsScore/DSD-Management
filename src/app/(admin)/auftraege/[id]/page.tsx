@@ -7,7 +7,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download, ShieldCheck, History, Pencil, Plus, Search, Layers, Percent } from "lucide-react";
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat, calculateOrderTotals } from "@/lib/utils";
-import { generateDocument, printDocument } from "@/lib/documents";
+import { generateDocument, printDocument, MahnungOptions } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
@@ -56,7 +56,7 @@ export default function OrderDetailPage() {
     dayRates: 1,
     assignedTo: "",
   });
-  const [editProducts, setEditProducts] = useState<{ productId: string; quantity: number; pricePerDay: number }[]>([]);
+  const [editProducts, setEditProducts] = useState<{ productId: string; quantity: number; pricePerDay: number; customName?: string; customManufacturer?: string }[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [savingChange, setSavingChange] = useState(false);
 
@@ -103,6 +103,18 @@ export default function OrderDetailPage() {
     description: "",
   });
   const [savingWorkHour, setSavingWorkHour] = useState(false);
+
+  // Custom one-off item form state
+  const [showCustomItemForm, setShowCustomItemForm] = useState(false);
+  const [customItemForm, setCustomItemForm] = useState({ name: "", manufacturer: "", quantity: "1", pricePerDay: "" });
+  const [savingCustomItem, setSavingCustomItem] = useState(false);
+
+  // Invoice / dunning modal state
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceKind, setInvoiceKind] = useState<"rechnung" | "mahnung">("rechnung");
+  const [mahnungStufe, setMahnungStufe] = useState<1 | 2 | 3>(1);
+  const [mahnungFee, setMahnungFee] = useState("20.00");
+  const [mahnungBetreibung, setMahnungBetreibung] = useState(false);
 
   // Note editing state
   const [editingNote, setEditingNote] = useState(false);
@@ -153,9 +165,11 @@ export default function OrderDetailPage() {
       if (i) {
         setEditProducts(
           i.map((it: any) => ({
-            productId: it.set_id ? `set:${it.set_id}` : it.product_id,
+            productId: it.custom_name ? `custom:${it.id}` : it.set_id ? `set:${it.set_id}` : it.product_id,
             quantity: it.quantity,
             pricePerDay: it.price_per_day || 0,
+            customName: it.custom_name || undefined,
+            customManufacturer: it.custom_manufacturer || undefined,
           }))
         );
       }
@@ -192,17 +206,19 @@ export default function OrderDetailPage() {
     router.push("/auftraege/");
   };
 
-  const generatePDF = async (type: string) => {
-    const success = await generateDocument(type, order, items, workHours, window);
+  const generatePDF = async (type: string, mahnung?: MahnungOptions) => {
+    const success = await generateDocument(type, order, items, workHours, window, mahnung);
     if (!success) {
       toast.error("PDF konnte nicht generiert werden.");
       return;
     }
 
-    const fileName = `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const fileName = mahnung
+      ? `mahnung_${mahnung.stufe}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`
+      : `${type}_${order.order_number}_${new Date().toISOString().slice(0, 10)}.pdf`;
     const { error } = await supabase.from("documents").insert({
       order_id: id,
-      type,
+      type: mahnung ? "mahnung" : type,
       file_name: fileName,
     });
 
@@ -212,8 +228,8 @@ export default function OrderDetailPage() {
     }
   };
 
-  const handlePrint = (type: string) => {
-    const success = printDocument(type, order, items, workHours, window);
+  const handlePrint = (type: string, mahnung?: MahnungOptions) => {
+    const success = printDocument(type, order, items, workHours, window, mahnung);
     if (!success) {
       toast.error("Druckvorschau konnte nicht geöffnet werden.");
     }
@@ -225,6 +241,15 @@ export default function OrderDetailPage() {
       toast.error("PDF konnte nicht generiert werden.");
     }
   };
+
+  const buildMahnungOptions = (): MahnungOptions | undefined =>
+    invoiceKind === "mahnung"
+      ? {
+          stufe: mahnungStufe,
+          fee: safeParseFloat(mahnungFee) || 0,
+          betreibung: mahnungBetreibung,
+        }
+      : undefined;
 
   const deleteDocument = async (docId: string) => {
     if (!(await confirm("Dokument entfernen?", "Dieses Dokument wird aus der Historie entfernt.", { confirmLabel: "Entfernen", cancelLabel: "Abbrechen", variant: "danger" }))) return;
@@ -410,6 +435,7 @@ export default function OrderDetailPage() {
     const map: Record<string, string> = {
       angebot: "Angebot",
       rechnung: "Rechnung",
+      mahnung: "Mahnung",
       mietvertrag: "Mietvertrag",
       auftragsbestaetigung: "Auftragsbestätigung",
       ablehnung: "Ablehnung",
@@ -451,9 +477,11 @@ export default function OrderDetailPage() {
     if (items) {
       setEditProducts(
         items.map((it: any) => ({
-          productId: it.set_id ? `set:${it.set_id}` : it.product_id,
+          productId: it.custom_name ? `custom:${it.id}` : it.set_id ? `set:${it.set_id}` : it.product_id,
           quantity: it.quantity,
           pricePerDay: it.price_per_day || 0,
+          customName: it.custom_name || undefined,
+          customManufacturer: it.custom_manufacturer || undefined,
         }))
       );
     }
@@ -502,10 +530,13 @@ export default function OrderDetailPage() {
         if (editProducts.length > 0) {
           const newItems = editProducts.map((ep) => {
             const isSet = ep.productId.startsWith("set:");
+            const isCustom = ep.productId.startsWith("custom:");
             return {
               order_id: id,
-              product_id: isSet ? null : ep.productId,
+              product_id: isSet || isCustom ? null : ep.productId,
               set_id: isSet ? ep.productId.slice(4) : null,
+              custom_name: isCustom ? ep.customName || null : null,
+              custom_manufacturer: isCustom ? ep.customManufacturer || null : null,
               quantity: ep.quantity,
               price_per_day: ep.pricePerDay || null,
             };
@@ -515,17 +546,20 @@ export default function OrderDetailPage() {
         logDescription = `Produkte überarbeitet`;
         oldValue = items
           .map((it: any) => {
-            const name = it.set?.name || it.product?.name || "?";
+            const name = it.set?.name || it.custom_name || it.product?.name || "?";
             return `${name} (${it.quantity}x)`;
           })
           .join(", ");
         newValue = editProducts
           .map((ep) => {
             const isSet = ep.productId.startsWith("set:");
+            const isCustom = ep.productId.startsWith("custom:");
             const item = isSet
               ? productSets.find((s) => s.id === ep.productId.slice(4))
-              : allProducts.find((ap) => ap.id === ep.productId);
-            const name = isSet ? `[Set] ${item?.name}` : item?.name || "?";
+              : isCustom
+                ? null
+                : allProducts.find((ap) => ap.id === ep.productId);
+            const name = isSet ? `[Set] ${item?.name}` : isCustom ? ep.customName || "?" : item?.name || "?";
             return `${name} (${ep.quantity}x)`;
           })
           .join(", ");
@@ -733,6 +767,53 @@ export default function OrderDetailPage() {
     setWorkHours(updated);
     await recalculateOrderTotal(items, updated);
     toast.success("Arbeitszeit entfernt.");
+  };
+
+  const addCustomItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customItemForm.name.trim()) {
+      toast.error("Bitte einen Produktnamen eingeben.");
+      return;
+    }
+
+    setSavingCustomItem(true);
+    const { data, error } = await supabase
+      .from("order_items")
+      .insert({
+        order_id: id,
+        product_id: null,
+        set_id: null,
+        custom_name: customItemForm.name.trim(),
+        custom_manufacturer: customItemForm.manufacturer.trim() || null,
+        quantity: parseInt(customItemForm.quantity) || 1,
+        price_per_day: customItemForm.pricePerDay ? parseFloat(customItemForm.pricePerDay) : null,
+      })
+      .select("*, product:product_id(*), set:set_id(*), product_item:product_item_id(*)")
+      .single();
+
+    if (error) {
+      setSavingCustomItem(false);
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+
+    const newItems = [...items, data];
+    setItems(newItems);
+    setEditProducts([
+      ...editProducts,
+      {
+        productId: `custom:${data.id}`,
+        quantity: data.quantity,
+        pricePerDay: data.price_per_day || 0,
+        customName: data.custom_name,
+        customManufacturer: data.custom_manufacturer || undefined,
+      },
+    ]);
+    setCustomItemForm({ name: "", manufacturer: "", quantity: "1", pricePerDay: "" });
+    setShowCustomItemForm(false);
+    setSavingCustomItem(false);
+    toast.success("Position hinzugefügt.");
+    await recalculateOrderTotal(newItems);
   };
 
   const remainingAmount = (order?.total_amount || 0) - (order?.paid_amount || 0);
@@ -1187,7 +1268,72 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="card">
-          <h2 className="section-header mb-4">Artikel</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-header">Artikel</h2>
+            <button
+              onClick={() => setShowCustomItemForm(!showCustomItemForm)}
+              className="btn-secondary text-xs py-2 px-3 flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" /> Position hinzufügen
+            </button>
+          </div>
+
+          {showCustomItemForm && (
+            <form onSubmit={addCustomItem} className="mb-4 p-3 bg-gray-50 rounded-lg grid sm:grid-cols-2 lg:grid-cols-[1fr_1fr_90px_130px_auto] gap-2 items-end">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Produkt</label>
+                <input
+                  type="text"
+                  className="input-field py-1.5 text-sm w-full"
+                  placeholder="z.B. Kabeltrommel"
+                  value={customItemForm.name}
+                  onChange={(e) => setCustomItemForm({ ...customItemForm, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Hersteller</label>
+                <input
+                  type="text"
+                  className="input-field py-1.5 text-sm w-full"
+                  placeholder="Optional"
+                  value={customItemForm.manufacturer}
+                  onChange={(e) => setCustomItemForm({ ...customItemForm, manufacturer: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Menge</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="input-field py-1.5 text-sm w-full"
+                  value={customItemForm.quantity}
+                  onChange={(e) => setCustomItemForm({ ...customItemForm, quantity: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Preis/Tag</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  className="input-field py-1.5 text-sm w-full"
+                  placeholder="CHF"
+                  value={customItemForm.pricePerDay}
+                  onChange={(e) => setCustomItemForm({ ...customItemForm, pricePerDay: e.target.value })}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={savingCustomItem} className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1 disabled:opacity-50">
+                  {savingCustomItem ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Hinzufügen
+                </button>
+                <button type="button" onClick={() => setShowCustomItemForm(false)} className="p-1.5 text-gray-400 hover:text-gray-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          )}
+
           {items.length > 0 ? (
             <div className="space-y-4">
               {/* Abstract order items with quantities */}
@@ -1204,13 +1350,19 @@ export default function OrderDetailPage() {
                   <tbody className="divide-y divide-gray-100">
                     {items.map((item) => {
                       const isSet = !!item.set_id;
+                      const isCustom = !!item.custom_name;
                       return (
                         <tr key={item.id}>
                           <td className="py-3 font-medium">
-                            {isSet ? `[Set] ${item.set?.name}` : item.product?.name}
+                            {isSet ? `[Set] ${item.set?.name}` : isCustom ? item.custom_name : item.product?.name}
+                            {isCustom && (
+                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 align-middle">
+                                Einmalposition
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 text-gray-600">
-                            {isSet ? "Produktset" : item.product?.manufacturer}
+                            {isSet ? "Produktset" : isCustom ? item.custom_manufacturer || "–" : item.product?.manufacturer}
                           </td>
                           <td className="py-3 text-center">{item.quantity}</td>
                           <td className="py-3 text-right">{formatCurrency(item.price_per_day)}</td>
@@ -1317,7 +1469,11 @@ export default function OrderDetailPage() {
           <h2 className="section-header mb-4">Dokumente generieren</h2>
           <div className="flex flex-wrap gap-3">
             {["angebot", "rechnung", "mietvertrag", "auftragsbestaetigung"].map((type) => (
-              <button key={type} onClick={() => generatePDF(type)} className="btn-secondary text-sm py-2 px-4">
+              <button
+                key={type}
+                onClick={() => (type === "rechnung" ? setShowInvoiceModal(true) : generatePDF(type))}
+                className="btn-secondary text-sm py-2 px-4"
+              >
                 <FileText className="w-4 h-4 mr-1" /> {docTypeLabel(type)}
               </button>
             ))}
@@ -1798,17 +1954,20 @@ export default function OrderDetailPage() {
                   <div className="space-y-2">
                     {editProducts.map((ep) => {
                       const isSet = ep.productId.startsWith("set:");
+                      const isCustom = ep.productId.startsWith("custom:");
                       const item = isSet
                         ? productSets.find((s) => s.id === ep.productId.slice(4))
-                        : allProducts.find((p) => p.id === ep.productId);
+                        : isCustom
+                          ? null
+                          : allProducts.find((p) => p.id === ep.productId);
                       return (
                         <div key={ep.productId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium">
-                              {isSet ? `[Set] ${item?.name}` : item?.name}
+                              {isSet ? `[Set] ${item?.name}` : isCustom ? ep.customName : item?.name}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {isSet ? "Produktset" : item?.manufacturer}
+                              {isSet ? "Produktset" : isCustom ? ep.customManufacturer || "Einmalposition" : item?.manufacturer}
                             </div>
                           </div>
                           <input
@@ -1853,6 +2012,118 @@ export default function OrderDetailPage() {
                 {savingChange ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 Speichern
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice / Dunning Modal */}
+      {showInvoiceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Rechnung / Mahnung erstellen</h3>
+              <button onClick={() => setShowInvoiceModal(false)} className="p-2 text-gray-400 hover:text-black">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dokumenttyp</label>
+                <div className="space-y-2">
+                  {([
+                    { value: "rechnung", label: "Rechnung" },
+                    { value: "mahnung_1", label: "1. Mahnung" },
+                    { value: "mahnung_2", label: "2. Mahnung" },
+                    { value: "mahnung_3", label: "3. Mahnung" },
+                  ] as const).map((opt) => {
+                    const selected = invoiceKind === "rechnung" ? opt.value === "rechnung" : opt.value === `mahnung_${mahnungStufe}`;
+                    return (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selected ? "border-black bg-gray-50" : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="invoice-kind"
+                          className="accent-black"
+                          checked={selected}
+                          onChange={() => {
+                            if (opt.value === "rechnung") {
+                              setInvoiceKind("rechnung");
+                            } else {
+                              setInvoiceKind("mahnung");
+                              setMahnungStufe(parseInt(opt.value.slice(-1)) as 1 | 2 | 3);
+                            }
+                          }}
+                        />
+                        <span className="text-sm font-medium">{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {invoiceKind === "mahnung" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mahngebühr (CHF)</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      min={0}
+                      className="input-field w-full"
+                      value={mahnungFee}
+                      onChange={(e) => setMahnungFee(e.target.value)}
+                    />
+                  </div>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      className="accent-black"
+                      checked={mahnungBetreibung}
+                      onChange={(e) => setMahnungBetreibung(e.target.checked)}
+                    />
+                    <div>
+                      <div className="text-sm font-medium">Mit Betreibung androhen</div>
+                      <div className="text-xs text-gray-500">
+                        Fügt dem Hinweistext einen Betreibungsvorbehalt hinzu.
+                      </div>
+                    </div>
+                  </label>
+                </>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowInvoiceModal(false)} className="flex-1 btn-secondary py-2.5">
+                  Abbrechen
+                </button>
+                <button
+                  onClick={() => {
+                    const opts = buildMahnungOptions();
+                    setShowInvoiceModal(false);
+                    generatePDF("rechnung", opts);
+                  }}
+                  className="flex-1 btn-primary py-2.5 flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  PDF erstellen
+                </button>
+                <button
+                  onClick={() => {
+                    const opts = buildMahnungOptions();
+                    setShowInvoiceModal(false);
+                    handlePrint("rechnung", opts);
+                  }}
+                  className="btn-secondary py-2.5 px-4"
+                  title="Drucken"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

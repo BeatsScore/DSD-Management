@@ -90,10 +90,14 @@ create table if not exists public.orders (
 create table if not exists public.order_items (
   id uuid default gen_random_uuid() primary key,
   order_id uuid references public.orders(id) on delete cascade not null,
-  product_id uuid references public.products(id) not null,
+  product_id uuid references public.products(id),
+  set_id uuid references public.product_sets(id) on delete set null,
+  custom_name text,
+  custom_manufacturer text,
   quantity integer not null default 1,
   price_per_day numeric(10,2),
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  constraint order_items_product_or_set check (product_id is not null or set_id is not null or custom_name is not null)
 );
 
 -- Requests (public inquiries)
@@ -116,7 +120,7 @@ create table if not exists public.requests (
 create table if not exists public.documents (
   id uuid default gen_random_uuid() primary key,
   order_id uuid references public.orders(id) on delete cascade not null,
-  type text not null check (type in ('angebot', 'rechnung', 'mietvertrag', 'auftragsbestaetigung', 'ablehnung')),
+  type text not null check (type in ('angebot', 'rechnung', 'mietvertrag', 'auftragsbestaetigung', 'ablehnung', 'mahnung')),
   file_url text,
   file_name text not null,
   created_at timestamptz default now()

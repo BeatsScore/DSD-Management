@@ -718,7 +718,7 @@ export default function PlannerPage() {
   if (scanningOrderId) {
     const isPickup = scanMode === "pickup";
     const totalItems = isPickup
-      ? orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0)
+      ? orderItems.filter((item) => item.product_id).reduce((sum, item) => sum + (item.quantity || 1), 0)
       : expectedProductItems.length;
     const scannedCount = scannedItems.length;
     const allScanned = totalItems > 0 && scannedCount >= totalItems;
@@ -843,8 +843,8 @@ export default function PlannerPage() {
         <div className="space-y-2 mb-8">
           <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Erwartet</div>
           {isPickup ? (
-            // Pickup: show abstract products with quantities
-            orderItems.map((item) => {
+            // Pickup: show abstract products with quantities (custom one-off positions have no physical items to scan)
+            orderItems.filter((item) => item.product_id).map((item) => {
               const expectedQty = item.quantity || 1;
               const scannedQty = scannedProductItems.filter(
                 (spi) => spi.product_id === item.product_id
