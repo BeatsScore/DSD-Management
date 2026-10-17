@@ -543,6 +543,15 @@ export default function OrderDetailPage() {
           toast.error("Einmalpositionen benötigen einen Namen.");
           return;
         }
+        const restoreItems = items.map((it: any) => ({
+          order_id: id,
+          product_id: it.product_id,
+          set_id: it.set_id,
+          custom_name: it.custom_name,
+          custom_manufacturer: it.custom_manufacturer,
+          quantity: it.quantity,
+          price_per_day: it.price_per_day,
+        }));
         const { error: deleteError } = await supabase.from("order_items").delete().eq("order_id", id);
         if (deleteError) {
           setSavingChange(false);
@@ -565,8 +574,12 @@ export default function OrderDetailPage() {
           });
           const { error: insertError } = await supabase.from("order_items").insert(newItems);
           if (insertError) {
+            const { error: restoreError } = await supabase.from("order_items").insert(restoreItems);
             setSavingChange(false);
-            toast.error("Fehler: " + insertError.message);
+            toast.error(
+              "Fehler: " + insertError.message +
+              (restoreError ? " – Originalpositionen konnten NICHT wiederhergestellt werden!" : " – Originalpositionen wurden wiederhergestellt.")
+            );
             return;
           }
         }
