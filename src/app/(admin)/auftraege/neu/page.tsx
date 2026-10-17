@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Loader2, ArrowLeft, Plus, X, UserPlus, Search } from "lucide-react";
-import { generateOrderNumber } from "@/lib/utils";
+import { generateOrderNumber, getRentalDays } from "@/lib/utils";
 
 export default function NewOrderPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -23,7 +23,6 @@ export default function NewOrderPage() {
     startDate: "",
     endDate: "",
     notes: "",
-    dayRates: 1,
     discountType: "" as "prozentual" | "absolut" | "",
     discountAmount: "",
     discountReason: "",
@@ -33,6 +32,7 @@ export default function NewOrderPage() {
     { productId: string; quantity: number; pricePerDay: number }[]
   >([]);
   const [productSearch, setProductSearch] = useState("");
+  const [productSelect, setProductSelect] = useState("");
 
   // New customer modal state
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -48,12 +48,21 @@ export default function NewOrderPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: c }, { data: p }, { data: ps }, { data: s }] = await Promise.all([
+      const [
+        { data: c, error: cErr },
+        { data: p, error: pErr },
+        { data: ps, error: psErr },
+        { data: s, error: sErr },
+      ] = await Promise.all([
         supabase.from("customers").select("*").order("name"),
         supabase.from("products").select("*").eq("status", "verfuegbar").order("name"),
         supabase.from("product_sets").select("*").eq("active", true).order("name"),
         supabase.from("profiles").select("*").in("role", ["admin", "staff"]).order("full_name"),
       ]);
+      if (cErr) toast.error("Fehler beim Laden der Kunden: " + cErr.message);
+      if (pErr) toast.error("Fehler beim Laden der Produkte: " + pErr.message);
+      if (psErr) toast.error("Fehler beim Laden der Sets: " + psErr.message);
+      if (sErr) toast.error("Fehler beim Laden der Mitarbeitenden: " + sErr.message);
       setCustomers(c || []);
       setProducts(p || []);
       setProductSets(ps || []);
@@ -102,17 +111,14 @@ export default function NewOrderPage() {
       toast.error("Das Startdatum darf nicht nach dem Enddatum liegen.");
       return;
     }
-    if (form.dayRates < 1) {
-      toast.error("Tagessätze müssen mindestens 1 betragen.");
-      return;
-    }
 
     setLoading(true);
     const orderNumber = generateOrderNumber();
 
     // Calculate totals
+    const dayRates = getRentalDays(form.startDate, form.endDate);
     const subtotal = selectedProducts.reduce(
-      (sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * form.dayRates,
+      (sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * dayRates,
       0
     );
     const discountAmount = parseFloat(form.discountAmount) || 0;
@@ -133,6 +139,7 @@ export default function NewOrderPage() {
         status: "offen",
         notes: form.notes || null,
         total_amount: totalAmount > 0 ? totalAmount : null,
+        day_rates: dayRates,
         discount_type: form.discountType || null,
         discount_amount: discountAmount > 0 ? discountAmount : null,
         discount_reason: form.discountReason || null,
@@ -294,15 +301,12 @@ export default function NewOrderPage() {
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">Tagessätze *</label>
-              <input
-                type="number"
-                min={1}
-                className="input-field"
-                value={form.dayRates}
-                onChange={(e) => setForm({ ...form, dayRates: parseInt(e.target.value) || 1 })}
-                required
-              />
+              <label className="label">Miettage</label>
+              <div className="input-field bg-gray-50 text-gray-600">
+                {form.startDate && form.endDate
+                  ? `${getRentalDays(form.startDate, form.endDate)} Tag(e)`
+                  : "-"}
+              </div>
             </div>
           </div>
 
@@ -350,7 +354,8 @@ export default function NewOrderPage() {
           {selectedProducts.length > 0 && (
             <div className="card bg-gray-50 border-gray-200">
               {(() => {
-                const subtotal = selectedProducts.reduce((sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * form.dayRates, 0);
+                const dayRates = form.startDate && form.endDate ? getRentalDays(form.startDate, form.endDate) : 1;
+                const subtotal = selectedProducts.reduce((sum, sp) => sum + (sp.pricePerDay || 0) * sp.quantity * dayRates, 0);
                 const discountAmount = parseFloat(form.discountAmount) || 0;
                 const discount = form.discountType === "prozentual" ? subtotal * (discountAmount / 100) : discountAmount;
                 const netAfterDiscount = Math.max(0, subtotal - discount);
@@ -408,10 +413,12 @@ export default function NewOrderPage() {
             </div>
             <select
               className="input-field"
+              value={productSelect}
               onChange={(e) => {
-                if (e.target.value) {
-                  addProduct(e.target.value);
-                  e.target.value = "";
+                const value = e.target.value;
+                if (value) {
+                  addProduct(value);
+                  setProductSelect("");
                 }
               }}
             >

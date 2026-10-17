@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, getRentalDays } from "./utils";
+import { formatCurrency, formatDate, getRentalDays, round2 } from "./utils";
 import { companyInfo } from "./company";
 
 function escapeHtml(text: string | null | undefined): string {
@@ -50,7 +50,7 @@ function prepareData(type: string, order: any, items: any[], workHours: any[] = 
 
   let lineTotalSum = 0;
   const lineItems = items.map((item) => {
-    const lineTotal = (item.price_per_day || 0) * item.quantity * days;
+    const lineTotal = round2((item.price_per_day || 0) * item.quantity * days);
     lineTotalSum += lineTotal;
     return { ...item, lineTotal };
   });
@@ -58,22 +58,25 @@ function prepareData(type: string, order: any, items: any[], workHours: any[] = 
   const workHourLineItems = workHours.map((wh) => ({
     ...wh,
     _kind: "workhour" as const,
-    lineTotal: wh.hours * (wh.hourly_rate || 0),
+    lineTotal: round2(wh.hours * (wh.hourly_rate || 0)),
   }));
-  const workHoursTotal = workHourLineItems.reduce(
-    (sum, wh) => sum + wh.lineTotal,
-    0
+  const workHoursTotal = round2(
+    workHourLineItems.reduce(
+      (sum, wh) => sum + wh.lineTotal,
+      0
+    )
   );
 
-  const subtotal = lineTotalSum;
+  const subtotal = round2(lineTotalSum);
   const rawDiscount = order.discount_amount || 0;
-  const discount = order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
-  const netAfterDiscount = Math.max(0, subtotal - discount);
-  const mahnungFee = mahnung?.fee || 0;
-  const total = netAfterDiscount + workHoursTotal + mahnungFee;
-  const deposit = subtotal * 0.25;
+  const discount = round2(order.discount_type === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount);
+  const netAfterDiscount = Math.max(0, round2(subtotal - discount));
+  const mahnungFee = round2(mahnung?.fee || 0);
+  const total = round2(netAfterDiscount + workHoursTotal + mahnungFee);
+  const deposit = round2(subtotal * 0.25);
+  const discountReason = order.discount_reason || null;
 
-  return { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit, workHours: workHourLineItems, workHoursTotal, mahnungFee, mahnung };
+  return { docTitle, today, days, customer, lineItems, subtotal, discount, total, deposit, workHours: workHourLineItems, workHoursTotal, mahnungFee, mahnung, discountReason };
 }
 
 function buildHeader(docTitle: string): string {
@@ -171,16 +174,10 @@ function buildTableHeader(): string {
   `;
 }
 
-function buildSummary(data: ReturnType<typeof prepareData>, type: string): string {
+function buildSummary(data: ReturnType<typeof prepareData>): string {
   const discountRow =
     data.discount > 0
-      ? `<div class="summary-row" style="color:#c00;"><span>Rabatt${
-          type === "mietvertrag" && data.discount
-            ? ""
-            : data.discount
-            ? ` (${orderDiscountReason(type)})`
-            : ""
-        }</span><span>-${formatCurrency(data.discount)}</span></div>`
+      ? `<div class="summary-row" style="color:#c00;"><span>Rabatt${orderDiscountReason(data.discountReason)}</span><span>-${formatCurrency(data.discount)}</span></div>`
       : "";
 
   const workHoursRow =
@@ -204,8 +201,8 @@ function buildSummary(data: ReturnType<typeof prepareData>, type: string): strin
   `;
 }
 
-function orderDiscountReason(_type: string): string {
-  return "";
+function orderDiscountReason(reason: string | null | undefined): string {
+  return reason ? ` (${escapeHtml(reason)})` : "";
 }
 
 function buildSignatureSection(_order: any): string {
@@ -307,7 +304,7 @@ function buildStandardDocument(type: string, order: any, items: any[], workHours
       ${buildTableHeader()}
       <tbody>${firstPageRows.map(buildTableRow).join("")}</tbody>
     </table>
-    ${remainingRows.length === 0 ? buildSummary(data, type) : ""}
+    ${remainingRows.length === 0 ? buildSummary(data) : ""}
     ${remainingRows.length === 0 ? buildNotice(type, mahnung) : ""}
   `;
 
@@ -323,7 +320,7 @@ function buildStandardDocument(type: string, order: any, items: any[], workHours
         ${buildTableHeader()}
         <tbody>${pageRows.map(buildTableRow).join("")}</tbody>
       </table>
-      ${isLast ? buildSummary(data, type) : ""}
+      ${isLast ? buildSummary(data) : ""}
       ${isLast ? buildNotice(type, mahnung) : ""}
     `;
 

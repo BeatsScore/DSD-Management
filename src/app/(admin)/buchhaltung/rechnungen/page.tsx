@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Order } from "@/types";
+import { calculateOpenAmount } from "@/lib/utils";
 import { Search, FileText, CheckCircle, AlertCircle, Clock, XCircle } from "lucide-react";
 
 const PAYMENT_METHODS: Record<string, string> = {
@@ -16,7 +17,7 @@ type InvoiceStatus = "offen" | "teilweise_bezahlt" | "bezahlt" | "ueberfaellig" 
 
 function getInvoiceStatus(order: any): InvoiceStatus {
   if (order.status === "storniert") return "storniert";
-  if ((order.paid_amount || 0) >= (order.total_amount || 0)) return "bezahlt";
+  if (calculateOpenAmount(order) <= 0) return "bezahlt";
   if ((order.paid_amount || 0) > 0) return "teilweise_bezahlt";
 
   const created = new Date(order.created_at);
@@ -83,7 +84,7 @@ export default function InvoicesPage() {
 
   const openPaymentModal = (order: any) => {
     setSelectedOrder(order);
-    const openAmount = (order.total_amount || 0) - (order.paid_amount || 0);
+    const openAmount = calculateOpenAmount(order);
     setPaymentForm({
       amount: String(Math.max(0, openAmount)),
       date: new Date().toISOString().split("T")[0],
@@ -103,7 +104,7 @@ export default function InvoicesPage() {
 
     const newPaid = (selectedOrder.paid_amount || 0) + amount;
     let newStatus = "offen";
-    if (newPaid >= (selectedOrder.total_amount || 0)) {
+    if (calculateOpenAmount({ ...selectedOrder, paid_amount: newPaid }) <= 0) {
       newStatus = "vollstaendig";
     } else if (newPaid > 0) {
       newStatus = "anzahlung";
@@ -147,7 +148,7 @@ export default function InvoicesPage() {
 
   const totalOpen = filteredOrders
     .filter((o) => o.invoiceStatus !== "bezahlt" && o.invoiceStatus !== "storniert")
-    .reduce((s, o) => s + ((o.total_amount || 0) - (o.paid_amount || 0)), 0);
+    .reduce((s, o) => s + calculateOpenAmount(o), 0);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -212,7 +213,7 @@ export default function InvoicesPage() {
               ) : (
                 filteredOrders.map((order) => {
                   const status = STATUS_CONFIG[order.invoiceStatus];
-                  const openAmount = (order.total_amount || 0) - (order.paid_amount || 0);
+                  const openAmount = calculateOpenAmount(order);
                   return (
                     <tr key={order.id} className="border-t border-gray-50 hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-700">
@@ -301,7 +302,7 @@ export default function InvoicesPage() {
                 <div className="flex justify-between text-sm border-t border-gray-200 mt-1 pt-1">
                   <span className="text-gray-700 font-medium">Noch offen:</span>
                   <span className="font-bold text-red-600">
-                    CHF {formatChf((selectedOrder.total_amount || 0) - (selectedOrder.paid_amount || 0))}
+                    CHF {formatChf(calculateOpenAmount(selectedOrder))}
                   </span>
                 </div>
               </div>

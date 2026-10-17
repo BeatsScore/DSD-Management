@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { ArrowLeft, Loader2, Trash2, FileText, Truck, CheckCircle, Printer, Clock, Calendar, PackageOpen, RotateCcw, X, User, Banknote, AlertTriangle, Camera, Wrench, Download, ShieldCheck, History, Pencil, Plus, Search, Layers, Percent } from "lucide-react";
-import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat, calculateOrderTotals } from "@/lib/utils";
+import { formatDate, formatCurrency, getStatusColor, getStatusLabel, safeParseFloat, calculateOrderTotals, getRentalDays } from "@/lib/utils";
 import { generateDocument, printDocument, MahnungOptions } from "@/lib/documents";
 import { useConfirm } from "@/hooks/useConfirm";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -58,6 +58,7 @@ export default function OrderDetailPage() {
   });
   const [editProducts, setEditProducts] = useState<{ productId: string; quantity: number; pricePerDay: number; customName?: string; customManufacturer?: string }[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const [editProductSelect, setEditProductSelect] = useState("");
   const [savingChange, setSavingChange] = useState(false);
 
   // Planning modal state
@@ -108,6 +109,8 @@ export default function OrderDetailPage() {
   const [showCustomItemForm, setShowCustomItemForm] = useState(false);
   const [customItemForm, setCustomItemForm] = useState({ name: "", manufacturer: "", quantity: "1", pricePerDay: "" });
   const [savingCustomItem, setSavingCustomItem] = useState(false);
+  const [addItemSelection, setAddItemSelection] = useState("");
+  const [savingCatalogItem, setSavingCatalogItem] = useState(false);
 
   // Invoice / dunning modal state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -486,6 +489,7 @@ export default function OrderDetailPage() {
       );
     }
     setProductSearch("");
+    setEditProductSelect("");
   };
 
   const closeChangeModal = () => {
@@ -503,12 +507,20 @@ export default function OrderDetailPage() {
     let newValue = "";
 
     switch (showChangeModal) {
-      case "datum":
-        updates = { start_date: changeForm.startDate, end_date: changeForm.endDate };
+      case "datum": {
+        const newDayRates = getRentalDays(changeForm.startDate, changeForm.endDate);
+        const newTotals = calculateOrderTotals(items, newDayRates, order.discount_type || null, order.discount_amount ?? null, workHours);
+        updates = {
+          start_date: changeForm.startDate,
+          end_date: changeForm.endDate,
+          day_rates: newDayRates,
+          total_amount: newTotals.total > 0 ? newTotals.total : null,
+        };
         logDescription = `Zeitraum geändert`;
         oldValue = `${formatDate(order.start_date)} - ${formatDate(order.end_date)}`;
         newValue = `${formatDate(changeForm.startDate)} - ${formatDate(changeForm.endDate)}`;
         break;
+      }
       case "tagessaetze":
         const newTotals = calculateOrderTotals(items, changeForm.dayRates, order.discount_type || null, order.discount_amount ?? null, workHours);
         updates = { day_rates: changeForm.dayRates, total_amount: newTotals.total > 0 ? newTotals.total : null };
@@ -524,9 +536,19 @@ export default function OrderDetailPage() {
         oldValue = oldStaff?.full_name || oldStaff?.email || "Nicht zugewiesen";
         newValue = newStaff?.full_name || newStaff?.email || "Nicht zugewiesen";
         break;
-      case "produkte":
-        // Delete existing items and insert new ones
-        await supabase.from("order_items").delete().eq("order_id", id);
+      case "produkte": {
+        const invalidCustom = editProducts.find((ep) => ep.productId.startsWith("custom:") && !ep.customName?.trim());
+        if (invalidCustom) {
+          setSavingChange(false);
+          toast.error("Einmalpositionen benötigen einen Namen.");
+          return;
+        }
+        const { error: deleteError } = await supabase.from("order_items").delete().eq("order_id", id);
+        if (deleteError) {
+          setSavingChange(false);
+          toast.error("Fehler: " + deleteError.message);
+          return;
+        }
         if (editProducts.length > 0) {
           const newItems = editProducts.map((ep) => {
             const isSet = ep.productId.startsWith("set:");
@@ -541,7 +563,12 @@ export default function OrderDetailPage() {
               price_per_day: ep.pricePerDay || null,
             };
           });
-          await supabase.from("order_items").insert(newItems);
+          const { error: insertError } = await supabase.from("order_items").insert(newItems);
+          if (insertError) {
+            setSavingChange(false);
+            toast.error("Fehler: " + insertError.message);
+            return;
+          }
         }
         logDescription = `Produkte überarbeitet`;
         oldValue = items
@@ -564,6 +591,7 @@ export default function OrderDetailPage() {
           })
           .join(", ");
         break;
+      }
     }
 
     // Update order if needed
@@ -578,21 +606,34 @@ export default function OrderDetailPage() {
 
     // Recalculate total amount for product changes
     if (showChangeModal === "produkte") {
-      const dayRates = order.day_rates || 1;
-      const productTotal = editProducts.reduce((sum, ep) => sum + (ep.pricePerDay || 0) * ep.quantity * dayRates, 0);
-      const workHoursTotal = workHours.reduce((sum: number, wh: any) => sum + wh.hours * (wh.hourly_rate || 0), 0);
-      const totalAmount = productTotal + workHoursTotal;
-      await supabase.from("orders").update({ total_amount: totalAmount > 0 ? totalAmount : null }).eq("id", id);
+      const newTotals = calculateOrderTotals(
+        editProducts.map((ep) => ({ price_per_day: ep.pricePerDay, quantity: ep.quantity })),
+        order.day_rates || 1,
+        order.discount_type || null,
+        order.discount_amount ?? null,
+        workHours
+      );
+      const { error } = await supabase.from("orders").update({ total_amount: newTotals.total > 0 ? newTotals.total : null }).eq("id", id);
+      if (error) {
+        setSavingChange(false);
+        toast.error("Fehler: " + error.message);
+        return;
+      }
     }
 
     // Insert change log
-    await supabase.from("order_change_logs").insert({
+    const { error: logError } = await supabase.from("order_change_logs").insert({
       order_id: id,
       change_type: showChangeModal,
       description: logDescription,
       old_value: oldValue,
       new_value: newValue,
     });
+    if (logError) {
+      setSavingChange(false);
+      toast.error("Fehler: " + logError.message);
+      return;
+    }
 
     // Refresh data
     const { data: o } = await supabase.from("orders").select("*, customer:customer_id(*), assigned:assigned_to(full_name, email), pickup_staff:pickup_staff_id(full_name, email), return_staff:return_staff_id(full_name, email)").eq("id", id).single();
@@ -814,6 +855,53 @@ export default function OrderDetailPage() {
     setSavingCustomItem(false);
     toast.success("Position hinzugefügt.");
     await recalculateOrderTotal(newItems);
+  };
+
+  const addCatalogItem = async (value: string) => {
+    if (!value) return;
+    setSavingCatalogItem(true);
+    const isSet = value.startsWith("set:");
+    const existing = items.find((it: any) => (isSet ? it.set_id === value.slice(4) : it.product_id === value));
+    if (existing) {
+      const { error } = await supabase.from("order_items").update({ quantity: existing.quantity + 1 }).eq("id", existing.id);
+      if (error) {
+        setSavingCatalogItem(false);
+        toast.error("Fehler: " + error.message);
+        return;
+      }
+      const newItems = items.map((it: any) => (it.id === existing.id ? { ...it, quantity: existing.quantity + 1 } : it));
+      setItems(newItems);
+      setEditProducts(editProducts.map((ep) => (ep.productId === value ? { ...ep, quantity: existing.quantity + 1 } : ep)));
+      await recalculateOrderTotal(newItems);
+      setSavingCatalogItem(false);
+      toast.success("Menge erhöht.");
+      return;
+    }
+    const set = isSet ? productSets.find((s) => s.id === value.slice(4)) : null;
+    const product = isSet ? null : allProducts.find((p) => p.id === value);
+    const { data, error } = await supabase
+      .from("order_items")
+      .insert({
+        order_id: id,
+        product_id: isSet ? null : value,
+        set_id: isSet ? value.slice(4) : null,
+        custom_name: null,
+        quantity: 1,
+        price_per_day: set?.rental_price_per_day ?? product?.rental_price_per_day ?? null,
+      })
+      .select("*, product:product_id(*), set:set_id(*), product_item:product_item_id(*)")
+      .single();
+    if (error) {
+      setSavingCatalogItem(false);
+      toast.error("Fehler: " + error.message);
+      return;
+    }
+    const newItems = [...items, data];
+    setItems(newItems);
+    setEditProducts([...editProducts, { productId: value, quantity: 1, pricePerDay: data.price_per_day || 0 }]);
+    await recalculateOrderTotal(newItems);
+    setSavingCatalogItem(false);
+    toast.success("Position hinzugefügt.");
   };
 
   const remainingAmount = (order?.total_amount || 0) - (order?.paid_amount || 0);
@@ -1279,11 +1367,42 @@ export default function OrderDetailPage() {
           </div>
 
           {showCustomItemForm && (
-            <form onSubmit={addCustomItem} className="mb-4 p-3 bg-gray-50 rounded-lg grid sm:grid-cols-2 lg:grid-cols-[1fr_1fr_90px_130px_auto] gap-2 items-end">
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Katalog-Artikel (Produkt oder Set)</label>
+                <select
+                  className="input-field py-1.5 text-sm w-full"
+                  value={addItemSelection}
+                  disabled={savingCatalogItem}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setAddItemSelection("");
+                    if (value) addCatalogItem(value);
+                  }}
+                >
+                  <option value="">Bitte wählen</option>
+                  <optgroup label="Sets">
+                    {productSets.map((s) => (
+                      <option key={`set:${s.id}`} value={`set:${s.id}`}>
+                        [Set] {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Produkte">
+                    {allProducts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.manufacturer})
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+              <form onSubmit={addCustomItem} className="grid sm:grid-cols-2 lg:grid-cols-[1fr_1fr_90px_130px_auto] gap-2 items-end">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Produkt</label>
                 <input
                   type="text"
+                  required
                   className="input-field py-1.5 text-sm w-full"
                   placeholder="z.B. Kabeltrommel"
                   value={customItemForm.name}
@@ -1332,6 +1451,7 @@ export default function OrderDetailPage() {
                 </button>
               </div>
             </form>
+            </div>
           )}
 
           {items.length > 0 ? (
@@ -1907,11 +2027,11 @@ export default function OrderDetailPage() {
                   </div>
                   <select
                     className="input-field w-full"
+                    value={editProductSelect}
                     onChange={(e) => {
-                      if (e.target.value) {
-                        addEditProduct(e.target.value);
-                        e.target.value = "";
-                      }
+                      const value = e.target.value;
+                      setEditProductSelect("");
+                      if (value) addEditProduct(value);
                     }}
                   >
                     <option value="">Bitte wählen</option>

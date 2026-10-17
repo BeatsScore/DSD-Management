@@ -80,6 +80,7 @@ export interface Order {
   start_date: string;
   end_date: string;
   total_amount: number | null;
+  day_rates: number | null;
   notes: string | null;
   pickup_date: string | null;
   pickup_time: string | null;

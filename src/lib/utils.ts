@@ -15,6 +15,10 @@ export function formatDateTime(date: string | null | undefined): string {
   return new Date(date).toLocaleString("de-CH");
 }
 
+export function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export function formatCurrency(amount: number | null | undefined): string {
   if (amount == null) return "-";
   return new Intl.NumberFormat("de-CH", {
@@ -139,6 +143,23 @@ export function getStatusLabel(status: string): string {
   return labels[status] || status;
 }
 
+export const MAHNUNG_FEE = 20;
+
+export function getMahnungFee(mahnungCount: number): number {
+  return round2(mahnungCount * MAHNUNG_FEE);
+}
+
+interface OpenAmountSource {
+  total_amount?: number | null;
+  paid_amount?: number | null;
+  documents?: { type: string }[] | null;
+}
+
+export function calculateOpenAmount(order: OpenAmountSource): number {
+  const mahnungCount = order.documents?.filter((d) => d.type === "mahnung").length || 0;
+  return round2((order.total_amount || 0) + getMahnungFee(mahnungCount) - (order.paid_amount || 0));
+}
+
 export interface OrderTotals {
   subtotal: number;
   discount: number;
@@ -160,19 +181,23 @@ export function calculateOrderTotals(
   discountAmount: number | null,
   workHours: WorkHourInput[] = []
 ): OrderTotals {
-  const subtotal = items.reduce(
-    (sum, it) => sum + (it.price_per_day || 0) * it.quantity * dayRates,
-    0
+  const subtotal = round2(
+    items.reduce(
+      (sum, it) => sum + round2((it.price_per_day || 0) * it.quantity * dayRates),
+      0
+    )
   );
-  const workHoursTotal = workHours.reduce(
-    (sum, wh) => sum + wh.hours * (wh.hourly_rate || 0),
-    0
+  const workHoursTotal = round2(
+    workHours.reduce(
+      (sum, wh) => sum + round2(wh.hours * (wh.hourly_rate || 0)),
+      0
+    )
   );
   const rawDiscount = discountAmount || 0;
-  const discount = discountType === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount;
-  const netAfterDiscount = Math.max(0, subtotal - discount);
+  const discount = round2(discountType === "prozentual" ? subtotal * (rawDiscount / 100) : rawDiscount);
+  const netAfterDiscount = Math.max(0, round2(subtotal - discount));
   const vat = 0;
-  const total = netAfterDiscount + workHoursTotal;
-  const deposit = subtotal * 0.25;
+  const total = round2(netAfterDiscount + workHoursTotal);
+  const deposit = round2(subtotal * 0.25);
   return { subtotal, discount, netAfterDiscount, vat, total, deposit };
 }
